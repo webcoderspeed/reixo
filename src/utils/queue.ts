@@ -3,6 +3,7 @@ import { EventEmitter } from './emitter';
 
 export class TaskQueue extends EventEmitter {
   private queue: QueueTask<unknown>[] = [];
+  private completedTasks = new Set<string>();
   private activeCount = 0;
   private isPaused = false;
   private readonly concurrency: number;
@@ -14,7 +15,7 @@ export class TaskQueue extends EventEmitter {
     this.autoStart = options.autoStart ?? true;
   }
 
-  public add<T>(fn: () => Promise<T>, options: { priority?: number; id?: string } = {}): Promise<T> {
+  public add<T>(fn: () => Promise<T>, options: { priority?: number; id?: string; dependencies?: string[] } = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       const id = options.id || Math.random().toString(36).substring(7);
 
@@ -31,6 +32,7 @@ export class TaskQueue extends EventEmitter {
           this.emit('task:start', { id });
           try {
             const result = await fn();
+            this.completedTasks.add(id);
             this.emit('task:completed', { id, result });
             resolve(result);
             return result;
@@ -41,6 +43,7 @@ export class TaskQueue extends EventEmitter {
           }
         },
         priority: options.priority || 0,
+        dependencies: options.dependencies,
       };
 
       this.queue.push(task);
@@ -76,6 +79,7 @@ export class TaskQueue extends EventEmitter {
 
   public clear(): void {
     this.queue = [];
+    this.completedTasks.clear();
     this.emit('queue:cleared');
   }
 
@@ -131,8 +135,19 @@ export class TaskQueue extends EventEmitter {
       return;
     }
 
+    // Find the first task that has all dependencies met
+    const taskIndex = this.queue.findIndex(task => {
+      if (!task.dependencies || task.dependencies.length === 0) return true;
+      return task.dependencies.every(depId => this.completedTasks.has(depId));
+    });
+
+    if (taskIndex === -1) {
+      // No runnable tasks found (waiting for dependencies)
+      return;
+    }
+
     this.activeCount++;
-    const nextTask = this.queue.shift();
+    const [nextTask] = this.queue.splice(taskIndex, 1);
 
     if (nextTask) {
       try {

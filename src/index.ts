@@ -6,6 +6,7 @@ export { TaskQueue } from './utils/queue';
 export { BatchProcessor } from './utils/batch';
 export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthRefreshInterceptor } from './utils/auth';
+export { debounce, throttle, delay } from './utils/timing';
 
 // Types
 export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
@@ -23,6 +24,7 @@ import { TaskQueue as _TaskQueue } from './utils/queue';
 import { BatchProcessor as _BatchProcessor } from './utils/batch';
 import { CircuitBreaker as _CircuitBreaker } from './utils/circuit-breaker';
 import { createAuthRefreshInterceptor as _createAuthRefreshInterceptor } from './utils/auth';
+import { debounce as _debounce, throttle as _throttle, delay as _delay } from './utils/timing';
 
 // Main library class
 export class Reixo {
@@ -37,6 +39,9 @@ export class Reixo {
   static BatchProcessor = _BatchProcessor;
   static CircuitBreaker = _CircuitBreaker;
   static createAuthRefreshInterceptor = _createAuthRefreshInterceptor;
+  static debounce = _debounce;
+  static throttle = _throttle;
+  static delay = _delay;
 }
 
 export default Reixo;

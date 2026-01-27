@@ -7,6 +7,7 @@ export interface HTTPOptions extends RequestInit {
   baseURL?: string;
   url?: string; // Add url here
   _retry?: boolean; // For tracking retries
+  onDownloadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
 }
 
 export interface HTTPResponse<T> {
@@ -41,7 +42,7 @@ export class HTTPError extends Error {
   }
 }
 
-export async function http<T = any>(
+export async function http<T = unknown>(
   url: string,
   options: HTTPOptions = {}
 ): Promise<HTTPResponse<T>> {
@@ -91,16 +92,62 @@ export async function http<T = any>(
     
     // Auto-detect and parse JSON if Content-Type is application/json
     const contentType = response.headers.get('content-type');
-    let data: any;
+    let data: unknown;
     
-    if (contentType?.includes('application/json')) {
-      data = await response.json();
+    if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
+      // Handle download progress for environments supporting Web Streams (Browser / Node 18+)
+      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+      const contentLength = response.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength, 10) : null;
+      let loaded = 0;
+      
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        if (value) {
+          chunks.push(value);
+          loaded += value.length;
+          
+          if (options.onDownloadProgress) {
+             const progress = total ? Math.round((loaded / total) * 100) : null;
+             options.onDownloadProgress({ loaded, total, progress });
+          }
+        }
+      }
+      
+      // Combine chunks
+      const allChunks = new Uint8Array(loaded);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+      
+      const text = new TextDecoder('utf-8').decode(allChunks);
+      
+      if (contentType?.includes('application/json')) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+      } else {
+        data = text;
+      }
     } else {
-      data = await response.text();
+      // Standard handling
+      if (contentType?.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
     }
 
     return {
-      data,
+      data: data as T,
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
@@ -138,10 +185,10 @@ export async function http<T = any>(
 }
 
 // Convenience methods
-export const httpGet = <T = any>(url: string, options?: HTTPOptions) => 
+export const httpGet = <T = unknown>(url: string, options?: HTTPOptions) => 
   http<T>(url, { ...options, method: 'GET' });
 
-export const httpPost = <T = any>(url: string, data?: any, options?: HTTPOptions) => 
+export const httpPost = <T = unknown>(url: string, data?: unknown, options?: HTTPOptions) => 
   http<T>(url, { 
     ...options, 
     method: 'POST', 
@@ -152,7 +199,7 @@ export const httpPost = <T = any>(url: string, data?: any, options?: HTTPOptions
     }
   });
 
-export const httpPut = <T = any>(url: string, data?: any, options?: HTTPOptions) => 
+export const httpPut = <T = unknown>(url: string, data?: unknown, options?: HTTPOptions) => 
   http<T>(url, { 
     ...options, 
     method: 'PUT', 
@@ -163,5 +210,5 @@ export const httpPut = <T = any>(url: string, data?: any, options?: HTTPOptions)
     }
   });
 
-export const httpDelete = <T = any>(url: string, options?: HTTPOptions) => 
+export const httpDelete = <T = unknown>(url: string, options?: HTTPOptions) => 
   http<T>(url, { ...options, method: 'DELETE' });

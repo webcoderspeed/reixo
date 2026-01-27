@@ -25,4 +25,5 @@ export interface QueueTask<T> {
   task: () => Promise<T>;
   priority?: number;
   timeoutMs?: number;
+  dependencies?: string[];
 }
