@@ -4,7 +4,7 @@ export interface BatchOptions {
 }
 
 export class BatchProcessor<T, R> {
-  private queue: { item: T; resolve: (value: R) => void; reject: (reason?: any) => void }[] = [];
+  private queue: { item: T; resolve: (value: R) => void; reject: (reason?: unknown) => void }[] = [];
   private timeout: NodeJS.Timeout | null = null;
   private readonly maxBatchSize: number;
   private readonly batchDelayMs: number;
