@@ -5,6 +5,8 @@ export interface HTTPOptions extends RequestInit {
   retry?: RetryOptions | boolean;
   timeoutMs?: number;
   baseURL?: string;
+  url?: string; // Add url here
+  _retry?: boolean; // For tracking retries
 }
 
 export interface HTTPResponse<T> {
@@ -43,6 +45,8 @@ export async function http<T = any>(
   url: string,
   options: HTTPOptions = {}
 ): Promise<HTTPResponse<T>> {
+  options.url = url; // Capture URL in options for interceptors/errors
+
   const {
     retry = true,
     timeoutMs = 30000,

@@ -1,6 +1,16 @@
 import { RetryOptions } from '../types';
 import { http, HTTPOptions, HTTPResponse } from '../utils/http';
 
+export interface RequestInterceptor {
+  onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
+  onRejected?: (error: unknown) => unknown;
+}
+
+export interface ResponseInterceptor {
+  onFulfilled?: (response: HTTPResponse<unknown>) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>;
+  onRejected?: (error: unknown) => unknown;
+}
+
 export interface HTTPClientConfig {
   baseURL?: string;
   timeoutMs?: number;
@@ -9,13 +19,18 @@ export interface HTTPClientConfig {
 }
 
 export class HTTPClient {
+  public interceptors = {
+    request: [] as RequestInterceptor[],
+    response: [] as ResponseInterceptor[],
+  };
+
   constructor(private readonly config: HTTPClientConfig) {}
 
   /**
    * Generic request method
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
-    const mergedOptions: HTTPOptions = {
+    let mergedOptions: HTTPOptions = {
       ...this.config,
       ...options,
       headers: {
@@ -24,7 +39,45 @@ export class HTTPClient {
       },
     };
 
-    return http<T>(url, mergedOptions);
+    // Run request interceptors
+    try {
+      for (const interceptor of this.interceptors.request) {
+        if (interceptor.onFulfilled) {
+          mergedOptions = await interceptor.onFulfilled(mergedOptions);
+        }
+      }
+    } catch (error) {
+      // If a request interceptor fails, we might want to handle it or just throw
+      // For now, let's allow onRejected to handle it if provided (though complexity increases)
+      // Simplifying: just throw for now or loop through onRejected
+      throw error;
+    }
+
+    try {
+      let response = await http<T>(url, mergedOptions);
+
+      // Run response interceptors
+      for (const interceptor of this.interceptors.response) {
+        if (interceptor.onFulfilled) {
+          response = (await interceptor.onFulfilled(response as HTTPResponse<unknown>)) as HTTPResponse<T>;
+        }
+      }
+
+      return response;
+    } catch (error) {
+      let currentError: unknown = error;
+      // Run response interceptors (error case)
+      for (const interceptor of this.interceptors.response) {
+        if (interceptor.onRejected) {
+          try {
+            currentError = await interceptor.onRejected(currentError);
+          } catch (e) {
+            currentError = e;
+          }
+        }
+      }
+      throw currentError;
+    }
   }
 
   /**
@@ -89,6 +142,8 @@ export class HTTPClient {
 
 export class HTTPBuilder {
   private config: HTTPClientConfig = {};
+  private requestInterceptors: RequestInterceptor[] = [];
+  private responseInterceptors: ResponseInterceptor[] = [];
 
   constructor(baseURL?: string) {
     if (baseURL) {
@@ -124,8 +179,21 @@ export class HTTPBuilder {
     return this;
   }
 
+  public addRequestInterceptor(onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>, onRejected?: (error: unknown) => unknown): this {
+    this.requestInterceptors.push({ onFulfilled, onRejected });
+    return this;
+  }
+
+  public addResponseInterceptor(onFulfilled?: (response: HTTPResponse<unknown>) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>, onRejected?: (error: unknown) => unknown): this {
+    this.responseInterceptors.push({ onFulfilled, onRejected });
+    return this;
+  }
+
   public build(): HTTPClient {
-    return new HTTPClient({ ...this.config });
+    const client = new HTTPClient({ ...this.config });
+    client.interceptors.request.push(...this.requestInterceptors);
+    client.interceptors.response.push(...this.responseInterceptors);
+    return client;
   }
 
   // Convenience method to create a configured instance
