@@ -1,5 +1,6 @@
 import { RetryOptions } from '../types';
 import { http, HTTPOptions, HTTPResponse } from '../utils/http';
+import { debounce, throttle, delay } from '../utils/timing';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -23,6 +24,11 @@ export class HTTPClient {
     request: [] as RequestInterceptor[],
     response: [] as ResponseInterceptor[],
   };
+
+  // Timing utilities
+  public static debounce = debounce;
+  public static throttle = throttle;
+  public static delay = delay;
 
   constructor(private readonly config: HTTPClientConfig) {}
 
@@ -200,4 +206,9 @@ export class HTTPBuilder {
   public static create(baseURL?: string): HTTPBuilder {
     return new HTTPBuilder(baseURL);
   }
+
+  // Timing utilities available on builder
+  public static debounce = debounce;
+  public static throttle = throttle;
+  public static delay = delay;
 }
