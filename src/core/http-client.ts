@@ -4,6 +4,7 @@ import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
 import { RateLimiter } from '../utils/rate-limiter';
+import { MetricsCollector, RequestMetrics } from '../utils/metrics';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -31,6 +32,8 @@ export interface HTTPClientConfig {
     pattern: string | RegExp;
     retry: RetryOptions | boolean;
   }>;
+  enableMetrics?: boolean;
+  onMetricsUpdate?: (metrics: import('../utils/metrics').Metrics) => void;
   onUploadProgress?: (progress: {
     loaded: number;
     total: number | null;
@@ -55,6 +58,7 @@ export class HTTPClient extends EventEmitter {
 
   private connectionPool?: ConnectionPool;
   private rateLimiter?: RateLimiter;
+  public readonly metrics?: MetricsCollector;
 
   // Timing utilities
   public static debounce = debounce;
@@ -68,6 +72,9 @@ export class HTTPClient extends EventEmitter {
     }
     if (config.rateLimit) {
       this.rateLimiter = new RateLimiter(config.rateLimit.requests, config.rateLimit.interval);
+    }
+    if (config.enableMetrics) {
+      this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
     }
   }
 
@@ -87,6 +94,7 @@ export class HTTPClient extends EventEmitter {
    * @returns Promise resolving to the HTTP response
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
+    const startTime = Date.now();
     // Handle Rate Limiting
     if (this.rateLimiter) {
       const waitTime = this.rateLimiter.getTimeToWait();
@@ -173,8 +181,29 @@ export class HTTPClient extends EventEmitter {
         }
       }
 
+      if (this.metrics) {
+        this.metrics.record({
+          url,
+          method: mergedOptions.method || 'GET',
+          startTime,
+          endTime: Date.now(),
+          status: response.status,
+          success: true,
+        });
+      }
+
       return response;
     } catch (error) {
+      if (this.metrics) {
+        this.metrics.record({
+          url,
+          method: mergedOptions.method || 'GET',
+          startTime,
+          endTime: Date.now(),
+          status: (error as any).status || 0,
+          success: false,
+        });
+      }
       let currentError: unknown = error;
       // Run response interceptors (error case)
       for (const interceptor of this.interceptors.response) {
