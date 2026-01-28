@@ -145,24 +145,25 @@
 **✅ [x] Caching Layer**
 
 - [x] Implement TTL-based in-memory caching
-- [ ] Add LocalStorage/SessionStorage persistence support
-- [ ] Create cache invalidation strategies
+- [x] Add LocalStorage/SessionStorage persistence support
+- [x] Tag-based invalidation
+- [x] Pattern-based invalidation (e.g., clear all `user:*`)
 
-**⬜ [ ] Advanced Data Handling**
+**✅ [x] Advanced Data Handling**
 
-- [ ] Add Pagination Helpers (Async Iterators)
+- [x] Add Pagination Helpers (Async Iterators)
 - [x] Implement Global Request Deduplication (Shared Promises)
-- [ ] Add GraphQL Client Support (Lightweight wrapper)
+- [x] Add GraphQL Client Support (Lightweight wrapper)
 
-**⬜ [ ] Offline Support**
+**✅ [x] Offline Support**
 
-- [ ] Persist Queue to LocalStorage (Survivable across reloads)
-- [ ] Implement "Background Sync" compatibility
+- [x] Persist Queue to LocalStorage (Survivable across reloads)
+- [x] Implement "Background Sync" compatibility
 
-**⬜ [ ] Developer Experience**
+**✅ [x] Developer Experience**
 
-- [ ] Export `MockClient` for users to test their apps
-- [ ] Add detailed logging/debug plugin
+- [x] Export `MockClient` for users to test their apps
+- [x] Add detailed logging/debug plugin
 
 ### Phase 8: Backend-Focused Features (High Priority)
 

@@ -1,10 +1,31 @@
 import { QueueOptions, QueueTask } from '../types';
 import { EventEmitter } from './emitter';
+import { StorageAdapter } from './cache';
+import { NetworkMonitor } from './network';
+
+export interface PersistentQueueOptions extends QueueOptions {
+  storage?: StorageAdapter;
+  storageKey?: string;
+  syncWithNetwork?: boolean;
+}
+
+export type QueueEvents = {
+  'queue:restored': [Array<{ id: string; priority?: number; dependencies?: string[] }>];
+  'task:start': [{ id: string }];
+  'task:completed': [{ id: string; result: unknown }];
+  'task:error': [{ id: string; error: unknown }];
+  'task:added': [{ id: string; priority?: number }];
+  'task:cancelled': [{ id: string }];
+  'queue:paused': [];
+  'queue:resumed': [];
+  'queue:cleared': [];
+  'queue:drain': [];
+};
 
 /**
  * Manages concurrent execution of async tasks with priority and dependencies.
  */
-export class TaskQueue extends EventEmitter {
+export class TaskQueue extends EventEmitter<QueueEvents> {
   private queue: QueueTask<unknown>[] = [];
   private activeTaskIds = new Set<string>();
   private completedTasks = new Set<string>();
@@ -12,14 +33,62 @@ export class TaskQueue extends EventEmitter {
   private isPaused = false;
   private readonly concurrency: number;
   private readonly autoStart: boolean;
+  private readonly storage?: StorageAdapter;
+  private readonly storageKey: string;
+  private readonly networkMonitor?: NetworkMonitor;
 
   /**
    * @param options Configuration options including concurrency limit
    */
-  constructor(options: QueueOptions = {}) {
+  constructor(options: PersistentQueueOptions = {}) {
     super();
     this.concurrency = options.concurrency || 3;
     this.autoStart = options.autoStart ?? true;
+    this.storage = options.storage;
+    this.storageKey = options.storageKey || 'reixo-queue';
+
+    if (options.syncWithNetwork) {
+      this.networkMonitor = NetworkMonitor.getInstance();
+      this.networkMonitor.on('online', () => this.resume());
+      this.networkMonitor.on('offline', () => this.pause());
+
+      // Initial check
+      if (!this.networkMonitor.online) {
+        this.pause();
+      }
+    }
+
+    if (this.storage) {
+      this.loadQueue();
+    }
+  }
+
+  private loadQueue() {
+    if (!this.storage) return;
+    const entry = this.storage.get(this.storageKey);
+    if (entry && Array.isArray(entry.data)) {
+      // We can only restore metadata, not the actual function
+      // This is a limitation of serializing closures.
+      // In a real app, you'd likely store request data and recreate tasks.
+      // For this implementation, we will emit an event so the consumer can reconstruct tasks.
+      this.emit('queue:restored', entry.data);
+    }
+  }
+
+  private saveQueue() {
+    if (!this.storage) return;
+    // Save minimal metadata
+    const metadata = this.queue.map((t) => ({
+      id: t.id,
+      priority: t.priority,
+      dependencies: t.dependencies,
+    }));
+
+    this.storage.set(this.storageKey, {
+      data: metadata,
+      expiry: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      createdAt: Date.now(),
+    });
   }
 
   /**
@@ -67,6 +136,7 @@ export class TaskQueue extends EventEmitter {
 
       this.queue.push(task);
       this.sortQueue();
+      this.saveQueue();
       this.emit('task:added', { id, priority: task.priority });
 
       if (this.autoStart && !this.isPaused) {
@@ -84,6 +154,7 @@ export class TaskQueue extends EventEmitter {
     const index = this.queue.findIndex((t) => t.id === taskId);
     if (index !== -1) {
       this.queue.splice(index, 1);
+      this.saveQueue();
       this.emit('task:cancelled', { id: taskId });
       return true;
     }
@@ -112,6 +183,7 @@ export class TaskQueue extends EventEmitter {
    */
   public clear(): void {
     this.queue = [];
+    this.saveQueue();
     this.completedTasks.clear();
     this.emit('queue:cleared');
   }
@@ -184,6 +256,7 @@ export class TaskQueue extends EventEmitter {
 
     this.activeCount++;
     const [nextTask] = this.queue.splice(taskIndex, 1);
+    this.saveQueue();
 
     if (nextTask) {
       this.activeTaskIds.add(nextTask.id);

@@ -20,10 +20,23 @@ export interface ResponseInterceptor {
   onRejected?: (error: unknown) => unknown;
 }
 
+export type HTTPRequestFunction = <T>(
+  url: string,
+  options: HTTPOptions
+) => Promise<HTTPResponse<T>>;
+
+export interface Logger {
+  info(message: string, meta?: unknown): void;
+  warn(message: string, meta?: unknown): void;
+  error(message: string, meta?: unknown): void;
+}
+
 export interface HTTPClientConfig {
   baseURL?: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  transport?: HTTPRequestFunction; // Custom transport layer
+  logger?: Logger; // Custom logger
   retry?: RetryOptions | boolean;
   pool?: ConnectionPoolOptions;
   ssl?: {
@@ -57,11 +70,20 @@ export interface HTTPClientConfig {
   }) => void;
 }
 
+export type HTTPEvents = {
+  'upload:progress': [
+    { url: string; loaded: number; total: number | null; progress: number | null },
+  ];
+  'download:progress': [
+    { url: string; loaded: number; total: number | null; progress: number | null },
+  ];
+};
+
 /**
  * Main HTTP Client class providing a fluent API for making HTTP requests.
  * Supports interceptors, retries, timeout, and progress tracking.
  */
-export class HTTPClient extends EventEmitter {
+export class HTTPClient extends EventEmitter<HTTPEvents> {
   public interceptors = {
     request: [] as RequestInterceptor[],
     response: [] as ResponseInterceptor[],
@@ -80,6 +102,12 @@ export class HTTPClient extends EventEmitter {
 
   constructor(private readonly config: HTTPClientConfig) {
     super();
+
+    // Setup logging interceptors if logger is present
+    if (this.config.logger) {
+      this.setupLogging();
+    }
+
     if (config.pool || config.ssl) {
       this.connectionPool = new ConnectionPool({
         ...config.pool,
@@ -103,6 +131,41 @@ export class HTTPClient extends EventEmitter {
    */
   public destroy(): void {
     this.connectionPool?.destroy();
+  }
+
+  private setupLogging() {
+    const logger = this.config.logger!;
+
+    this.interceptors.request.push({
+      onFulfilled: (config) => {
+        logger.info(
+          `Request: ${config.method || 'GET'} ${config.baseURL || ''}${config.url || ''}`,
+          {
+            headers: config.headers,
+            params: config.params,
+          }
+        );
+        return config;
+      },
+      onRejected: (error) => {
+        logger.error('Request Error', error);
+        return Promise.reject(error);
+      },
+    });
+
+    this.interceptors.response.push({
+      onFulfilled: (response) => {
+        logger.info(`Response: ${response.status} ${response.statusText}`, {
+          url: response.config.url,
+          status: response.status,
+        });
+        return response;
+      },
+      onRejected: (error) => {
+        logger.error('Response Error', error);
+        return Promise.reject(error);
+      },
+    });
   }
 
   /**
@@ -212,7 +275,8 @@ export class HTTPClient extends EventEmitter {
       }, Promise.resolve(initialOptions));
 
       try {
-        const initialResponse = await http<T>(url, mergedOptions);
+        const transport = this.config.transport || http;
+        const initialResponse = await transport<T>(url, mergedOptions);
 
         // Run response interceptors using reduce
         const response = await this.interceptors.response.reduce(async (promise, interceptor) => {

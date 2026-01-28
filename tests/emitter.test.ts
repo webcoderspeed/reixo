@@ -94,4 +94,18 @@ describe('EventEmitter', () => {
     // Should not throw
     emitter.off('unknown', listener);
   });
+
+  it('should support strict typing', () => {
+    type TestEvents = {
+      foo: [string];
+      bar: [number, boolean];
+    };
+    const emitter = new EventEmitter<TestEvents>();
+    const fooListener = vi.fn();
+
+    emitter.on('foo', fooListener);
+    emitter.emit('foo', 'hello');
+
+    expect(fooListener).toHaveBeenCalledWith('hello');
+  });
 });
