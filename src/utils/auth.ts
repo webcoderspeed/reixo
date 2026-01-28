@@ -1,5 +1,5 @@
-import { HTTPClient, RequestInterceptor, ResponseInterceptor } from '../core/http-client';
-import { HTTPOptions } from './http';
+import { HTTPClient, ResponseInterceptor } from '../core/http-client';
+import { HTTPOptions, HTTPError } from './http';
 
 export interface AuthRefreshOptions {
   client: HTTPClient;
@@ -45,7 +45,7 @@ export function createAuthRefreshInterceptor(options: AuthRefreshOptions): Respo
 
   return {
     onRejected: async (error: unknown) => {
-      const originalRequest = (error as any)?.config as HTTPOptions | undefined;
+      const originalRequest = error instanceof HTTPError ? error.config : undefined;
 
       if (originalRequest && options.shouldRefresh(error) && !originalRequest._retry) {
         if (isRefreshing) {

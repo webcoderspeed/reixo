@@ -21,7 +21,8 @@ async function runDemo() {
     .build();
 
   // 2. Setup Global Progress Listeners
-  client.on('download:progress', (p: any) => {
+  client.on('download:progress', (arg: unknown) => {
+    const p = arg as { url: string; progress: number | null };
     // Reduce noise
     if (p.progress && (p.progress % 50 === 0 || p.progress === 100)) {
        console.log(`[Download] ${p.url}: ${p.progress}%`);
@@ -38,8 +39,14 @@ async function runDemo() {
     console.log('\n--- 2. Queue System (Concurrency: 2) ---');
     const queue = new Reixo.TaskQueue({ concurrency: 2 });
     
-    queue.on('task:start', ({ id }: any) => console.log(`[Queue] Task ${id} started`));
-    queue.on('task:completed', ({ id }: any) => console.log(`[Queue] Task ${id} completed`));
+    queue.on('task:start', (arg: unknown) => {
+      const { id } = arg as { id: string };
+      console.log(`[Queue] Task ${id} started`);
+    });
+    queue.on('task:completed', (arg: unknown) => {
+      const { id } = arg as { id: string };
+      console.log(`[Queue] Task ${id} completed`);
+    });
 
     const postIds = [2, 3, 4, 5, 6];
     const tasks = postIds.map(id => 

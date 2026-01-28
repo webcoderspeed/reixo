@@ -65,17 +65,10 @@ export class HTTPClient extends EventEmitter {
     };
 
     // Run request interceptors
-    try {
-      for (const interceptor of this.interceptors.request) {
-        if (interceptor.onFulfilled) {
-          mergedOptions = await interceptor.onFulfilled(mergedOptions);
-        }
+    for (const interceptor of this.interceptors.request) {
+      if (interceptor.onFulfilled) {
+        mergedOptions = await interceptor.onFulfilled(mergedOptions);
       }
-    } catch (error) {
-      // If a request interceptor fails, we might want to handle it or just throw
-      // For now, let's allow onRejected to handle it if provided (though complexity increases)
-      // Simplifying: just throw for now or loop through onRejected
-      throw error;
     }
 
     try {

@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HTTPBuilder, HTTPClient } from '../src/core/http-client';
-import { HTTPResponse } from '../src/utils/http';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { HTTPBuilder } from '../src/core/http-client';
 
 // Mock fetch
 const fetchMock = vi.fn();

@@ -169,7 +169,7 @@ export async function http<T = unknown>(
   
   const result = await withRetry(executeRequest, {
     ...retryOptions,
-    retryCondition: (error: unknown, attempt) => {
+    retryCondition: (error: unknown, _attempt) => {
       // Default retry condition: retry on network errors or 5xx status codes
       if (error instanceof Error && error.name === 'AbortError') {
         return false; // Don't retry timeouts
@@ -231,7 +231,7 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
          });
       } else {
           // Fallback if Headers is not available
-          responseHeaders = new Map() as any; 
+          responseHeaders = new Map() as unknown as Headers; 
       }
 
       let data: unknown = xhr.response;
@@ -265,6 +265,6 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
     xhr.onerror = () => reject(new TypeError('Network request failed'));
     xhr.ontimeout = () => reject(new Error('Request timed out'));
 
-    xhr.send(options.body as any);
+    xhr.send(options.body as Document | XMLHttpRequestBodyInit | null | undefined);
   });
 }

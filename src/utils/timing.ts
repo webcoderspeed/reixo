@@ -7,20 +7,18 @@ export function debounce<T extends (...args: any[]) => any>(
   const { leading = false, trailing = true } = options;
 
   return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-
     if (timeout) {
       clearTimeout(timeout);
     }
 
     if (leading && !timeout) {
-      func.apply(context, args);
+      func.apply(this, args);
     }
 
     timeout = setTimeout(() => {
       timeout = null;
       if (trailing) {
-        func.apply(context, args);
+        func.apply(this, args);
       }
     }, wait);
   };
@@ -37,11 +35,9 @@ export function throttle<T extends (...args: any[]) => any>(
   const { leading = true, trailing = true } = options;
 
   return function(this: any, ...args: Parameters<T>) {
-    const context = this;
-
     if (!inThrottle) {
       if (leading) {
-        func.apply(context, args);
+        func.apply(this, args);
         lastRan = Date.now();
         inThrottle = true;
         setTimeout(() => (inThrottle = false), limit);
@@ -52,9 +48,9 @@ export function throttle<T extends (...args: any[]) => any>(
     } else {
       if (lastFunc) clearTimeout(lastFunc);
       if (trailing) {
-        lastFunc = setTimeout(function() {
+        lastFunc = setTimeout(() => {
           if ((Date.now() - lastRan) >= limit) {
-            func.apply(context, args);
+            func.apply(this, args);
             lastRan = Date.now();
           }
         }, limit - (Date.now() - lastRan));

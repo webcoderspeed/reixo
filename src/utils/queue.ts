@@ -119,7 +119,10 @@ export class TaskQueue extends EventEmitter {
       // But for now let's just wait for the next completion.
       
       const result = await new Promise((resolve) => {
-        this.once('task:completed', ({ result }) => resolve(result));
+        this.once('task:completed', (arg: unknown) => {
+          const { result } = arg as { result: unknown };
+          resolve(result);
+        });
       });
       yield result;
     }
