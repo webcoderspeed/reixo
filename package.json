@@ -1,6 +1,27 @@
 {
   "name": "reixo",
   "version": "1.2.0",
+  "description": "A modern, type-safe HTTP client with built-in resilience patterns, queue management, and enterprise-grade features for Node.js and browsers",
+  "keywords": [
+    "http",
+    "fetch",
+    "axios",
+    "retry",
+    "queue",
+    "typescript",
+    "resilience",
+    "circuit-breaker",
+    "pagination",
+    "graphql",
+    "offline",
+    "caching",
+    "interceptors",
+    "progress",
+    "monitoring",
+    "error-handling",
+    "browser",
+    "nodejs"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -8,49 +29,71 @@
     ".": {
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
-      "import": "./dist/index.mjs"
-    }
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map",
+    "!dist/**/test*",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --sourcemap",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint . --ext .ts,.js --fix",
+    "lint:check": "eslint . --ext .ts,.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
     "demo": "npx tsx examples/demo.ts",
     "benchmark": "npx tsx benchmarks/suite.ts",
-    "build": "tsup",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "release": "standard-version",
-    "prepare": "husky"
+    "prepublishOnly": "npm run build && npm run test && npm run lint:check && npm run typecheck",
+    "prepare": "husky install",
+    "release": "npm run build && standard-version",
+    "release:major": "npm run release -- --release-as major",
+    "release:minor": "npm run release -- --release-as minor",
+    "release:patch": "npm run release -- --release-as patch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webcoderspeed/reixo.git",
+    "directory": "/Users/sanjeevsharma/Documents/webcoderspeed/2026/reixo"
+  },
+  "homepage": "https://github.com/webcoderspeed/reixo#readme",
+  "bugs": {
+    "url": "https://github.com/webcoderspeed/reixo/issues"
+  },
+  "author": {
+    "name": "WebCoderSpeed",
+    "email": "sanjeev@webcoderspeed.com",
+    "url": "https://webcoderspeed.com"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "lint-staged": {
     "*.{ts,js,json,md}": [
       "prettier --write"
     ],
     "*.{ts,js}": [
-      "eslint"
+      "eslint --fix"
     ]
   },
-  "keywords": [
-    "http",
-    "fetch",
-    "retry",
-    "queue",
-    "typescript",
-    "resilience",
-    "circuit-breaker"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/webcoderspeed/reixo.git"
-  },
-  "sideEffects": false,
-  "author": "WebCoderSpeed",
-  "license": "MIT",
-  "description": "A powerful, type-safe HTTP client with built-in retry, queueing, and resilience features.",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/node": "^25.0.10",
