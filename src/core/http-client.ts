@@ -9,7 +9,9 @@ export interface RequestInterceptor {
 }
 
 export interface ResponseInterceptor {
-  onFulfilled?: (response: HTTPResponse<unknown>) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>;
+  onFulfilled?: (
+    response: HTTPResponse<unknown>
+  ) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>;
   onRejected?: (error: unknown) => unknown;
 }
 
@@ -18,8 +20,16 @@ export interface HTTPClientConfig {
   timeoutMs?: number;
   headers?: Record<string, string>;
   retry?: RetryOptions | boolean;
-  onUploadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
-  onDownloadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
+  onUploadProgress?: (progress: {
+    loaded: number;
+    total: number | null;
+    progress: number | null;
+  }) => void;
+  onDownloadProgress?: (progress: {
+    loaded: number;
+    total: number | null;
+    progress: number | null;
+  }) => void;
 }
 
 export class HTTPClient extends EventEmitter {
@@ -77,7 +87,9 @@ export class HTTPClient extends EventEmitter {
       // Run response interceptors
       for (const interceptor of this.interceptors.response) {
         if (interceptor.onFulfilled) {
-          response = (await interceptor.onFulfilled(response as HTTPResponse<unknown>)) as HTTPResponse<T>;
+          response = (await interceptor.onFulfilled(
+            response as HTTPResponse<unknown>
+          )) as HTTPResponse<T>;
         }
       }
 
@@ -88,7 +100,8 @@ export class HTTPClient extends EventEmitter {
       for (const interceptor of this.interceptors.response) {
         if (interceptor.onRejected) {
           try {
-            currentError = await interceptor.onRejected(currentError);
+            const result = await interceptor.onRejected(currentError);
+            return result as HTTPResponse<T>;
           } catch (e) {
             currentError = e;
           }
@@ -197,22 +210,34 @@ export class HTTPBuilder {
     return this;
   }
 
-  public withUploadProgress(callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void): this {
+  public withUploadProgress(
+    callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void
+  ): this {
     this.config.onUploadProgress = callback;
     return this;
   }
 
-  public withDownloadProgress(callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void): this {
+  public withDownloadProgress(
+    callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void
+  ): this {
     this.config.onDownloadProgress = callback;
     return this;
   }
 
-  public addRequestInterceptor(onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>, onRejected?: (error: unknown) => unknown): this {
+  public addRequestInterceptor(
+    onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>,
+    onRejected?: (error: unknown) => unknown
+  ): this {
     this.requestInterceptors.push({ onFulfilled, onRejected });
     return this;
   }
 
-  public addResponseInterceptor(onFulfilled?: (response: HTTPResponse<unknown>) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>, onRejected?: (error: unknown) => unknown): this {
+  public addResponseInterceptor(
+    onFulfilled?: (
+      response: HTTPResponse<unknown>
+    ) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>,
+    onRejected?: (error: unknown) => unknown
+  ): this {
     this.responseInterceptors.push({ onFulfilled, onRejected });
     return this;
   }

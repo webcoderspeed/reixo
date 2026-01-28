@@ -1,7 +1,19 @@
 {
   "name": "reixo",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,10 +31,18 @@
       "eslint"
     ]
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "http",
+    "fetch",
+    "retry",
+    "queue",
+    "typescript",
+    "resilience",
+    "circuit-breaker"
+  ],
+  "author": "WebCoderSpeed",
+  "license": "MIT",
+  "description": "A powerful, type-safe HTTP client with built-in retry, queueing, and resilience features.",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/node": "^25.0.10",
