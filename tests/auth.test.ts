@@ -138,4 +138,64 @@ describe('Auth Refresh Interceptor', () => {
       })
     );
   });
+
+  it('should reject queued requests if refresh fails', async () => {
+    // Simulate slow refresh that fails
+    refreshTokenCall.mockImplementation(
+      () => new Promise((_, reject) => setTimeout(() => reject(new Error('Refresh failed')), 10))
+    );
+
+    const error1 = createError(401, { url: '/1', headers: {} } as any);
+    const error2 = createError(401, { url: '/2', headers: {} } as any);
+
+    const p1 = interceptor.onRejected(error1);
+    const p2 = interceptor.onRejected(error2);
+
+    await expect(p1).rejects.toThrow('Refresh failed');
+    await expect(p2).rejects.toThrow('Refresh failed');
+  });
+
+  it('should queue requests and use cookie auth', async () => {
+    interceptor = createAuthRefreshInterceptor({
+      client,
+      refreshTokenCall: () => new Promise((r) => setTimeout(() => r('cookie-val'), 10)),
+      shouldRefresh,
+      authType: 'cookie',
+    });
+
+    const error1 = createError(401, { url: '/1', headers: {} } as any);
+    const error2 = createError(401, { url: '/2', headers: {} } as any);
+
+    await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+
+    // Verify calls didn't get bearer token
+    expect(client.request).toHaveBeenCalledWith(
+      '/2',
+      expect.not.objectContaining({
+        headers: expect.objectContaining({ Authorization: expect.any(String) }),
+      })
+    );
+  });
+
+  it('should queue requests and use custom attachToken', async () => {
+    interceptor = createAuthRefreshInterceptor({
+      client,
+      refreshTokenCall: () => new Promise((r) => setTimeout(() => r('custom-token'), 10)),
+      shouldRefresh,
+      attachToken: (config, token) => ({
+        ...config,
+        headers: { ...config.headers, 'X-Auth': token },
+      }),
+    });
+
+    const error1 = createError(401, { url: '/1', headers: {} } as any);
+    const error2 = createError(401, { url: '/2', headers: {} } as any);
+
+    await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+
+    expect(client.request).toHaveBeenCalledWith(
+      '/2',
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-Auth': 'custom-token' }) })
+    );
+  });
 });

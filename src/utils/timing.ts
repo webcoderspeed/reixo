@@ -1,4 +1,4 @@
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: any[]) => any>( // eslint-disable-line @typescript-eslint/no-explicit-any
   func: T,
   wait: number,
   options: { leading?: boolean; trailing?: boolean } = {}
@@ -6,7 +6,8 @@ export function debounce<T extends (...args: any[]) => any>(
   let timeout: ReturnType<typeof setTimeout> | null = null;
   const { leading = false, trailing = true } = options;
 
-  return function(this: any, ...args: Parameters<T>) {
+  return function (this: any, ...args: Parameters<T>) {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     if (timeout) {
       clearTimeout(timeout);
     }
@@ -24,7 +25,7 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: any[]) => any>( // eslint-disable-line @typescript-eslint/no-explicit-any
   func: T,
   limit: number,
   options: { leading?: boolean; trailing?: boolean } = {}
@@ -34,7 +35,8 @@ export function throttle<T extends (...args: any[]) => any>(
   let lastRan: number;
   const { leading = true, trailing = true } = options;
 
-  return function(this: any, ...args: Parameters<T>) {
+  return function (this: any, ...args: Parameters<T>) {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!inThrottle) {
       if (leading) {
         func.apply(this, args);
@@ -44,21 +46,31 @@ export function throttle<T extends (...args: any[]) => any>(
       } else {
         inThrottle = true;
         setTimeout(() => (inThrottle = false), limit);
+
+        if (trailing) {
+          lastFunc = setTimeout(() => {
+            func.apply(this, args);
+            lastRan = Date.now();
+          }, limit);
+        }
       }
     } else {
       if (lastFunc) clearTimeout(lastFunc);
       if (trailing) {
-        lastFunc = setTimeout(() => {
-          if ((Date.now() - lastRan) >= limit) {
-            func.apply(this, args);
-            lastRan = Date.now();
-          }
-        }, limit - (Date.now() - lastRan));
+        lastFunc = setTimeout(
+          () => {
+            if (Date.now() - lastRan >= limit) {
+              func.apply(this, args);
+              lastRan = Date.now();
+            }
+          },
+          limit - (Date.now() - lastRan)
+        );
       }
     }
   };
 }
 
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

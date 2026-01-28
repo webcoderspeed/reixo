@@ -48,6 +48,17 @@ describe('Timing Utils', () => {
       vi.advanceTimersByTime(1000);
       expect(fn).toHaveBeenCalledWith('arg1', 'arg2');
     });
+
+    it('should execute immediately if leading is true', () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, 1000, { leading: true, trailing: false });
+
+      debounced();
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1000);
+      expect(fn).toHaveBeenCalledTimes(1); // No trailing execution
+    });
   });
 
   describe('throttle', () => {
@@ -77,6 +88,41 @@ describe('Timing Utils', () => {
 
       throttled('arg1');
       expect(fn).toHaveBeenCalledWith('arg1');
+    });
+
+    it('should not execute immediately if leading is false', () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, 1000, { leading: false });
+
+      throttled();
+      expect(fn).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1000);
+      expect(fn).toHaveBeenCalledTimes(1); // Trailing execution
+    });
+
+    it('should respect trailing: false option', () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, 1000, { trailing: false });
+
+      throttled(); // Leading execution
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      throttled(); // Ignored
+
+      vi.advanceTimersByTime(1000);
+      expect(fn).toHaveBeenCalledTimes(1); // No trailing execution
+    });
+
+    it('should not execute at all if leading: false and trailing: false', () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, 1000, { leading: false, trailing: false });
+
+      throttled();
+      expect(fn).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1000);
+      expect(fn).not.toHaveBeenCalled();
     });
   });
 });

@@ -16,5 +16,13 @@ export default [
       "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
       "no-console": "off"
     }
+  },
+  {
+    files: ["tests/**/*.ts", "examples/**/*.ts", "benchmarks/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/ban-ts-comment": "off"
+    }
   }
 ];

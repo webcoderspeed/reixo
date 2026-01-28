@@ -6,6 +6,11 @@ export { TaskQueue } from './utils/queue';
 export { BatchProcessor } from './utils/batch';
 export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthRefreshInterceptor } from './utils/auth';
+export {
+  checkBrowserCapabilities,
+  getMissingPolyfills,
+  ensureBrowserCompatibility,
+} from './utils/browser';
 
 // Types
 export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
@@ -14,6 +19,7 @@ export type { HTTPClientConfig, RequestInterceptor, ResponseInterceptor } from '
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
 export type { AuthRefreshOptions } from './utils/auth';
+export type { BrowserCapabilities } from './utils/browser';
 
 // Import for main class
 import { withRetry as _withRetry } from './utils/retry';

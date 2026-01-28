@@ -191,4 +191,60 @@ describe('TaskQueue', () => {
     expect(completedSpy).toHaveBeenCalledWith({ id: 'test-task', result: 'result' });
     expect(drainSpy).toHaveBeenCalled();
   });
+
+  it('should handle task errors', async () => {
+    const errorSpy = vi.fn();
+    queue.on('task:error', errorSpy);
+
+    const error = new Error('Task Failed');
+    const task = queue.add(async () => {
+      throw error;
+    });
+
+    await expect(task).rejects.toThrow('Task Failed');
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error,
+      })
+    );
+  });
+
+  it('should expose active count', async () => {
+    queue.pause();
+    expect(queue.active).toBe(0);
+
+    queue.add(async () => {
+      await delay(10);
+    });
+
+    queue.resume();
+    await delay(1); // Give time for task to start
+    expect(queue.active).toBe(1);
+
+    await delay(20);
+    expect(queue.active).toBe(0);
+  });
+
+  it('should support async iteration', async () => {
+    const results: number[] = [];
+
+    // Start the iterator consumer first
+    const consumer = (async () => {
+      for await (const result of queue) {
+        results.push(result as number);
+        if (results.length === 2) break;
+      }
+    })();
+
+    // Wait for consumer to be ready (listening for task:added)
+    await delay(10);
+
+    // Add tasks one by one to avoid race conditions in the naive iterator implementation
+    queue.add(async () => 1);
+    await delay(10);
+    queue.add(async () => 2);
+
+    await consumer;
+    expect(results).toEqual([1, 2]);
+  });
 });

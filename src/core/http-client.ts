@@ -62,15 +62,21 @@ export class HTTPClient extends EventEmitter {
     };
 
     // Chain progress handlers to emit events
-    const originalUpload = mergedOptions.onUploadProgress;
+    const configUpload = this.config.onUploadProgress;
+    const requestUpload = options.onUploadProgress;
+
     mergedOptions.onUploadProgress = (progress) => {
-      if (originalUpload) originalUpload(progress);
+      if (configUpload) configUpload(progress);
+      if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
       this.emit('upload:progress', { url, ...progress });
     };
 
-    const originalDownload = mergedOptions.onDownloadProgress;
+    const configDownload = this.config.onDownloadProgress;
+    const requestDownload = options.onDownloadProgress;
+
     mergedOptions.onDownloadProgress = (progress) => {
-      if (originalDownload) originalDownload(progress);
+      if (configDownload) configDownload(progress);
+      if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
       this.emit('download:progress', { url, ...progress });
     };
 

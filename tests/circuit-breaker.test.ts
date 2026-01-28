@@ -89,4 +89,19 @@ describe('CircuitBreaker', () => {
     await expect(breaker.execute(fn)).rejects.toThrow('failed');
     expect(breaker.currentState).toBe(CircuitState.OPEN);
   });
+
+  it('should call onStateChange callback when state changes', async () => {
+    const onStateChange = vi.fn();
+    const breakerWithCallback = new CircuitBreaker({
+      failureThreshold: 1,
+      resetTimeoutMs: 100,
+      onStateChange,
+    });
+
+    const fn = vi.fn().mockRejectedValue(new Error('failed'));
+
+    await expect(breakerWithCallback.execute(fn)).rejects.toThrow('failed');
+
+    expect(onStateChange).toHaveBeenCalledWith(CircuitState.OPEN);
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   checkBrowserCapabilities,
   ensureBrowserCompatibility,
@@ -9,11 +9,13 @@ describe('Browser Utils', () => {
   const originalFetch = global.fetch;
   const originalHeaders = global.Headers;
   const originalAbortController = global.AbortController;
+  const originalPromise = global.Promise;
 
   afterEach(() => {
     global.fetch = originalFetch;
     global.Headers = originalHeaders;
     global.AbortController = originalAbortController;
+    global.Promise = originalPromise;
   });
 
   it('should detect available capabilities', () => {
@@ -52,6 +54,25 @@ describe('Browser Utils', () => {
     expect(missing).toContain('fetch');
     expect(missing).toContain('Headers');
     expect(missing).not.toContain('AbortController');
+  });
+
+  it('should return empty list if all capabilities are present', () => {
+    global.fetch = vi.fn();
+    global.Headers = class {} as any;
+    global.AbortController = class {} as any;
+
+    const missing = getMissingPolyfills();
+    expect(missing).toHaveLength(0);
+  });
+
+  it('should identify missing AbortController', () => {
+    global.fetch = vi.fn();
+    global.Headers = class {} as any;
+    (global as any).AbortController = undefined;
+    // Note: Cannot test missing Promise as it causes Vitest to crash
+
+    const missing = getMissingPolyfills();
+    expect(missing).toContain('AbortController');
   });
 
   it('should log warnings if capabilities are missing', () => {

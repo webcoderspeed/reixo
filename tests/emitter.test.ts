@@ -86,4 +86,12 @@ describe('EventEmitter', () => {
 
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it('should safely handle off for unknown event', () => {
+    const emitter = new EventEmitter();
+    const listener = vi.fn();
+
+    // Should not throw
+    emitter.off('unknown', listener);
+  });
 });

@@ -10,6 +10,13 @@ describe('BatchProcessor', () => {
     vi.useRealTimers();
   });
 
+  it('should use default options', async () => {
+    const processFn = vi.fn().mockResolvedValue([]);
+    const batch = new BatchProcessor(processFn);
+    // Just verify it doesn't crash
+    expect(batch).toBeDefined();
+  });
+
   it('should process batch when size limit is reached', async () => {
     const processFn = vi.fn().mockResolvedValue(['result1', 'result2']);
     const batch = new BatchProcessor<string, string>(processFn, {
@@ -46,6 +53,24 @@ describe('BatchProcessor', () => {
     expect(processFn).toHaveBeenCalledWith(['item1']);
   });
 
+  it('should schedule flush only once', async () => {
+    const processFn = vi.fn().mockResolvedValue(['r1', 'r2']);
+    const batch = new BatchProcessor(processFn, {
+      maxBatchSize: 10,
+      batchDelayMs: 1000,
+    });
+
+    batch.add('item1');
+    const p2 = batch.add('item2');
+
+    // Should not reschedule timeout for second item
+    vi.advanceTimersByTime(1000);
+
+    await p2;
+    expect(processFn).toHaveBeenCalledTimes(1);
+    expect(processFn).toHaveBeenCalledWith(['item1', 'item2']);
+  });
+
   it('should handle processing errors', async () => {
     const error = new Error('Processing failed');
     const processFn = vi.fn().mockRejectedValue(error);
@@ -55,6 +80,19 @@ describe('BatchProcessor', () => {
     });
 
     await expect(batch.add('item1')).rejects.toThrow('Processing failed');
+  });
+
+  it('should throw error if result length does not match', async () => {
+    const processFn = vi.fn().mockResolvedValue(['result1']); // Returns 1 result for 2 items
+    const batch = new BatchProcessor<string, string>(processFn, {
+      maxBatchSize: 2,
+      batchDelayMs: 1000,
+    });
+
+    const p1 = batch.add('item1');
+    const p2 = batch.add('item2');
+
+    await expect(Promise.all([p1, p2])).rejects.toThrow('Batch processor result length mismatch');
   });
 
   it('should map results to correct items', async () => {
