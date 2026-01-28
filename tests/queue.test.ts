@@ -3,13 +3,14 @@ import { TaskQueue } from '../src/utils/queue';
 import { delay } from '../src/utils/timing';
 
 describe('TaskQueue', () => {
-  let queue: TaskQueue;
+  const createQueue = (options = { concurrency: 2 }) => new TaskQueue(options);
 
   beforeEach(() => {
-    queue = new TaskQueue({ concurrency: 2 });
+    // vi.clearAllMocks(); // If needed
   });
 
   it('should process tasks with concurrency limit', async () => {
+    const queue = createQueue();
     const activeTasks = new Set();
     const maxActive: number[] = [];
 
@@ -30,6 +31,7 @@ describe('TaskQueue', () => {
   });
 
   it('should respect task priority', async () => {
+    const queue = createQueue();
     // Pause queue to accumulate tasks
     queue.pause();
     const executionOrder: number[] = [];
@@ -63,9 +65,10 @@ describe('TaskQueue', () => {
   });
 
   it('should deduplicate tasks', async () => {
-    let executionCount = 0;
+    const queue = createQueue();
+    const state = { executionCount: 0 };
     const task = async () => {
-      executionCount++;
+      state.executionCount++;
       await delay(10);
       return 'done';
     };
@@ -75,10 +78,11 @@ describe('TaskQueue', () => {
 
     await expect(p2).rejects.toThrow();
     await p1;
-    expect(executionCount).toBe(1);
+    expect(state.executionCount).toBe(1);
   });
 
   it('should pause and resume processing', async () => {
+    const queue = createQueue();
     const processed: number[] = [];
     queue.pause();
     expect(queue.isQueuePaused).toBe(true);
@@ -102,6 +106,7 @@ describe('TaskQueue', () => {
   });
 
   it('should cancel pending tasks', async () => {
+    const queue = createQueue();
     queue.pause();
     const taskFn = vi.fn();
 
@@ -117,8 +122,9 @@ describe('TaskQueue', () => {
   });
 
   it('should not cancel running tasks', async () => {
-    let resolveTask: () => void;
-    const taskPromise = new Promise<void>((r) => (resolveTask = r));
+    const queue = createQueue();
+    const trigger = { resolve: () => {} };
+    const taskPromise = new Promise<void>((r) => (trigger.resolve = r));
 
     queue.add(
       async () => {
@@ -133,10 +139,11 @@ describe('TaskQueue', () => {
     const cancelled = queue.cancel('running-task');
     expect(cancelled).toBe(false); // Cannot cancel running task
 
-    resolveTask!();
+    trigger.resolve();
   });
 
   it('should clear all pending tasks', async () => {
+    const queue = createQueue();
     queue.pause();
     queue.add(async () => 1);
     queue.add(async () => 2);
@@ -151,6 +158,7 @@ describe('TaskQueue', () => {
   });
 
   it('should handle dependencies', async () => {
+    const queue = createQueue();
     const executionOrder: string[] = [];
 
     // Task B depends on Task A
@@ -174,6 +182,7 @@ describe('TaskQueue', () => {
   });
 
   it('should emit events', async () => {
+    const queue = createQueue();
     const startSpy = vi.fn();
     const completedSpy = vi.fn();
     const drainSpy = vi.fn();
@@ -193,6 +202,7 @@ describe('TaskQueue', () => {
   });
 
   it('should handle task errors', async () => {
+    const queue = createQueue();
     const errorSpy = vi.fn();
     queue.on('task:error', errorSpy);
 
@@ -210,6 +220,7 @@ describe('TaskQueue', () => {
   });
 
   it('should expose active count', async () => {
+    const queue = createQueue();
     queue.pause();
     expect(queue.active).toBe(0);
 
@@ -226,6 +237,7 @@ describe('TaskQueue', () => {
   });
 
   it('should support async iteration', async () => {
+    const queue = createQueue();
     const results: number[] = [];
 
     // Start the iterator consumer first

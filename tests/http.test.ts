@@ -11,7 +11,7 @@ const mockFetchResponse = (ok: boolean, status: number, data: unknown) => ({
   ok,
   status,
   statusText: ok ? 'OK' : 'Error',
-  headers: new Map([['content-type', 'application/json']]),
+  headers: new Headers([['content-type', 'application/json']]),
   json: async () => data,
   text: async () => JSON.stringify(data),
 });
@@ -202,7 +202,7 @@ describe('HTTPClient', () => {
   describe('XHR Fallback (Upload Progress)', () => {
     it('should use XHR when onUploadProgress is provided', async () => {
       // Mock XMLHttpRequest
-      const xhrMock: any = {
+      const xhrMock: MockXHR = {
         open: vi.fn(),
         send: vi.fn(),
         setRequestHeader: vi.fn(),
@@ -230,7 +230,7 @@ describe('HTTPClient', () => {
         constructor() {
           return xhrMock;
         }
-      } as any;
+      } as unknown as typeof XMLHttpRequest;
 
       const client = HTTPBuilder.create('https://api.test').build();
       const onProgress = vi.fn();
@@ -245,7 +245,7 @@ describe('HTTPClient', () => {
   describe('Progress Events', () => {
     it('should emit upload:progress events', async () => {
       // Mock XMLHttpRequest for progress support
-      const xhrMock: any = {
+      const xhrMock: MockXHR = {
         open: vi.fn(),
         send: vi.fn(),
         setRequestHeader: vi.fn(),
@@ -271,7 +271,7 @@ describe('HTTPClient', () => {
         constructor() {
           return xhrMock;
         }
-      } as any;
+      } as unknown as typeof XMLHttpRequest;
 
       const client = HTTPBuilder.create('https://api.test').build();
       const progressSpy = vi.fn();
@@ -374,8 +374,10 @@ describe('HTTPClient', () => {
         .withDownloadProgress(onDownload);
 
       const client = builder.build();
-      // Access private config to verify (casting to any)
-      const config = (client as any).config;
+      // Access private config to verify
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const config = client.config;
 
       expect(config.onUploadProgress).toBe(onUpload);
       expect(config.onDownloadProgress).toBe(onDownload);
@@ -385,7 +387,9 @@ describe('HTTPClient', () => {
       const builder = new HTTPBuilder();
       builder.withBaseURL('https://api.explicit.com');
       const client = builder.build();
-      expect((client as any).config.baseURL).toBe('https://api.explicit.com');
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      expect(client.config.baseURL).toBe('https://api.explicit.com');
     });
   });
 
@@ -430,14 +434,16 @@ describe('HTTPClient', () => {
       const globalProgress = vi.fn();
       const requestProgress = vi.fn();
 
-      const xhrMock: any = {
+      const xhrMock: MockXHR = {
         open: vi.fn(),
         send: vi.fn(),
         setRequestHeader: vi.fn(),
-        upload: {},
+        upload: { onprogress: null },
         onload: null,
         status: 200,
+        statusText: 'OK',
         response: '{}',
+        getResponseHeader: () => 'application/json',
         getAllResponseHeaders: () => '',
       };
 
@@ -445,7 +451,7 @@ describe('HTTPClient', () => {
         constructor() {
           return xhrMock;
         }
-      } as any;
+      } as unknown as typeof XMLHttpRequest;
 
       const client = HTTPBuilder.create().withUploadProgress(globalProgress).build();
 
@@ -480,20 +486,27 @@ describe('HTTPClient', () => {
         .addResponseInterceptor(undefined, undefined) // Should be ignored or safe
         .build();
 
-      (global.fetch as any).mockResolvedValue(mockFetchResponse(true, 200, {}));
+      fetchMock.mockResolvedValue(mockFetchResponse(true, 200, {}));
 
       await client.get('/test');
-      expect(global.fetch).toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalled();
     });
 
     it('should handle response interceptor with only onRejected', async () => {
       const client = HTTPBuilder.create('https://api.test')
-        .addResponseInterceptor(undefined, async (err) => {
-          return { data: 'recovered', status: 200, headers: new Headers() } as any;
+        .addResponseInterceptor(undefined, async (error) => {
+          // eslint-disable-line @typescript-eslint/no-unused-vars
+          return {
+            data: 'recovered',
+            status: 200,
+            statusText: 'OK',
+            headers: new Headers(),
+            config: {},
+          } as HTTPResponse<unknown>;
         })
         .build();
 
-      (global.fetch as any).mockRejectedValue(new Error('Network Error'));
+      fetchMock.mockRejectedValue(new Error('Network Error'));
 
       const response = await client.get('/test');
       expect(response.data).toBe('recovered');
@@ -506,7 +519,9 @@ describe('HTTPClient', () => {
 
       const client = builder.build();
       // Access private config for verification or make a request
-      expect((client as any).config.headers).toEqual({
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      expect(client.config.headers).toEqual({
         'X-One': '1',
         'X-Two': '2',
       });
@@ -514,22 +529,22 @@ describe('HTTPClient', () => {
 
     it('should execute helper methods correctly', async () => {
       const client = HTTPBuilder.create('https://api.test').build();
-      (global.fetch as any).mockResolvedValue(mockFetchResponse(true, 200, {}));
+      fetchMock.mockResolvedValue(mockFetchResponse(true, 200, {}));
 
       await client.put('/put', { id: 1 });
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/put'),
         expect.objectContaining({ method: 'PUT', body: JSON.stringify({ id: 1 }) })
       );
 
       await client.delete('/delete');
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/delete'),
         expect.objectContaining({ method: 'DELETE' })
       );
 
       await client.patch('/patch', { id: 2 });
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/patch'),
         expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ id: 2 }) })
       );

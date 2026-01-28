@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { Reixo, CircuitState } from '../src';
+import { HTTPError } from '../src/utils/http';
 
 // Helper to mock fetch response
-const mockFetchResponse = (ok: boolean, status: number, data: any) => {
+const mockFetchResponse = (ok: boolean, status: number, data: unknown) => {
   return Promise.resolve({
     ok,
     status,
     statusText: ok ? 'OK' : 'Error',
-    headers: new Map([['content-type', 'application/json']]),
+    headers: new Headers([['content-type', 'application/json']]),
     json: () => Promise.resolve(data),
     text: () => Promise.resolve(JSON.stringify(data)),
   } as unknown as Response);
@@ -30,7 +31,7 @@ describe('Reixo Integration', () => {
       .withRetry({ maxRetries: 2, initialDelayMs: 100 })
       .build();
 
-    const fetchMock = global.fetch as any;
+    const fetchMock = global.fetch as unknown as Mock;
     fetchMock
       .mockRejectedValueOnce(new Error('Network Error'))
       .mockRejectedValueOnce(new Error('Network Error'))
@@ -53,12 +54,12 @@ describe('Reixo Integration', () => {
     const interceptor = Reixo.createAuthRefreshInterceptor({
       client,
       refreshTokenCall: refreshLogic,
-      shouldRefresh: (err: unknown) => (err as any).status === 401,
+      shouldRefresh: (err: unknown) => (err as HTTPError).status === 401,
     });
 
     client.interceptors.response.push(interceptor);
 
-    const fetchMock = global.fetch as any;
+    const fetchMock = global.fetch as unknown as Mock;
     fetchMock
       .mockResolvedValueOnce(mockFetchResponse(false, 401, { error: 'Unauthorized' }))
       .mockResolvedValueOnce(mockFetchResponse(true, 200, { success: true }));
@@ -90,7 +91,7 @@ describe('Reixo Integration', () => {
     // Wrap client request with circuit breaker
     const protectedRequest = (url: string) => circuitBreaker.execute(() => client.get(url));
 
-    const fetchMock = global.fetch as any;
+    const fetchMock = global.fetch as unknown as Mock;
 
     // Request 1: Fails twice (original + 1 retry) -> Circuit Breaker records 1 failure
     // Note: Circuit breaker counts the whole execution (including retries) as 1 failure if it propagates error
@@ -122,7 +123,7 @@ describe('Reixo Integration', () => {
   });
 
   it('should batch HTTP requests using BatchProcessor', async () => {
-    const fetchMock = global.fetch as any;
+    const fetchMock = global.fetch as unknown as Mock;
     fetchMock.mockResolvedValue(mockFetchResponse(true, 200, { results: ['A', 'B'] }));
 
     const client = Reixo.HTTPBuilder.create('https://api.example.com').build();
@@ -156,7 +157,7 @@ describe('Reixo Integration', () => {
   it('should prioritize requests in Queue', async () => {
     const queue = new Reixo.TaskQueue({ concurrency: 1 });
     const client = Reixo.HTTPBuilder.create('https://api.example.com').build();
-    const fetchMock = global.fetch as any;
+    const fetchMock = global.fetch as unknown as Mock;
     fetchMock.mockResolvedValue(mockFetchResponse(true, 200, { ok: true }));
 
     const order: string[] = [];

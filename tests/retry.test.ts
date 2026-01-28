@@ -52,7 +52,7 @@ describe('Retry Utility', () => {
       withRetry(fn, {
         maxRetries: 3,
         initialDelayMs: 1,
-        retryCondition: (err: any) => err.message !== 'fatal',
+        retryCondition: (err: unknown) => (err instanceof Error ? err.message : '') !== 'fatal',
       })
     ).rejects.toThrow('fatal');
 
