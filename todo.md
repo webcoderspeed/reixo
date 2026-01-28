@@ -140,9 +140,63 @@
 - [x] Add TypeScript type definitions
 - [x] Configure package keywords and metadata
 
-## 🎯 Current Focus: Phase 1 - Project Setup
+### Phase 7: Future Roadmap (Suggestions)
 
-Let's start with the initial project setup and core retry functionality!
+**⬜ [ ] Caching Layer**
+
+- [ ] Implement TTL-based in-memory caching
+- [ ] Add LocalStorage/SessionStorage persistence support
+- [ ] Create cache invalidation strategies
+
+**⬜ [ ] Advanced Data Handling**
+
+- [ ] Add Pagination Helpers (Async Iterators)
+- [ ] Implement Global Request Deduplication (Shared Promises)
+- [ ] Add GraphQL Client Support (Lightweight wrapper)
+
+**⬜ [ ] Offline Support**
+
+- [ ] Persist Queue to LocalStorage (Survivable across reloads)
+- [ ] Implement "Background Sync" compatibility
+
+**⬜ [ ] Developer Experience**
+
+- [ ] Export `MockClient` for users to test their apps
+- [ ] Add detailed logging/debug plugin
+
+### Phase 8: Backend-Focused Features (High Priority)
+
+**✅ [x] Connection Pooling & Performance**
+
+- [x] Implement HTTP Connection Pool (TCP connection reuse)
+- [x] Add Keep-Alive connection management
+- [x] Support connection limits and DNS caching
+
+**✅ [x] Rate Limiting & Throttling**
+
+- [x] Create RateLimiter utility for API rate limiting
+- [x] Implement sliding window algorithm (Token Bucket)
+- [x] Add request prioritization and queueing
+
+**⬜ [ ] Advanced Retry & Resilience**
+
+- [ ] Add circuit breaker with half-open state
+- [ ] Implement retry policies per API endpoint
+- [ ] Support fallback responses from cache
+
+**⬜ [ ] Metrics & Observability**
+
+- [ ] Add request timing and latency metrics
+- [ ] Implement error tracking and logging
+- [ ] Create performance monitoring hooks
+
+**⬜ [ ] Security & Compliance**
+
+- [ ] Add timeout enforcement mechanisms
+- [ ] Implement SSL/TLS configuration support
+- [ ] Create security header sanitization
+
+## 🎯 Current Focus: Maintenance & Improvements
 
 ---
 

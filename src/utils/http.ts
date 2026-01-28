@@ -6,9 +6,18 @@ export interface HTTPOptions extends RequestInit {
   timeoutMs?: number;
   baseURL?: string;
   url?: string; // Add url here
+  agent?: any; // Node.js http.Agent or https.Agent
   _retry?: boolean; // For tracking retries
-  onDownloadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
-  onUploadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
+  onDownloadProgress?: (progress: {
+    loaded: number;
+    total: number | null;
+    progress: number | null;
+  }) => void;
+  onUploadProgress?: (progress: {
+    loaded: number;
+    total: number | null;
+    progress: number | null;
+  }) => void;
 }
 
 export interface HTTPResponse<T> {
@@ -49,12 +58,7 @@ export async function http<T = unknown>(
 ): Promise<HTTPResponse<T>> {
   options.url = url; // Capture URL in options for interceptors/errors
 
-  const {
-    retry = true,
-    timeoutMs = 30000,
-    baseURL,
-    ...requestInit
-  } = options;
+  const { retry = true, timeoutMs = 30000, baseURL, ...requestInit } = options;
 
   const fullUrl = baseURL ? `${baseURL}${url}` : url;
 
@@ -65,20 +69,17 @@ export async function http<T = unknown>(
     try {
       const response = await fetch(fullUrl, {
         ...requestInit,
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new HTTPError(
-          `HTTP Error: ${response.status} ${response.statusText}`,
-          {
-            status: response.status,
-            statusText: response.statusText,
-            config: options,
-            response: response
-          }
-        );
+        throw new HTTPError(`HTTP Error: ${response.status} ${response.statusText}`, {
+          status: response.status,
+          statusText: response.statusText,
+          config: options,
+          response: response,
+        });
       }
 
       return response;
@@ -95,35 +96,35 @@ export async function http<T = unknown>(
     }
 
     const response = await fetchWithTimeout();
-    
+
     // Auto-detect and parse JSON if Content-Type is application/json
     const contentType = response.headers.get('content-type');
     let data: unknown;
-    
+
     if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
       // Handle download progress for environments supporting Web Streams (Browser / Node 18+)
       const reader = (response.body as ReadableStream<Uint8Array>).getReader();
       const contentLength = response.headers.get('Content-Length');
       const total = contentLength ? parseInt(contentLength, 10) : null;
       let loaded = 0;
-      
+
       const chunks: Uint8Array[] = [];
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         if (value) {
           chunks.push(value);
           loaded += value.length;
-          
+
           if (options.onDownloadProgress) {
-             const progress = total ? Math.round((loaded / total) * 100) : null;
-             options.onDownloadProgress({ loaded, total, progress });
+            const progress = total ? Math.round((loaded / total) * 100) : null;
+            options.onDownloadProgress({ loaded, total, progress });
           }
         }
       }
-      
+
       // Combine chunks
       const allChunks = new Uint8Array(loaded);
       let position = 0;
@@ -131,9 +132,9 @@ export async function http<T = unknown>(
         allChunks.set(chunk, position);
         position += chunk.length;
       }
-      
+
       const text = new TextDecoder('utf-8').decode(allChunks);
-      
+
       if (contentType?.includes('application/json')) {
         try {
           data = JSON.parse(text);
@@ -157,7 +158,7 @@ export async function http<T = unknown>(
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
-      config: options
+      config: options,
     };
   };
 
@@ -166,7 +167,7 @@ export async function http<T = unknown>(
   }
 
   const retryOptions = typeof retry === 'boolean' ? {} : retry;
-  
+
   const result = await withRetry(executeRequest, {
     ...retryOptions,
     retryCondition: (error: unknown, _attempt) => {
@@ -174,17 +175,19 @@ export async function http<T = unknown>(
       if (error instanceof Error && error.name === 'AbortError') {
         return false; // Don't retry timeouts
       }
-      
+
       if (error instanceof HTTPError && error.status !== undefined) {
         // Retry on server errors (5xx) and some client errors (429, 408)
-        return error.status >= 500 || 
-               error.status === 429 || // Too Many Requests
-               error.status === 408;   // Request Timeout
+        return (
+          error.status >= 500 ||
+          error.status === 429 || // Too Many Requests
+          error.status === 408
+        ); // Request Timeout
       }
-      
+
       // Retry on network errors
       return true;
-    }
+    },
   });
 
   return result.result;
@@ -202,7 +205,9 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
       } else if (Array.isArray(options.headers)) {
         options.headers.forEach(([key, value]) => xhr.setRequestHeader(key, value));
       } else {
-        Object.entries(options.headers).forEach(([key, value]) => xhr.setRequestHeader(key, value as string));
+        Object.entries(options.headers).forEach(([key, value]) =>
+          xhr.setRequestHeader(key, value as string)
+        );
       }
     }
 
@@ -221,22 +226,29 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
     xhr.onload = () => {
       let responseHeaders: Headers;
       if (typeof Headers !== 'undefined') {
-         responseHeaders = new Headers();
-         const headerLines = xhr.getAllResponseHeaders().trim().split(/[\r\n]+/);
-         headerLines.forEach(line => {
-           const parts = line.split(': ');
-           const key = parts.shift();
-           const value = parts.join(': ');
-           if (key) responseHeaders.append(key, value);
-         });
+        responseHeaders = new Headers();
+        const headerLines = xhr
+          .getAllResponseHeaders()
+          .trim()
+          .split(/[\r\n]+/);
+        headerLines.forEach((line) => {
+          const parts = line.split(': ');
+          const key = parts.shift();
+          const value = parts.join(': ');
+          if (key) responseHeaders.append(key, value);
+        });
       } else {
-          // Fallback if Headers is not available
-          responseHeaders = new Map() as unknown as Headers; 
+        // Fallback if Headers is not available
+        responseHeaders = new Map() as unknown as Headers;
       }
 
       let data: unknown = xhr.response;
       try {
-        if (data && typeof data === 'string' && xhr.getResponseHeader('content-type')?.includes('application/json')) {
+        if (
+          data &&
+          typeof data === 'string' &&
+          xhr.getResponseHeader('content-type')?.includes('application/json')
+        ) {
           data = JSON.parse(data);
         }
       } catch {
@@ -248,17 +260,19 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
         status: xhr.status,
         statusText: xhr.statusText,
         headers: responseHeaders,
-        config: options
+        config: options,
       };
 
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(response);
       } else {
-        reject(new HTTPError(`HTTP Error: ${xhr.status} ${xhr.statusText}`, {
-          status: xhr.status,
-          statusText: xhr.statusText,
-          config: options
-        }));
+        reject(
+          new HTTPError(`HTTP Error: ${xhr.status} ${xhr.statusText}`, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            config: options,
+          })
+        );
       }
     };
 

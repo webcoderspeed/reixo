@@ -2,6 +2,8 @@ import { RetryOptions } from '../types';
 import { http, HTTPOptions, HTTPResponse } from '../utils/http';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
+import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
+import { RateLimiter } from '../utils/rate-limiter';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -20,6 +22,11 @@ export interface HTTPClientConfig {
   timeoutMs?: number;
   headers?: Record<string, string>;
   retry?: RetryOptions | boolean;
+  pool?: ConnectionPoolOptions;
+  rateLimit?: {
+    requests: number;
+    interval: number; // in milliseconds
+  };
   onUploadProgress?: (progress: {
     loaded: number;
     total: number | null;
@@ -42,6 +49,9 @@ export class HTTPClient extends EventEmitter {
     response: [] as ResponseInterceptor[],
   };
 
+  private connectionPool?: ConnectionPool;
+  private rateLimiter?: RateLimiter;
+
   // Timing utilities
   public static debounce = debounce;
   public static throttle = throttle;
@@ -49,6 +59,19 @@ export class HTTPClient extends EventEmitter {
 
   constructor(private readonly config: HTTPClientConfig) {
     super();
+    if (config.pool) {
+      this.connectionPool = new ConnectionPool(config.pool);
+    }
+    if (config.rateLimit) {
+      this.rateLimiter = new RateLimiter(config.rateLimit.requests, config.rateLimit.interval);
+    }
+  }
+
+  /**
+   * Destroys the client and cleans up resources (e.g., connection pools).
+   */
+  public destroy(): void {
+    this.connectionPool?.destroy();
   }
 
   /**
@@ -60,6 +83,15 @@ export class HTTPClient extends EventEmitter {
    * @returns Promise resolving to the HTTP response
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
+    // Handle Rate Limiting
+    if (this.rateLimiter) {
+      const waitTime = this.rateLimiter.getTimeToWait();
+      if (waitTime > 0) {
+        await delay(waitTime);
+      }
+      this.rateLimiter.tryConsume();
+    }
+
     let mergedOptions: HTTPOptions = {
       url,
       ...this.config,
@@ -69,6 +101,18 @@ export class HTTPClient extends EventEmitter {
         ...options.headers,
       },
     };
+
+    // Inject agent from connection pool if available and not already provided
+    if (this.connectionPool && !mergedOptions.agent) {
+      const isHttps = (mergedOptions.baseURL || url).startsWith('https');
+      const agent = isHttps
+        ? await this.connectionPool.getHttpsAgent()
+        : await this.connectionPool.getHttpAgent();
+
+      if (agent) {
+        mergedOptions.agent = agent;
+      }
+    }
 
     // Chain progress handlers to emit events
     const configUpload = this.config.onUploadProgress;
