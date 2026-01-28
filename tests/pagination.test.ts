@@ -100,4 +100,32 @@ describe('Pagination Helper', () => {
     const result = await generator.next();
     expect(result.value).toEqual([1, 2, 3]);
   });
+
+  it('should stop based on custom stopCondition', async () => {
+    const client = createClient();
+    const getMock = client.get as unknown as Mock;
+
+    // Page 1
+    getMock.mockResolvedValueOnce({ data: [1, 2], status: 200 });
+    // Page 2
+    getMock.mockResolvedValueOnce({ data: [3, 4], status: 200 });
+    // Page 3 (should not be called if stopped)
+
+    const results: number[] = [];
+    // Stop after 4 items (2 pages)
+    const stopFn = vi.fn((_resp, _pageItems, total) => total >= 4);
+
+    for await (const pageItems of paginate<number>(client, '/items', {
+      limit: 2,
+      stopCondition: stopFn,
+    })) {
+      results.push(...pageItems);
+    }
+
+    expect(results).toEqual([1, 2, 3, 4]);
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(stopFn).toHaveBeenCalledTimes(2); // Called after each page yield
+    // First call: total=2. Second call: total=4 (returns true -> stop)
+    expect(stopFn).toHaveBeenLastCalledWith(expect.anything(), [3, 4], 4);
+  });
 });

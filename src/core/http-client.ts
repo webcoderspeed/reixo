@@ -463,6 +463,16 @@ export class HTTPBuilder {
     return this;
   }
 
+  public withCache(options: CacheOptions | boolean): this {
+    this.config.cacheConfig = options;
+    return this;
+  }
+
+  public withTransport(transport: HTTPRequestFunction): this {
+    this.config.transport = transport;
+    return this;
+  }
+
   public withUploadProgress(
     callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void
   ): this {

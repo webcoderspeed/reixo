@@ -15,6 +15,7 @@ export {
   getMissingPolyfills,
   ensureBrowserCompatibility,
 } from './utils/browser';
+export { paginate } from './utils/pagination';
 
 // Types
 export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
@@ -27,7 +28,7 @@ export type { BrowserCapabilities } from './utils/browser';
 
 // Import for main class
 import { withRetry as _withRetry } from './utils/retry';
-import { http as _http } from './utils/http';
+import { http as _http, HTTPError as _HTTPError } from './utils/http';
 import { HTTPBuilder as _HTTPBuilder } from './core/http-client';
 import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
 import { MockAdapter as _MockAdapter } from './utils/mock-adapter';
@@ -42,11 +43,13 @@ import {
   checkBrowserCapabilities as _checkBrowserCapabilities,
   ensureBrowserCompatibility as _ensureBrowserCompatibility,
 } from './utils/browser';
+import { paginate as _paginate } from './utils/pagination';
 
 // Main library class
 export class Reixo {
   static withRetry = _withRetry;
   static http = _http;
+  static HTTPError = _HTTPError;
   static HTTPBuilder = _HTTPBuilder;
   static GraphQLClient = _GraphQLClient;
   static MockAdapter = _MockAdapter;
@@ -62,6 +65,7 @@ export class Reixo {
   static delay = _delay;
   static checkBrowserCapabilities = _checkBrowserCapabilities;
   static ensureBrowserCompatibility = _ensureBrowserCompatibility;
+  static paginate = _paginate;
 }
 
 export default Reixo;

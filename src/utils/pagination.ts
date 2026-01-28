@@ -8,7 +8,11 @@ export interface PaginationOptions<T> {
   initialPage?: number; // Default: 1
   totalPath?: string; // Path to total count in response (e.g. 'meta.total')
   resultsPath?: string; // Path to results array in response (e.g. 'data')
-  stopCondition?: (response: HTTPResponse<unknown>, allItems: T[]) => boolean;
+  stopCondition?: (
+    response: HTTPResponse<unknown>,
+    pageItems: T[],
+    totalFetched: number
+  ) => boolean;
 }
 
 function extractItems<T>(data: unknown, path?: string): T[] {
@@ -52,7 +56,7 @@ export async function* paginate<T>(
     stopCondition,
   } = options;
 
-  const fetchPage = async function* (page: number): AsyncGenerator<T[]> {
+  const fetchPage = async function* (page: number, currentTotal: number): AsyncGenerator<T[]> {
     const params: Record<string, string | number> = {
       [pageParam]: page,
       [limitParam]: limit,
@@ -67,12 +71,15 @@ export async function* paginate<T>(
 
     yield items;
 
-    const shouldStop = stopCondition ? stopCondition(response, items) : items.length < limit;
+    const newTotal = currentTotal + items.length;
+    const shouldStop = stopCondition
+      ? stopCondition(response, items, newTotal)
+      : items.length < limit;
 
     if (!shouldStop) {
-      yield* fetchPage(page + 1);
+      yield* fetchPage(page + 1, newTotal);
     }
   };
 
-  yield* fetchPage(initialPage);
+  yield* fetchPage(initialPage, 0);
 }
