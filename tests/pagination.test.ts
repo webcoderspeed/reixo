@@ -8,7 +8,6 @@ vi.mock('../src/core/http-client', () => {
   return {
     HTTPClient: class {
       get = vi.fn();
-      constructor() {}
     },
   };
 });

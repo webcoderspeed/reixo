@@ -1,52 +1,65 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createAuthRefreshInterceptor } from '../src/utils/auth';
 import { HTTPClient } from '../src/core/http-client';
-import { HTTPError } from '../src/utils/http';
+import { HTTPError, HTTPOptions } from '../src/utils/http';
 
-describe('Auth Refresh Interceptor', () => {
-  let client: HTTPClient;
-  let refreshTokenCall: any;
-  let shouldRefresh: any;
-  let interceptor: any;
+const createTestContext = () => {
+  const client = {
+    request: vi.fn().mockResolvedValue({ status: 200, data: 'success', headers: {} }),
+  } as unknown as HTTPClient;
 
-  beforeEach(() => {
-    client = {
-      request: vi.fn().mockResolvedValue({ status: 200, data: 'success', headers: {} }),
-    } as any;
-    refreshTokenCall = vi.fn().mockResolvedValue('new-token');
-    shouldRefresh = vi.fn().mockReturnValue(true);
+  const refreshTokenCall = vi.fn().mockResolvedValue('new-token');
+  const shouldRefresh = vi.fn().mockReturnValue(true);
 
-    interceptor = createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall,
-      shouldRefresh,
-    });
+  const interceptor = createAuthRefreshInterceptor({
+    client,
+    refreshTokenCall,
+    shouldRefresh,
   });
 
-  const createError = (status = 401, config = { url: '/test', headers: {} }) => {
-    return new HTTPError('Unauthorized', { status, config: config as any });
-  };
+  return { client, refreshTokenCall, shouldRefresh, interceptor };
+};
 
+const createError = (
+  status = 401,
+  config: Partial<HTTPOptions> = { url: '/test', headers: {} }
+) => {
+  return new HTTPError('Unauthorized', { status, config: config as HTTPOptions });
+};
+
+describe('Auth Refresh Interceptor', () => {
   it('should pass through if error is not HTTPError', async () => {
+    const { interceptor } = createTestContext();
     const error = new Error('Network Error');
-    await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    if (interceptor.onRejected) {
+      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    }
   });
 
   it('should pass through if shouldRefresh returns false', async () => {
+    const { interceptor, shouldRefresh } = createTestContext();
     shouldRefresh.mockReturnValue(false);
     const error = createError();
-    await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    if (interceptor.onRejected) {
+      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    }
   });
 
   it('should pass through if request has already been retried', async () => {
-    const error = createError(401, { url: '/test', headers: {}, _retry: true } as any);
-    await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    const { interceptor } = createTestContext();
+    const error = createError(401, { url: '/test', headers: {}, _retry: true });
+    if (interceptor.onRejected) {
+      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
+    }
   });
 
   it('should refresh token and retry request', async () => {
+    const { interceptor, refreshTokenCall, client } = createTestContext();
     const error = createError();
 
-    await interceptor.onRejected(error);
+    if (interceptor.onRejected) {
+      await interceptor.onRejected(error);
+    }
 
     expect(refreshTokenCall).toHaveBeenCalled();
     expect(client.request).toHaveBeenCalledWith(
@@ -60,18 +73,21 @@ describe('Auth Refresh Interceptor', () => {
   });
 
   it('should queue concurrent requests while refreshing', async () => {
+    const { interceptor, refreshTokenCall, client } = createTestContext();
     // Simulate slow refresh
     refreshTokenCall.mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve('slow-token'), 10))
     );
 
-    const error1 = createError(401, { url: '/1', headers: {} } as any);
-    const error2 = createError(401, { url: '/2', headers: {} } as any);
+    const error1 = createError(401, { url: '/1', headers: {} });
+    const error2 = createError(401, { url: '/2', headers: {} });
 
-    const p1 = interceptor.onRejected(error1);
-    const p2 = interceptor.onRejected(error2);
+    if (interceptor.onRejected) {
+      const p1 = interceptor.onRejected(error1);
+      const p2 = interceptor.onRejected(error2);
 
-    await Promise.all([p1, p2]);
+      await Promise.all([p1, p2]);
+    }
 
     expect(refreshTokenCall).toHaveBeenCalledTimes(1); // Only one refresh call
     expect(client.request).toHaveBeenCalledTimes(2);
@@ -86,17 +102,21 @@ describe('Auth Refresh Interceptor', () => {
   });
 
   it('should handle refresh failure', async () => {
+    const { interceptor, refreshTokenCall, client } = createTestContext();
     const refreshError = new Error('Refresh failed');
     refreshTokenCall.mockRejectedValue(refreshError);
 
     const error = createError();
 
-    await expect(interceptor.onRejected(error)).rejects.toThrow(refreshError);
+    if (interceptor.onRejected) {
+      await expect(interceptor.onRejected(error)).rejects.toThrow(refreshError);
+    }
     expect(client.request).not.toHaveBeenCalled();
   });
 
   it('should support cookie auth type', async () => {
-    interceptor = createAuthRefreshInterceptor({
+    const { client, refreshTokenCall, shouldRefresh } = createTestContext();
+    const interceptor = createAuthRefreshInterceptor({
       client,
       refreshTokenCall,
       shouldRefresh,
@@ -104,7 +124,9 @@ describe('Auth Refresh Interceptor', () => {
     });
 
     const error = createError();
-    await interceptor.onRejected(error);
+    if (interceptor.onRejected) {
+      await interceptor.onRejected(error);
+    }
 
     expect(client.request).toHaveBeenCalledWith(
       '/test',
@@ -116,7 +138,8 @@ describe('Auth Refresh Interceptor', () => {
   });
 
   it('should support custom token attachment', async () => {
-    interceptor = createAuthRefreshInterceptor({
+    const { client, refreshTokenCall, shouldRefresh } = createTestContext();
+    const interceptor = createAuthRefreshInterceptor({
       client,
       refreshTokenCall,
       shouldRefresh,
@@ -127,7 +150,9 @@ describe('Auth Refresh Interceptor', () => {
     });
 
     const error = createError();
-    await interceptor.onRejected(error);
+    if (interceptor.onRejected) {
+      await interceptor.onRejected(error);
+    }
 
     expect(client.request).toHaveBeenCalledWith(
       '/test',
@@ -140,33 +165,39 @@ describe('Auth Refresh Interceptor', () => {
   });
 
   it('should reject queued requests if refresh fails', async () => {
+    const { interceptor, refreshTokenCall } = createTestContext();
     // Simulate slow refresh that fails
     refreshTokenCall.mockImplementation(
       () => new Promise((_, reject) => setTimeout(() => reject(new Error('Refresh failed')), 10))
     );
 
-    const error1 = createError(401, { url: '/1', headers: {} } as any);
-    const error2 = createError(401, { url: '/2', headers: {} } as any);
+    const error1 = createError(401, { url: '/1', headers: {} });
+    const error2 = createError(401, { url: '/2', headers: {} });
 
-    const p1 = interceptor.onRejected(error1);
-    const p2 = interceptor.onRejected(error2);
+    if (interceptor.onRejected) {
+      const p1 = interceptor.onRejected(error1);
+      const p2 = interceptor.onRejected(error2);
 
-    await expect(p1).rejects.toThrow('Refresh failed');
-    await expect(p2).rejects.toThrow('Refresh failed');
+      await expect(p1).rejects.toThrow('Refresh failed');
+      await expect(p2).rejects.toThrow('Refresh failed');
+    }
   });
 
   it('should queue requests and use cookie auth', async () => {
-    interceptor = createAuthRefreshInterceptor({
+    const { client, shouldRefresh } = createTestContext();
+    const interceptor = createAuthRefreshInterceptor({
       client,
       refreshTokenCall: () => new Promise((r) => setTimeout(() => r('cookie-val'), 10)),
       shouldRefresh,
       authType: 'cookie',
     });
 
-    const error1 = createError(401, { url: '/1', headers: {} } as any);
-    const error2 = createError(401, { url: '/2', headers: {} } as any);
+    const error1 = createError(401, { url: '/1', headers: {} });
+    const error2 = createError(401, { url: '/2', headers: {} });
 
-    await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+    if (interceptor.onRejected) {
+      await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+    }
 
     // Verify calls didn't get bearer token
     expect(client.request).toHaveBeenCalledWith(
@@ -178,7 +209,8 @@ describe('Auth Refresh Interceptor', () => {
   });
 
   it('should queue requests and use custom attachToken', async () => {
-    interceptor = createAuthRefreshInterceptor({
+    const { client, shouldRefresh } = createTestContext();
+    const interceptor = createAuthRefreshInterceptor({
       client,
       refreshTokenCall: () => new Promise((r) => setTimeout(() => r('custom-token'), 10)),
       shouldRefresh,
@@ -188,10 +220,12 @@ describe('Auth Refresh Interceptor', () => {
       }),
     });
 
-    const error1 = createError(401, { url: '/1', headers: {} } as any);
-    const error2 = createError(401, { url: '/2', headers: {} } as any);
+    const error1 = createError(401, { url: '/1', headers: {} });
+    const error2 = createError(401, { url: '/2', headers: {} });
 
-    await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+    if (interceptor.onRejected) {
+      await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
+    }
 
     expect(client.request).toHaveBeenCalledWith(
       '/2',

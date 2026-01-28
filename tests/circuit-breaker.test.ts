@@ -1,22 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../src/utils/circuit-breaker';
 
-describe('CircuitBreaker', () => {
-  let breaker: CircuitBreaker;
-
-  beforeEach(() => {
-    breaker = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeoutMs: 100,
-      halfOpenRetries: 1, // Simplify test
-    });
+const createBreaker = (options = {}) =>
+  new CircuitBreaker({
+    failureThreshold: 3,
+    resetTimeoutMs: 100,
+    halfOpenRetries: 1,
+    ...options,
   });
 
+const failTimes = async (breaker: CircuitBreaker, count: number, error: Error) => {
+  if (count <= 0) return;
+  try {
+    await breaker.execute(() => Promise.reject(error));
+  } catch {
+    // ignore
+  }
+  await failTimes(breaker, count - 1, error);
+};
+
+describe('CircuitBreaker', () => {
   it('should start in CLOSED state', () => {
+    const breaker = createBreaker();
     expect(breaker.currentState).toBe(CircuitState.CLOSED);
   });
 
   it('should execute function successfully in CLOSED state', async () => {
+    const breaker = createBreaker();
     const fn = vi.fn().mockResolvedValue('success');
     const result = await breaker.execute(fn);
     expect(result).toBe('success');
@@ -24,6 +34,7 @@ describe('CircuitBreaker', () => {
   });
 
   it('should switch to OPEN state after failure threshold is reached', async () => {
+    const breaker = createBreaker();
     const fn = vi.fn().mockRejectedValue(new Error('failed'));
 
     // 3 failures
@@ -35,27 +46,21 @@ describe('CircuitBreaker', () => {
   });
 
   it('should reject immediately in OPEN state', async () => {
+    const breaker = createBreaker();
     const fn = vi.fn().mockResolvedValue('success');
-    // Force OPEN
-    (breaker as any).state = CircuitState.OPEN;
-    (breaker as any).failures = 3;
-    (breaker as any).nextAttempt = Date.now() + 1000;
+
+    // Force OPEN by failing 3 times
+    await failTimes(breaker, 3, new Error('failed'));
 
     await expect(breaker.execute(fn)).rejects.toThrow('CircuitBreaker: Circuit is OPEN');
     expect(fn).not.toHaveBeenCalled();
   });
 
   it('should switch to HALF_OPEN after reset timeout', async () => {
-    const fn = vi.fn().mockRejectedValue(new Error('failed'));
+    const breaker = createBreaker();
 
     // Fail 3 times
-    for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(fn);
-      } catch {
-        /* ignore */
-      }
-    }
+    await failTimes(breaker, 3, new Error('failed'));
 
     expect(breaker.currentState).toBe(CircuitState.OPEN);
 
@@ -71,16 +76,11 @@ describe('CircuitBreaker', () => {
   });
 
   it('should switch back to OPEN if HALF_OPEN attempt fails', async () => {
+    const breaker = createBreaker();
     const fn = vi.fn().mockRejectedValue(new Error('failed'));
 
     // Fail 3 times
-    for (let i = 0; i < 3; i++) {
-      try {
-        await breaker.execute(fn);
-      } catch {
-        /* ignore */
-      }
-    }
+    await failTimes(breaker, 3, new Error('failed'));
 
     // Wait for timeout
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -92,7 +92,7 @@ describe('CircuitBreaker', () => {
 
   it('should call onStateChange callback when state changes', async () => {
     const onStateChange = vi.fn();
-    const breakerWithCallback = new CircuitBreaker({
+    const breakerWithCallback = createBreaker({
       failureThreshold: 1,
       resetTimeoutMs: 100,
       onStateChange,

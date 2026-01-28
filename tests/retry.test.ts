@@ -60,7 +60,8 @@ describe('Retry Utility', () => {
   });
 
   it('should call onRetry callback', async () => {
-    const fn = vi.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('success');
+    const error = new Error('fail');
+    const fn = vi.fn().mockRejectedValueOnce(error).mockResolvedValue('success');
 
     const onRetry = vi.fn();
 
@@ -70,11 +71,12 @@ describe('Retry Utility', () => {
     });
 
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, expect.any(Number));
+    expect(onRetry).toHaveBeenCalledWith(error, 1, expect.any(Number));
   });
 
   it('should calculate delay without jitter', async () => {
-    const fn = vi.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('success');
+    const error = new Error('fail');
+    const fn = vi.fn().mockRejectedValueOnce(error).mockResolvedValue('success');
 
     const onRetry = vi.fn();
 
@@ -86,14 +88,16 @@ describe('Retry Utility', () => {
     });
 
     // First retry delay should be initialDelayMs * (2 ^ (1-1)) = 100
-    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, 100);
+    expect(onRetry).toHaveBeenCalledWith(error, 1, 100);
   });
 
   it('should calculate delay with backoff', async () => {
+    const error1 = new Error('fail 1');
+    const error2 = new Error('fail 2');
     const fn = vi
       .fn()
-      .mockRejectedValueOnce(new Error('fail 1'))
-      .mockRejectedValueOnce(new Error('fail 2'))
+      .mockRejectedValueOnce(error1)
+      .mockRejectedValueOnce(error2)
       .mockResolvedValue('success');
 
     const onRetry = vi.fn();
@@ -107,12 +111,13 @@ describe('Retry Utility', () => {
 
     // Retry 1: 10ms
     // Retry 2: 10 * 2^1 = 20ms
-    expect(onRetry).toHaveBeenNthCalledWith(1, expect.any(Error), 1, 10);
-    expect(onRetry).toHaveBeenNthCalledWith(2, expect.any(Error), 2, 20);
+    expect(onRetry).toHaveBeenNthCalledWith(1, error1, 1, 10);
+    expect(onRetry).toHaveBeenNthCalledWith(2, error2, 2, 20);
   });
 
   it('should cap delay at maxDelayMs', async () => {
-    const fn = vi.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('success');
+    const error = new Error('fail');
+    const fn = vi.fn().mockRejectedValueOnce(error).mockResolvedValue('success');
 
     const onRetry = vi.fn();
 
@@ -123,6 +128,6 @@ describe('Retry Utility', () => {
       onRetry,
     });
 
-    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, 50);
+    expect(onRetry).toHaveBeenCalledWith(error, 1, 50);
   });
 });

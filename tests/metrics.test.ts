@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { HTTPClient } from '../src/core/http-client';
 import * as httpUtils from '../src/utils/http';
 import { MetricsCollector } from '../src/utils/metrics';
+import { HTTPResponse } from '../src/utils/http';
 
 describe('MetricsCollector', () => {
   it('should track successful requests', async () => {
@@ -94,11 +95,15 @@ describe('HTTPClient Metrics Integration', () => {
       enableMetrics: true,
     });
 
-    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue({
+    const mockResponse: HTTPResponse<unknown> = {
       status: 200,
       data: {},
-      headers: {},
-    } as any);
+      headers: new Headers(),
+      statusText: 'OK',
+      config: {},
+    };
+
+    vi.spyOn(httpUtils, 'http').mockResolvedValue(mockResponse);
 
     await client.request('/metrics-test');
 

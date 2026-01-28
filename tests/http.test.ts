@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HTTPBuilder, HTTPClient } from '../src/core/http-client';
-import { HTTPError, http, HTTPResponse, HTTPOptions } from '../src/utils/http';
+import { HTTPBuilder, HTTPClientConfig } from '../src/core/http-client';
+import { HTTPError, http, HTTPResponse } from '../src/utils/http';
 
 // Mock fetch
 const fetchMock = vi.fn();
@@ -37,8 +37,7 @@ describe('HTTPClient', () => {
   beforeEach(() => {
     fetchMock.mockReset();
     // Reset XMLHttpRequest
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (global as any).XMLHttpRequest;
+    vi.stubGlobal('XMLHttpRequest', undefined);
 
     // Default success response
     fetchMock.mockResolvedValue({
@@ -51,7 +50,7 @@ describe('HTTPClient', () => {
     });
   });
 
-  // ... (rest of the file with search/replace for any)
+  // ...
 
   describe('Methods', () => {
     const client = HTTPBuilder.create('https://api.test').build();
@@ -127,7 +126,7 @@ describe('HTTPClient', () => {
     it('should use response interceptors', async () => {
       const client = HTTPBuilder.create('https://api.test')
         .addResponseInterceptor((response) => {
-          const data = response.data as Record<string, any>;
+          const data = response.data as Record<string, unknown>;
           response.data = { ...data, modified: true };
           return response;
         })
@@ -300,7 +299,7 @@ describe('HTTPClient', () => {
       fetchMock.mockRejectedValue(new Error('Network Error'));
 
       const client = HTTPBuilder.create('https://api.test')
-        .addResponseInterceptor(undefined, (error) => {
+        .addResponseInterceptor(undefined, (_error) => {
           return {
             data: { recovered: true },
             status: 200,
@@ -319,7 +318,7 @@ describe('HTTPClient', () => {
       fetchMock.mockRejectedValue(new Error('Network Error'));
 
       const client = HTTPBuilder.create('https://api.test')
-        .addResponseInterceptor(undefined, (error) => {
+        .addResponseInterceptor(undefined, (_error) => {
           throw new Error('Interceptor Error');
         })
         .build();
@@ -375,9 +374,7 @@ describe('HTTPClient', () => {
 
       const client = builder.build();
       // Access private config to verify
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const config = client.config;
+      const config = (client as unknown as { config: HTTPClientConfig }).config;
 
       expect(config.onUploadProgress).toBe(onUpload);
       expect(config.onDownloadProgress).toBe(onDownload);
@@ -387,9 +384,9 @@ describe('HTTPClient', () => {
       const builder = new HTTPBuilder();
       builder.withBaseURL('https://api.explicit.com');
       const client = builder.build();
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      expect(client.config.baseURL).toBe('https://api.explicit.com');
+      expect((client as unknown as { config: HTTPClientConfig }).config.baseURL).toBe(
+        'https://api.explicit.com'
+      );
     });
   });
 
@@ -494,8 +491,7 @@ describe('HTTPClient', () => {
 
     it('should handle response interceptor with only onRejected', async () => {
       const client = HTTPBuilder.create('https://api.test')
-        .addResponseInterceptor(undefined, async (error) => {
-          // eslint-disable-line @typescript-eslint/no-unused-vars
+        .addResponseInterceptor(undefined, async (_error) => {
           return {
             data: 'recovered',
             status: 200,
@@ -519,9 +515,7 @@ describe('HTTPClient', () => {
 
       const client = builder.build();
       // Access private config for verification or make a request
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      expect(client.config.headers).toEqual({
+      expect((client as unknown as { config: HTTPClientConfig }).config.headers).toEqual({
         'X-One': '1',
         'X-Two': '2',
       });

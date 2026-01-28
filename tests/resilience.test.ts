@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CircuitBreaker, CircuitState } from '../src/utils/circuit-breaker';
 import { HTTPClient } from '../src/core/http-client';
 import * as httpUtils from '../src/utils/http';
+import { HTTPResponse } from '../src/utils/http';
 
 describe('CircuitBreaker Resilience', () => {
   afterEach(() => {
@@ -48,6 +49,14 @@ describe('HTTPClient Retry Policies', () => {
     vi.restoreAllMocks();
   });
 
+  const mockResponse: HTTPResponse<unknown> = {
+    data: {},
+    status: 200,
+    statusText: 'OK',
+    headers: new Headers(),
+    config: {},
+  };
+
   it('should apply retry policy based on URL pattern', async () => {
     const client = new HTTPClient({
       retry: false, // Default no retry
@@ -59,7 +68,7 @@ describe('HTTPClient Retry Policies', () => {
       ],
     });
 
-    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue({} as any);
+    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue(mockResponse);
 
     await client.request('/flaky/endpoint');
 
@@ -78,7 +87,7 @@ describe('HTTPClient Retry Policies', () => {
       ],
     });
 
-    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue({} as any);
+    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue(mockResponse);
 
     await client.request('/stable/endpoint');
 
@@ -96,7 +105,7 @@ describe('HTTPClient Retry Policies', () => {
       ],
     });
 
-    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue({} as any);
+    const httpSpy = vi.spyOn(httpUtils, 'http').mockResolvedValue(mockResponse);
 
     await client.request('https://api.critical.com/v1/users');
 

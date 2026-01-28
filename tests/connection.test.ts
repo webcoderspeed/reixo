@@ -26,9 +26,6 @@ describe('ConnectionPool', () => {
       maxSockets: 10,
     });
 
-    // Mock global process to simulate Node environment
-    const originalProcess = global.process;
-
     await pool.getHttpsAgent();
 
     expect(https.Agent).toHaveBeenCalledWith(

@@ -12,17 +12,17 @@ describe('Browser Utils', () => {
   const originalPromise = global.Promise;
 
   afterEach(() => {
-    global.fetch = originalFetch;
-    global.Headers = originalHeaders;
-    global.AbortController = originalAbortController;
-    global.Promise = originalPromise;
+    vi.stubGlobal('fetch', originalFetch);
+    vi.stubGlobal('Headers', originalHeaders);
+    vi.stubGlobal('AbortController', originalAbortController);
+    vi.stubGlobal('Promise', originalPromise);
   });
 
   it('should detect available capabilities', () => {
     // Mock environment
-    global.fetch = vi.fn();
-    global.Headers = class {} as any;
-    global.AbortController = class {} as any;
+    vi.stubGlobal('fetch', vi.fn());
+    vi.stubGlobal('Headers', class {});
+    vi.stubGlobal('AbortController', class {});
 
     const capabilities = checkBrowserCapabilities();
 
@@ -33,9 +33,9 @@ describe('Browser Utils', () => {
 
   it('should detect missing capabilities', () => {
     // Mock environment with missing features
-    (global as any).fetch = undefined;
-    (global as any).Headers = undefined;
-    (global as any).AbortController = undefined;
+    vi.stubGlobal('fetch', undefined);
+    vi.stubGlobal('Headers', undefined);
+    vi.stubGlobal('AbortController', undefined);
 
     const capabilities = checkBrowserCapabilities();
 
@@ -45,9 +45,9 @@ describe('Browser Utils', () => {
   });
 
   it('should return list of missing polyfills', () => {
-    (global as any).fetch = undefined;
-    (global as any).Headers = undefined;
-    (global as any).AbortController = class {} as any; // Present
+    vi.stubGlobal('fetch', undefined);
+    vi.stubGlobal('Headers', undefined);
+    vi.stubGlobal('AbortController', class {}); // Present
 
     const missing = getMissingPolyfills();
 
@@ -57,18 +57,18 @@ describe('Browser Utils', () => {
   });
 
   it('should return empty list if all capabilities are present', () => {
-    global.fetch = vi.fn();
-    global.Headers = class {} as any;
-    global.AbortController = class {} as any;
+    vi.stubGlobal('fetch', vi.fn());
+    vi.stubGlobal('Headers', class {});
+    vi.stubGlobal('AbortController', class {});
 
     const missing = getMissingPolyfills();
     expect(missing).toHaveLength(0);
   });
 
   it('should identify missing AbortController', () => {
-    global.fetch = vi.fn();
-    global.Headers = class {} as any;
-    (global as any).AbortController = undefined;
+    vi.stubGlobal('fetch', vi.fn());
+    vi.stubGlobal('Headers', class {});
+    vi.stubGlobal('AbortController', undefined);
     // Note: Cannot test missing Promise as it causes Vitest to crash
 
     const missing = getMissingPolyfills();
@@ -76,7 +76,7 @@ describe('Browser Utils', () => {
   });
 
   it('should log warnings if capabilities are missing', () => {
-    (global as any).fetch = undefined;
+    vi.stubGlobal('fetch', undefined);
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     ensureBrowserCompatibility();
