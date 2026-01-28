@@ -25,9 +25,7 @@ npm install reixo
 ```typescript
 import { Reixo } from 'reixo';
 
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withTimeout(5000)
-  .build();
+const client = Reixo.HTTPBuilder.create('https://api.example.com').withTimeout(5000).build();
 
 const response = await client.get('/users');
 console.log(response.data);
@@ -40,14 +38,14 @@ const client = Reixo.HTTPBuilder.create('https://api.example.com')
   .withRetry({
     maxRetries: 3,
     backoffFactor: 2,
-    initialDelayMs: 500
+    initialDelayMs: 500,
   })
   .withHeader('Authorization', 'Bearer token')
-  .addRequestInterceptor(config => {
+  .addRequestInterceptor((config) => {
     console.log('Requesting:', config.url);
     return config;
   })
-  .withDownloadProgress(progress => {
+  .withDownloadProgress((progress) => {
     console.log(`Download: ${progress.progress}%`);
   })
   .build();
@@ -61,13 +59,19 @@ Manage concurrent requests with ease.
 const queue = new Reixo.TaskQueue({ concurrency: 2 });
 
 // Add tasks
-queue.add(async () => {
-  await client.get('/resource/1');
-}, { priority: 10, id: 'task-1' });
+queue.add(
+  async () => {
+    await client.get('/resource/1');
+  },
+  { priority: 10, id: 'task-1' }
+);
 
-queue.add(async () => {
-  await client.get('/resource/2');
-}, { priority: 5, id: 'task-2' }); // Lower priority runs later
+queue.add(
+  async () => {
+    await client.get('/resource/2');
+  },
+  { priority: 5, id: 'task-2' }
+); // Lower priority runs later
 
 // Listen to events
 queue.on('task:completed', ({ id, result }) => {
@@ -82,7 +86,7 @@ Automatically stop requests to failing services.
 ```typescript
 const breaker = new Reixo.CircuitBreaker({
   failureThreshold: 3,
-  resetTimeoutMs: 5000
+  resetTimeoutMs: 5000,
 });
 
 try {
@@ -104,10 +108,21 @@ client.on('download:progress', (p) => {
 
 // Per-request callback
 await client.post('/upload', fileData, {
-  onUploadProgress: (p) => console.log(`Upload: ${p.progress}%`)
+  onUploadProgress: (p) => console.log(`Upload: ${p.progress}%`),
 });
+```
+
+## Browser Compatibility
+
+Reixo automatically detects required browser capabilities.
+
+```typescript
+import { Reixo } from 'reixo';
+
+// Check environment capabilities
+Reixo.ensureBrowserCompatibility();
 ```
 
 ## License
 
-ISC
+MIT
