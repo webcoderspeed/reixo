@@ -142,16 +142,16 @@
 
 ### Phase 7: Future Roadmap (Suggestions)
 
-**⬜ [ ] Caching Layer**
+**✅ [x] Caching Layer**
 
-- [ ] Implement TTL-based in-memory caching
+- [x] Implement TTL-based in-memory caching
 - [ ] Add LocalStorage/SessionStorage persistence support
 - [ ] Create cache invalidation strategies
 
 **⬜ [ ] Advanced Data Handling**
 
 - [ ] Add Pagination Helpers (Async Iterators)
-- [ ] Implement Global Request Deduplication (Shared Promises)
+- [x] Implement Global Request Deduplication (Shared Promises)
 - [ ] Add GraphQL Client Support (Lightweight wrapper)
 
 **⬜ [ ] Offline Support**
@@ -190,11 +190,11 @@
 - [x] Implement error tracking and logging
 - [x] Create performance monitoring hooks
 
-**⬜ [ ] Security & Compliance**
+**✅ [x] Security & Compliance**
 
-- [ ] Add timeout enforcement mechanisms
-- [ ] Implement SSL/TLS configuration support
-- [ ] Create security header sanitization
+- [x] Add timeout enforcement mechanisms (via ConnectionPool & Request signal)
+- [x] Implement SSL/TLS configuration support
+- [x] Create security header sanitization utility
 
 ## 🎯 Current Focus: Maintenance & Improvements
 

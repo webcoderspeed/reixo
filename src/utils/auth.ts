@@ -11,36 +11,37 @@ export interface AuthRefreshOptions {
 }
 
 export function createAuthRefreshInterceptor(options: AuthRefreshOptions): ResponseInterceptor {
-  let isRefreshing = false;
-  let failedQueue: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void; config: HTTPOptions }[] = [];
+  const state = {
+    isRefreshing: false,
+    failedQueue: [] as {
+      resolve: (value: unknown) => void;
+      reject: (reason?: unknown) => void;
+      config: HTTPOptions;
+    }[],
+  };
 
   const processQueue = (error: unknown, token: string | null = null) => {
-    failedQueue.forEach(prom => {
+    state.failedQueue.forEach((prom) => {
       if (error) {
         prom.reject(error);
       } else {
         // Retry with new token or cookie
-        let newConfig: HTTPOptions;
-        
-        if (options.attachToken) {
-          newConfig = options.attachToken(prom.config, token!);
-        } else if (options.authType === 'cookie') {
-          // For cookie auth, just retry the original request - browser will handle cookies
-          newConfig = { ...prom.config };
-        } else {
-          // Default to bearer token
-          newConfig = { 
-            ...prom.config, 
-            headers: { ...prom.config.headers, Authorization: `Bearer ${token}` } 
-          };
-        }
-        
-        options.client.request(prom.config.url || '', newConfig)
+        const newConfig = options.attachToken
+          ? options.attachToken(prom.config, token!)
+          : options.authType === 'cookie'
+            ? { ...prom.config }
+            : {
+                ...prom.config,
+                headers: { ...prom.config.headers, Authorization: `Bearer ${token}` },
+              };
+
+        options.client
+          .request(prom.config.url || '', newConfig)
           .then(prom.resolve)
           .catch(prom.reject);
       }
     });
-    failedQueue = [];
+    state.failedQueue = [];
   };
 
   return {
@@ -48,39 +49,33 @@ export function createAuthRefreshInterceptor(options: AuthRefreshOptions): Respo
       const originalRequest = error instanceof HTTPError ? error.config : undefined;
 
       if (originalRequest && options.shouldRefresh(error) && !originalRequest._retry) {
-        if (isRefreshing) {
+        if (state.isRefreshing) {
           return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject, config: originalRequest });
+            state.failedQueue.push({ resolve, reject, config: originalRequest });
           });
         }
 
         originalRequest._retry = true;
-        isRefreshing = true;
+        state.isRefreshing = true;
 
         try {
           const newToken = await options.refreshTokenCall();
-          isRefreshing = false;
+          state.isRefreshing = false;
           processQueue(null, newToken);
 
           // Return retried request
-          let newConfig: HTTPOptions;
-          
-          if (options.attachToken) {
-            newConfig = options.attachToken(originalRequest, newToken);
-          } else if (options.authType === 'cookie') {
-            // For cookie auth, just retry the original request
-            newConfig = { ...originalRequest };
-          } else {
-            // Default to bearer token
-            newConfig = { 
-              ...originalRequest, 
-              headers: { ...originalRequest.headers, Authorization: `Bearer ${newToken}` } 
-            };
-          }
-          
+          const newConfig = options.attachToken
+            ? options.attachToken(originalRequest, newToken)
+            : options.authType === 'cookie'
+              ? { ...originalRequest }
+              : {
+                  ...originalRequest,
+                  headers: { ...originalRequest.headers, Authorization: `Bearer ${newToken}` },
+                };
+
           return options.client.request(originalRequest.url || '', newConfig);
         } catch (refreshError) {
-          isRefreshing = false;
+          state.isRefreshing = false;
           processQueue(refreshError, null);
           throw refreshError;
         }

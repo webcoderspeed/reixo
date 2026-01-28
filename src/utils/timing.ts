@@ -1,23 +1,24 @@
-export function debounce<T extends (...args: any[]) => any>( // eslint-disable-line @typescript-eslint/no-explicit-any
+export function debounce<T extends (this: unknown, ...args: unknown[]) => unknown>(
   func: T,
   wait: number,
   options: { leading?: boolean; trailing?: boolean } = {}
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
+): (this: ThisParameterType<T>, ...args: Parameters<T>) => void {
+  const state = {
+    timeout: null as ReturnType<typeof setTimeout> | null,
+  };
   const { leading = false, trailing = true } = options;
 
-  return function (this: any, ...args: Parameters<T>) {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (timeout) {
-      clearTimeout(timeout);
+  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+    if (state.timeout) {
+      clearTimeout(state.timeout);
     }
 
-    if (leading && !timeout) {
+    if (leading && !state.timeout) {
       func.apply(this, args);
     }
 
-    timeout = setTimeout(() => {
-      timeout = null;
+    state.timeout = setTimeout(() => {
+      state.timeout = null;
       if (trailing) {
         func.apply(this, args);
       }
@@ -25,46 +26,47 @@ export function debounce<T extends (...args: any[]) => any>( // eslint-disable-l
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>( // eslint-disable-line @typescript-eslint/no-explicit-any
+export function throttle<T extends (this: unknown, ...args: unknown[]) => unknown>(
   func: T,
   limit: number,
   options: { leading?: boolean; trailing?: boolean } = {}
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-  let lastFunc: ReturnType<typeof setTimeout>;
-  let lastRan: number;
+): (this: ThisParameterType<T>, ...args: Parameters<T>) => void {
+  const state = {
+    inThrottle: false,
+    lastFunc: undefined as ReturnType<typeof setTimeout> | undefined,
+    lastRan: 0,
+  };
   const { leading = true, trailing = true } = options;
 
-  return function (this: any, ...args: Parameters<T>) {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (!inThrottle) {
+  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
+    if (!state.inThrottle) {
       if (leading) {
         func.apply(this, args);
-        lastRan = Date.now();
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), limit);
+        state.lastRan = Date.now();
+        state.inThrottle = true;
+        setTimeout(() => (state.inThrottle = false), limit);
       } else {
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), limit);
+        state.inThrottle = true;
+        setTimeout(() => (state.inThrottle = false), limit);
 
         if (trailing) {
-          lastFunc = setTimeout(() => {
+          state.lastFunc = setTimeout(() => {
             func.apply(this, args);
-            lastRan = Date.now();
+            state.lastRan = Date.now();
           }, limit);
         }
       }
     } else {
-      if (lastFunc) clearTimeout(lastFunc);
+      if (state.lastFunc) clearTimeout(state.lastFunc);
       if (trailing) {
-        lastFunc = setTimeout(
+        state.lastFunc = setTimeout(
           () => {
-            if (Date.now() - lastRan >= limit) {
+            if (Date.now() - state.lastRan >= limit) {
               func.apply(this, args);
-              lastRan = Date.now();
+              state.lastRan = Date.now();
             }
           },
-          limit - (Date.now() - lastRan)
+          limit - (Date.now() - state.lastRan)
         );
       }
     }

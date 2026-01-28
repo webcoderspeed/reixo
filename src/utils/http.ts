@@ -1,12 +1,15 @@
 import { RetryOptions } from '../types';
 import { withRetry } from './retry';
+import { CacheOptions } from './cache';
 
 export interface HTTPOptions extends RequestInit {
   retry?: RetryOptions | boolean;
   timeoutMs?: number;
   baseURL?: string;
   url?: string; // Add url here
-  agent?: any; // Node.js http.Agent or https.Agent
+  params?: Record<string, string | number | boolean>; // Query parameters
+  cacheConfig?: CacheOptions | boolean; // Custom caching options
+  agent?: unknown; // Node.js http.Agent or https.Agent
   _retry?: boolean; // For tracking retries
   onDownloadProgress?: (progress: {
     loaded: number;
@@ -58,9 +61,18 @@ export async function http<T = unknown>(
 ): Promise<HTTPResponse<T>> {
   options.url = url; // Capture URL in options for interceptors/errors
 
-  const { retry = true, timeoutMs = 30000, baseURL, ...requestInit } = options;
+  const { retry = true, timeoutMs = 30000, baseURL, params, ...requestInit } = options;
 
-  const fullUrl = baseURL ? `${baseURL}${url}` : url;
+  const baseUrlWithUrl = baseURL ? `${baseURL}${url}` : url;
+
+  const query = params
+    ? Object.entries(params)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .join('&')
+    : '';
+
+  const separator = baseUrlWithUrl.includes('?') ? '&' : '?';
+  const fullUrl = params ? `${baseUrlWithUrl}${separator}${query}` : baseUrlWithUrl;
 
   const fetchWithTimeout = async (): Promise<Response> => {
     const controller = new AbortController();
@@ -99,59 +111,59 @@ export async function http<T = unknown>(
 
     // Auto-detect and parse JSON if Content-Type is application/json
     const contentType = response.headers.get('content-type');
-    let data: unknown;
 
-    if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
-      // Handle download progress for environments supporting Web Streams (Browser / Node 18+)
-      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-      const contentLength = response.headers.get('Content-Length');
-      const total = contentLength ? parseInt(contentLength, 10) : null;
-      let loaded = 0;
+    const data = await (async () => {
+      if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
+        // Handle download progress for environments supporting Web Streams (Browser / Node 18+)
+        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+        const contentLength = response.headers.get('Content-Length');
+        const total = contentLength ? parseInt(contentLength, 10) : null;
+        const state = { loaded: 0 };
 
-      const chunks: Uint8Array[] = [];
+        const chunks: Uint8Array[] = [];
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        if (value) {
-          chunks.push(value);
-          loaded += value.length;
+          if (value) {
+            chunks.push(value);
+            state.loaded += value.length;
 
-          if (options.onDownloadProgress) {
-            const progress = total ? Math.round((loaded / total) * 100) : null;
-            options.onDownloadProgress({ loaded, total, progress });
+            if (options.onDownloadProgress) {
+              const progress = total ? Math.round((state.loaded / total) * 100) : null;
+              options.onDownloadProgress({ loaded: state.loaded, total, progress });
+            }
           }
         }
-      }
 
-      // Combine chunks
-      const allChunks = new Uint8Array(loaded);
-      let position = 0;
-      for (const chunk of chunks) {
-        allChunks.set(chunk, position);
-        position += chunk.length;
-      }
+        // Combine chunks
+        const allChunks = new Uint8Array(state.loaded);
+        chunks.reduce((position, chunk) => {
+          allChunks.set(chunk, position);
+          return position + chunk.length;
+        }, 0);
 
-      const text = new TextDecoder('utf-8').decode(allChunks);
+        const text = new TextDecoder('utf-8').decode(allChunks);
 
-      if (contentType?.includes('application/json')) {
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = text;
+        if (contentType?.includes('application/json')) {
+          try {
+            return JSON.parse(text);
+          } catch {
+            return text;
+          }
+        } else {
+          return text;
         }
       } else {
-        data = text;
+        // Standard handling
+        if (contentType?.includes('application/json')) {
+          return response.json();
+        } else {
+          return response.text();
+        }
       }
-    } else {
-      // Standard handling
-      if (contentType?.includes('application/json')) {
-        data = await response.json();
-      } else {
-        data = await response.text();
-      }
-    }
+    })();
 
     return {
       data: data as T,
@@ -224,36 +236,41 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
     }
 
     xhr.onload = () => {
-      let responseHeaders: Headers;
-      if (typeof Headers !== 'undefined') {
-        responseHeaders = new Headers();
-        const headerLines = xhr
-          .getAllResponseHeaders()
-          .trim()
-          .split(/[\r\n]+/);
-        headerLines.forEach((line) => {
-          const parts = line.split(': ');
-          const key = parts.shift();
-          const value = parts.join(': ');
-          if (key) responseHeaders.append(key, value);
-        });
-      } else {
-        // Fallback if Headers is not available
-        responseHeaders = new Map() as unknown as Headers;
-      }
-
-      let data: unknown = xhr.response;
-      try {
-        if (
-          data &&
-          typeof data === 'string' &&
-          xhr.getResponseHeader('content-type')?.includes('application/json')
-        ) {
-          data = JSON.parse(data);
+      const responseHeaders = (() => {
+        if (typeof Headers !== 'undefined') {
+          const headers = new Headers();
+          const headerLines = xhr
+            .getAllResponseHeaders()
+            .trim()
+            .split(/[\r\n]+/);
+          headerLines.forEach((line) => {
+            const parts = line.split(': ');
+            const key = parts.shift();
+            const value = parts.join(': ');
+            if (key) headers.append(key, value);
+          });
+          return headers;
+        } else {
+          // Fallback if Headers is not available
+          return new Map() as unknown as Headers;
         }
-      } catch {
-        // Ignore
-      }
+      })();
+
+      const data = (() => {
+        const rawData = xhr.response;
+        try {
+          if (
+            rawData &&
+            typeof rawData === 'string' &&
+            xhr.getResponseHeader('content-type')?.includes('application/json')
+          ) {
+            return JSON.parse(rawData);
+          }
+        } catch {
+          // Ignore
+        }
+        return rawData;
+      })();
 
       const response: HTTPResponse<T> = {
         data: data as T,

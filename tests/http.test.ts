@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HTTPBuilder, HTTPClient } from '../src/core/http-client';
-import { HTTPError, http } from '../src/utils/http';
+import { HTTPError, http, HTTPResponse, HTTPOptions } from '../src/utils/http';
 
 // Mock fetch
 const fetchMock = vi.fn();
 global.fetch = fetchMock;
 
 // Helper to mock fetch response
-const mockFetchResponse = (ok: boolean, status: number, data: any) => ({
+const mockFetchResponse = (ok: boolean, status: number, data: unknown) => ({
   ok,
   status,
   statusText: ok ? 'OK' : 'Error',
@@ -16,10 +16,28 @@ const mockFetchResponse = (ok: boolean, status: number, data: any) => ({
   text: async () => JSON.stringify(data),
 });
 
+interface MockXHR {
+  open: ReturnType<typeof vi.fn>;
+  send: ReturnType<typeof vi.fn>;
+  setRequestHeader: ReturnType<typeof vi.fn>;
+  upload: {
+    onprogress:
+      | ((event: { lengthComputable?: boolean; loaded: number; total: number }) => void)
+      | null;
+  };
+  onload: (() => void) | null;
+  status: number;
+  statusText: string;
+  response: string;
+  getResponseHeader: (header: string) => string | null;
+  getAllResponseHeaders: () => string;
+}
+
 describe('HTTPClient', () => {
   beforeEach(() => {
     fetchMock.mockReset();
     // Reset XMLHttpRequest
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (global as any).XMLHttpRequest;
 
     // Default success response
@@ -32,6 +50,8 @@ describe('HTTPClient', () => {
       text: async () => JSON.stringify({ id: 1 }),
     });
   });
+
+  // ... (rest of the file with search/replace for any)
 
   describe('Methods', () => {
     const client = HTTPBuilder.create('https://api.test').build();
@@ -437,6 +457,9 @@ describe('HTTPClient', () => {
           onUploadProgress: requestProgress,
         }
       );
+
+      // Wait for async request processing to reach XHR creation
+      await new Promise((r) => setTimeout(r, 0));
 
       // Simulate XHR progress
       if (xhrMock.upload.onprogress) {

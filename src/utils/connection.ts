@@ -6,6 +6,13 @@ export interface ConnectionPoolOptions {
   keepAlive?: boolean;
   keepAliveMsecs?: number;
   timeout?: number;
+  // TLS/SSL Options
+  rejectUnauthorized?: boolean;
+  ca?: string | Buffer | Array<string | Buffer>;
+  cert?: string | Buffer | Array<string | Buffer>;
+  key?: string | Buffer | Array<string | Buffer>;
+  passphrase?: string;
+  secureProtocol?: string;
 }
 
 /**

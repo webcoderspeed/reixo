@@ -31,25 +31,28 @@ export async function withRetry<T>(
   } = options;
 
   const startTime = Date.now();
-  let lastError: unknown;
-  let attempts = 0;
 
-  while (attempts <= maxRetries) {
+  const attempt = async (count: number): Promise<RetryResult<T>> => {
     try {
       const result = await fn();
       const durationMs = Date.now() - startTime;
-      return { result, attempts: attempts + 1, durationMs };
+      return { result, attempts: count + 1, durationMs };
     } catch (error) {
-      lastError = error;
-      attempts++;
+      const attempts = count + 1;
 
       if (attempts > maxRetries) {
-        break;
+        const durationMs = Date.now() - startTime;
+        const finalError = error instanceof Error ? error : new Error(String(error));
+        Object.assign(finalError, { attempts, durationMs });
+        throw finalError;
       }
 
       const shouldRetry = await retryCondition(error, attempts);
       if (!shouldRetry) {
-        break;
+        const durationMs = Date.now() - startTime;
+        const finalError = error instanceof Error ? error : new Error(String(error));
+        Object.assign(finalError, { attempts, durationMs });
+        throw finalError;
       }
 
       const delay = calculateDelay(attempts, initialDelayMs, maxDelayMs, backoffFactor, jitter);
@@ -59,14 +62,11 @@ export async function withRetry<T>(
       }
 
       await sleep(delay);
+      return attempt(attempts);
     }
-  }
+  };
 
-  const durationMs = Date.now() - startTime;
-  const error = lastError instanceof Error ? lastError : new Error(String(lastError));
-
-  Object.assign(error, { attempts, durationMs });
-  throw error;
+  return attempt(0);
 }
 
 function calculateDelay(

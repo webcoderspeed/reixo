@@ -1,10 +1,12 @@
 import { RetryOptions } from '../types';
-import { http, HTTPOptions, HTTPResponse } from '../utils/http';
+import { http, HTTPOptions, HTTPResponse, HTTPError } from '../utils/http';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
 import { RateLimiter } from '../utils/rate-limiter';
-import { MetricsCollector, RequestMetrics } from '../utils/metrics';
+import { MetricsCollector } from '../utils/metrics';
+import { CacheManager, CacheOptions } from '../utils/cache';
+import { generateKey } from '../utils/keys';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -24,6 +26,13 @@ export interface HTTPClientConfig {
   headers?: Record<string, string>;
   retry?: RetryOptions | boolean;
   pool?: ConnectionPoolOptions;
+  ssl?: {
+    rejectUnauthorized?: boolean;
+    ca?: string | Buffer | Array<string | Buffer>;
+    cert?: string | Buffer | Array<string | Buffer>;
+    key?: string | Buffer | Array<string | Buffer>;
+    passphrase?: string;
+  };
   rateLimit?: {
     requests: number;
     interval: number; // in milliseconds
@@ -32,7 +41,9 @@ export interface HTTPClientConfig {
     pattern: string | RegExp;
     retry: RetryOptions | boolean;
   }>;
+  cacheConfig?: CacheOptions | boolean;
   enableMetrics?: boolean;
+  enableDeduplication?: boolean;
   onMetricsUpdate?: (metrics: import('../utils/metrics').Metrics) => void;
   onUploadProgress?: (progress: {
     loaded: number;
@@ -58,6 +69,8 @@ export class HTTPClient extends EventEmitter {
 
   private connectionPool?: ConnectionPool;
   private rateLimiter?: RateLimiter;
+  private cacheManager?: CacheManager;
+  private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
   public readonly metrics?: MetricsCollector;
 
   // Timing utilities
@@ -67,11 +80,18 @@ export class HTTPClient extends EventEmitter {
 
   constructor(private readonly config: HTTPClientConfig) {
     super();
-    if (config.pool) {
-      this.connectionPool = new ConnectionPool(config.pool);
+    if (config.pool || config.ssl) {
+      this.connectionPool = new ConnectionPool({
+        ...config.pool,
+        ...config.ssl,
+      });
     }
     if (config.rateLimit) {
       this.rateLimiter = new RateLimiter(config.rateLimit.requests, config.rateLimit.interval);
+    }
+    if (config.cacheConfig) {
+      const cacheOptions = typeof config.cacheConfig === 'boolean' ? {} : config.cacheConfig;
+      this.cacheManager = new CacheManager(cacheOptions);
     }
     if (config.enableMetrics) {
       this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
@@ -104,121 +124,171 @@ export class HTTPClient extends EventEmitter {
       this.rateLimiter.tryConsume();
     }
 
+    if (this.cacheManager) {
+      const method = options.method || 'GET';
+      const isCacheable = method.toUpperCase() === 'GET' && options.cacheConfig !== false;
+
+      if (isCacheable) {
+        const cacheKey = this.cacheManager.generateKey(url, options.params);
+        const cachedData = this.cacheManager.get<T>(cacheKey);
+
+        if (cachedData) {
+          // Return valid HTTPResponse structure
+          return {
+            data: cachedData,
+            status: 200,
+            statusText: 'OK (Cached)',
+            headers: new Headers(),
+            config: { ...this.config, ...options, url },
+          };
+        }
+      }
+    }
+
     // Determine retry options based on policies
-    let retryOptions = this.config.retry;
-    if (this.config.retryPolicies) {
-      for (const policy of this.config.retryPolicies) {
-        const matches =
-          typeof policy.pattern === 'string'
-            ? url.includes(policy.pattern)
-            : policy.pattern.test(url);
+    const retryOptions =
+      this.config.retryPolicies?.find((policy) =>
+        typeof policy.pattern === 'string' ? url.includes(policy.pattern) : policy.pattern.test(url)
+      )?.retry ?? this.config.retry;
 
-        if (matches) {
-          retryOptions = policy.retry;
-          break; // Use first matching policy
-        }
-      }
+    // Deduplication check
+    // Only deduplicate GET requests or if explicitly enabled
+    const shouldDeduplicate =
+      this.config.enableDeduplication && (options.method || 'GET').toUpperCase() === 'GET';
+
+    const dedupeKey = shouldDeduplicate ? generateKey(url, options.params) : null;
+
+    if (dedupeKey && this.inFlightRequests.has(dedupeKey)) {
+      return this.inFlightRequests.get(dedupeKey) as Promise<HTTPResponse<T>>;
     }
 
-    let mergedOptions: HTTPOptions = {
-      url,
-      ...this.config,
-      retry: retryOptions, // Default to resolved policy
-      ...options, // Request-specific options override everything
-      headers: {
-        ...this.config.headers,
-        ...options.headers,
-      },
-    };
+    const requestPromise = (async () => {
+      const initialOptions: HTTPOptions = {
+        url,
+        ...this.config,
+        retry: retryOptions, // Default to resolved policy
+        ...options, // Request-specific options override everything
+        headers: {
+          ...this.config.headers,
+          ...options.headers,
+        },
+      };
 
-    // Inject agent from connection pool if available and not already provided
-    if (this.connectionPool && !mergedOptions.agent) {
-      const isHttps = (mergedOptions.baseURL || url).startsWith('https');
-      const agent = isHttps
-        ? await this.connectionPool.getHttpsAgent()
-        : await this.connectionPool.getHttpAgent();
+      // Inject agent from connection pool if available and not already provided
+      if (this.connectionPool && !initialOptions.agent) {
+        const isHttps = (initialOptions.baseURL || url).startsWith('https');
+        const agent = isHttps
+          ? await this.connectionPool.getHttpsAgent()
+          : await this.connectionPool.getHttpAgent();
 
-      if (agent) {
-        mergedOptions.agent = agent;
-      }
-    }
-
-    // Chain progress handlers to emit events
-    const configUpload = this.config.onUploadProgress;
-    const requestUpload = options.onUploadProgress;
-
-    mergedOptions.onUploadProgress = (progress) => {
-      if (configUpload) configUpload(progress);
-      if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
-      this.emit('upload:progress', { url, ...progress });
-    };
-
-    const configDownload = this.config.onDownloadProgress;
-    const requestDownload = options.onDownloadProgress;
-
-    mergedOptions.onDownloadProgress = (progress) => {
-      if (configDownload) configDownload(progress);
-      if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
-      this.emit('download:progress', { url, ...progress });
-    };
-
-    // Run request interceptors
-    for (const interceptor of this.interceptors.request) {
-      if (interceptor.onFulfilled) {
-        mergedOptions = await interceptor.onFulfilled(mergedOptions);
-      }
-    }
-
-    try {
-      let response = await http<T>(url, mergedOptions);
-
-      // Run response interceptors
-      for (const interceptor of this.interceptors.response) {
-        if (interceptor.onFulfilled) {
-          response = (await interceptor.onFulfilled(
-            response as HTTPResponse<unknown>
-          )) as HTTPResponse<T>;
+        if (agent) {
+          initialOptions.agent = agent;
         }
       }
 
-      if (this.metrics) {
-        this.metrics.record({
-          url,
-          method: mergedOptions.method || 'GET',
-          startTime,
-          endTime: Date.now(),
-          status: response.status,
-          success: true,
-        });
-      }
+      // Chain progress handlers to emit events
+      const configUpload = this.config.onUploadProgress;
+      const requestUpload = options.onUploadProgress;
 
-      return response;
-    } catch (error) {
-      if (this.metrics) {
-        this.metrics.record({
-          url,
-          method: mergedOptions.method || 'GET',
-          startTime,
-          endTime: Date.now(),
-          status: (error as any).status || 0,
-          success: false,
-        });
-      }
-      let currentError: unknown = error;
-      // Run response interceptors (error case)
-      for (const interceptor of this.interceptors.response) {
-        if (interceptor.onRejected) {
-          try {
-            const result = await interceptor.onRejected(currentError);
-            return result as HTTPResponse<T>;
-          } catch (e) {
-            currentError = e;
+      initialOptions.onUploadProgress = (progress) => {
+        if (configUpload) configUpload(progress);
+        if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
+        this.emit('upload:progress', { url, ...progress });
+      };
+
+      const configDownload = this.config.onDownloadProgress;
+      const requestDownload = options.onDownloadProgress;
+
+      initialOptions.onDownloadProgress = (progress) => {
+        if (configDownload) configDownload(progress);
+        if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
+        this.emit('download:progress', { url, ...progress });
+      };
+
+      // Run request interceptors using reduce for sequential async execution
+      const mergedOptions = await this.interceptors.request.reduce(async (promise, interceptor) => {
+        const opts = await promise;
+        return interceptor.onFulfilled ? interceptor.onFulfilled(opts) : opts;
+      }, Promise.resolve(initialOptions));
+
+      try {
+        const initialResponse = await http<T>(url, mergedOptions);
+
+        // Run response interceptors using reduce
+        const response = await this.interceptors.response.reduce(async (promise, interceptor) => {
+          const resp = await promise;
+          return interceptor.onFulfilled
+            ? ((await interceptor.onFulfilled(resp as HTTPResponse<unknown>)) as HTTPResponse<T>)
+            : resp;
+        }, Promise.resolve(initialResponse));
+
+        if (this.metrics) {
+          this.metrics.record({
+            url,
+            method: mergedOptions.method || 'GET',
+            startTime,
+            endTime: Date.now(),
+            status: response.status,
+            success: true,
+          });
+        }
+
+        if (this.cacheManager && response.status >= 200 && response.status < 300) {
+          const method = mergedOptions.method || 'GET';
+          if (method.toUpperCase() === 'GET' && mergedOptions.cacheConfig !== false) {
+            const cacheKey = this.cacheManager.generateKey(url, mergedOptions.params);
+            this.cacheManager.set(cacheKey, response.data);
           }
         }
+
+        return response;
+      } catch (error) {
+        if (this.metrics) {
+          this.metrics.record({
+            url,
+            method: mergedOptions.method || 'GET',
+            startTime,
+            endTime: Date.now(),
+            status: (error as HTTPError).status || 0,
+            success: false,
+          });
+        }
+
+        // Run response interceptors (error case) using recursion
+        const runErrorInterceptors = async (
+          index: number,
+          err: unknown
+        ): Promise<HTTPResponse<T>> => {
+          if (index >= this.interceptors.response.length) throw err;
+          const interceptor = this.interceptors.response[index];
+          if (interceptor.onRejected) {
+            try {
+              const recovered = await interceptor.onRejected(err);
+              if (recovered) return recovered as HTTPResponse<T>;
+            } catch (newErr) {
+              return runErrorInterceptors(index + 1, newErr);
+            }
+          }
+          return runErrorInterceptors(index + 1, err);
+        };
+
+        return runErrorInterceptors(0, error);
+      } finally {
+        // Cleanup in-flight request
+        if (dedupeKey) {
+          this.inFlightRequests.delete(dedupeKey);
+        }
       }
-      throw currentError;
+    })();
+
+    if (dedupeKey) {
+      this.inFlightRequests.set(dedupeKey, requestPromise as Promise<HTTPResponse<unknown>>);
     }
+
+    return requestPromise;
   }
+
+  // ... rest of methods (get, post, put, delete, patch) remain unchanged as they delegate to request
 
   /**
    * GET request
