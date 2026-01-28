@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.1](https://github.com/webcoderspeed/reixo/compare/v1.2.0...v1.2.1) (2026-01-28)
+
+### Features
+
+- add comprehensive documentation and npm package optimization\n\n- Created professional README with extensive examples and API reference\n- Optimized package.json for npm publishing with enhanced metadata\n- Added comprehensive keywords for better discoverability\n- Improved build scripts and development workflow\n- Added repository links and author information~ ([6710a27](https://github.com/webcoderspeed/reixo/commit/6710a273480ca6bd593840788ba23c65bbadff25))
+
 ## [1.2.0](https://github.com/webcoderspeed/reixo/compare/v1.1.1...v1.2.0) (2026-01-28)
 
 ### Features
