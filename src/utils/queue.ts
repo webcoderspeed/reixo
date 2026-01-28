@@ -3,6 +3,7 @@ import { EventEmitter } from './emitter';
 
 export class TaskQueue extends EventEmitter {
   private queue: QueueTask<unknown>[] = [];
+  private activeTaskIds = new Set<string>();
   private completedTasks = new Set<string>();
   private activeCount = 0;
   private isPaused = false;
@@ -20,9 +21,11 @@ export class TaskQueue extends EventEmitter {
       const id = options.id || Math.random().toString(36).substring(7);
 
       // Check for duplicates
-      const existingTask = this.queue.find(t => t.id === id);
-      if (existingTask) {
-        reject(new Error(`Task with ID ${id} is already in the queue`));
+      const existingPending = this.queue.find(t => t.id === id);
+      const existingActive = this.activeTaskIds.has(id);
+      
+      if (existingPending || existingActive) {
+        reject(new Error(`Task with ID ${id} is already in the queue or running`));
         return;
       }
 
@@ -148,13 +151,15 @@ export class TaskQueue extends EventEmitter {
 
     this.activeCount++;
     const [nextTask] = this.queue.splice(taskIndex, 1);
-
+    
     if (nextTask) {
+      this.activeTaskIds.add(nextTask.id);
       try {
         await nextTask.task();
       } catch {
         // Error is handled in the task wrapper
       } finally {
+        this.activeTaskIds.delete(nextTask.id);
         this.activeCount--;
         this.processNext();
       }

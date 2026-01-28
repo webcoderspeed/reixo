@@ -1,6 +1,7 @@
 import { RetryOptions } from '../types';
 import { http, HTTPOptions, HTTPResponse } from '../utils/http';
 import { debounce, throttle, delay } from '../utils/timing';
+import { EventEmitter } from '../utils/emitter';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -17,9 +18,11 @@ export interface HTTPClientConfig {
   timeoutMs?: number;
   headers?: Record<string, string>;
   retry?: RetryOptions | boolean;
+  onUploadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
+  onDownloadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
 }
 
-export class HTTPClient {
+export class HTTPClient extends EventEmitter {
   public interceptors = {
     request: [] as RequestInterceptor[],
     response: [] as ResponseInterceptor[],
@@ -30,19 +33,35 @@ export class HTTPClient {
   public static throttle = throttle;
   public static delay = delay;
 
-  constructor(private readonly config: HTTPClientConfig) {}
+  constructor(private readonly config: HTTPClientConfig) {
+    super();
+  }
 
   /**
    * Generic request method
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
     let mergedOptions: HTTPOptions = {
+      url,
       ...this.config,
       ...options,
       headers: {
         ...this.config.headers,
         ...options.headers,
       },
+    };
+
+    // Chain progress handlers to emit events
+    const originalUpload = mergedOptions.onUploadProgress;
+    mergedOptions.onUploadProgress = (progress) => {
+      if (originalUpload) originalUpload(progress);
+      this.emit('upload:progress', { url, ...progress });
+    };
+
+    const originalDownload = mergedOptions.onDownloadProgress;
+    mergedOptions.onDownloadProgress = (progress) => {
+      if (originalDownload) originalDownload(progress);
+      this.emit('download:progress', { url, ...progress });
     };
 
     // Run request interceptors
@@ -182,6 +201,16 @@ export class HTTPBuilder {
 
   public withRetry(options: RetryOptions | boolean): this {
     this.config.retry = options;
+    return this;
+  }
+
+  public withUploadProgress(callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void): this {
+    this.config.onUploadProgress = callback;
+    return this;
+  }
+
+  public withDownloadProgress(callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void): this {
+    this.config.onDownloadProgress = callback;
     return this;
   }
 

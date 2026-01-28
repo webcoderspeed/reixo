@@ -8,6 +8,7 @@ export interface HTTPOptions extends RequestInit {
   url?: string; // Add url here
   _retry?: boolean; // For tracking retries
   onDownloadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
+  onUploadProgress?: (progress: { loaded: number; total: number | null; progress: number | null }) => void;
 }
 
 export interface HTTPResponse<T> {
@@ -88,6 +89,11 @@ export async function http<T = unknown>(
   };
 
   const executeRequest = async (): Promise<HTTPResponse<T>> => {
+    // Use XHR if upload progress is requested and XHR is available (Browser)
+    if (options.onUploadProgress && typeof XMLHttpRequest !== 'undefined') {
+      return xhrRequest<T>(fullUrl, options);
+    }
+
     const response = await fetchWithTimeout();
     
     // Auto-detect and parse JSON if Content-Type is application/json
@@ -184,31 +190,81 @@ export async function http<T = unknown>(
   return result.result;
 }
 
-// Convenience methods
-export const httpGet = <T = unknown>(url: string, options?: HTTPOptions) => 
-  http<T>(url, { ...options, method: 'GET' });
+// Helper for XHR requests (supports upload progress)
+async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPResponse<T>> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method || 'GET', url);
 
-export const httpPost = <T = unknown>(url: string, data?: unknown, options?: HTTPOptions) => 
-  http<T>(url, { 
-    ...options, 
-    method: 'POST', 
-    body: JSON.stringify(data),
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers
+    if (options.headers) {
+      if (typeof Headers !== 'undefined' && options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => xhr.setRequestHeader(key, value));
+      } else if (Array.isArray(options.headers)) {
+        options.headers.forEach(([key, value]) => xhr.setRequestHeader(key, value));
+      } else {
+        Object.entries(options.headers).forEach(([key, value]) => xhr.setRequestHeader(key, value as string));
+      }
     }
-  });
 
-export const httpPut = <T = unknown>(url: string, data?: unknown, options?: HTTPOptions) => 
-  http<T>(url, { 
-    ...options, 
-    method: 'PUT', 
-    body: JSON.stringify(data),
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers
+    if (options.timeoutMs) {
+      xhr.timeout = options.timeoutMs;
     }
-  });
 
-export const httpDelete = <T = unknown>(url: string, options?: HTTPOptions) => 
-  http<T>(url, { ...options, method: 'DELETE' });
+    if (options.onUploadProgress && xhr.upload) {
+      xhr.upload.onprogress = (event) => {
+        const total = event.lengthComputable ? event.total : null;
+        const progress = total ? Math.round((event.loaded / total) * 100) : null;
+        options.onUploadProgress!({ loaded: event.loaded, total, progress });
+      };
+    }
+
+    xhr.onload = () => {
+      let responseHeaders: Headers;
+      if (typeof Headers !== 'undefined') {
+         responseHeaders = new Headers();
+         const headerLines = xhr.getAllResponseHeaders().trim().split(/[\r\n]+/);
+         headerLines.forEach(line => {
+           const parts = line.split(': ');
+           const key = parts.shift();
+           const value = parts.join(': ');
+           if (key) responseHeaders.append(key, value);
+         });
+      } else {
+          // Fallback if Headers is not available
+          responseHeaders = new Map() as any; 
+      }
+
+      let data: unknown = xhr.response;
+      try {
+        if (data && typeof data === 'string' && xhr.getResponseHeader('content-type')?.includes('application/json')) {
+          data = JSON.parse(data);
+        }
+      } catch {
+        // Ignore
+      }
+
+      const response: HTTPResponse<T> = {
+        data: data as T,
+        status: xhr.status,
+        statusText: xhr.statusText,
+        headers: responseHeaders,
+        config: options
+      };
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(response);
+      } else {
+        reject(new HTTPError(`HTTP Error: ${xhr.status} ${xhr.statusText}`, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          config: options
+        }));
+      }
+    };
+
+    xhr.onerror = () => reject(new TypeError('Network request failed'));
+    xhr.ontimeout = () => reject(new Error('Request timed out'));
+
+    xhr.send(options.body as any);
+  });
+}
