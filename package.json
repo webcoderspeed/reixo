@@ -23,6 +23,7 @@
     "build": "tsup",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "release": "standard-version",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -60,6 +61,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
+    "standard-version": "^9.5.0",
     "tinybench": "^6.0.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",

@@ -123,6 +123,43 @@ import { Reixo } from 'reixo';
 Reixo.ensureBrowserCompatibility();
 ```
 
+### Polyfill Recommendations
+
+If you are targeting older browsers (e.g., IE11), you will need to load polyfills for:
+
+- `Promise`
+- `fetch` (e.g., `whatwg-fetch`)
+- `AbortController` (e.g., `abort-controller`)
+- `Headers` (included in `whatwg-fetch`)
+
+## Development
+
+### Building
+
+```bash
+npm run build
+```
+
+### Testing
+
+```bash
+npm test
+```
+
+### Releasing
+
+To bump the version, generate a changelog, and tag the release:
+
+```bash
+npm run release
+```
+
+Then push the tags to trigger the CI/CD publish workflow:
+
+```bash
+git push --follow-tags origin main
+```
+
 ## License
 
 MIT

@@ -1,5 +1,21 @@
 import { RetryOptions, RetryResult } from '../types';
 
+/**
+ * Executes a function with automatic retry logic based on configuration.
+ *
+ * @template T The return type of the function
+ * @param fn The async function to execute
+ * @param options Configuration options for the retry behavior
+ * @returns Promise resolving to the result with metadata about attempts and duration
+ *
+ * @example
+ * ```ts
+ * const data = await withRetry(() => fetch('/api/data'), {
+ *   maxRetries: 3,
+ *   backoffFactor: 2
+ * });
+ * ```
+ */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   options: RetryOptions = {}
@@ -11,7 +27,7 @@ export async function withRetry<T>(
     backoffFactor = 2,
     jitter = true,
     retryCondition = () => true,
-    onRetry
+    onRetry,
   } = options;
 
   const startTime = Date.now();
@@ -37,7 +53,7 @@ export async function withRetry<T>(
       }
 
       const delay = calculateDelay(attempts, initialDelayMs, maxDelayMs, backoffFactor, jitter);
-      
+
       if (onRetry) {
         onRetry(error, attempts, delay);
       }
@@ -47,10 +63,8 @@ export async function withRetry<T>(
   }
 
   const durationMs = Date.now() - startTime;
-  const error = lastError instanceof Error 
-    ? lastError 
-    : new Error(String(lastError));
-  
+  const error = lastError instanceof Error ? lastError : new Error(String(lastError));
+
   Object.assign(error, { attempts, durationMs });
   throw error;
 }
@@ -62,10 +76,7 @@ function calculateDelay(
   backoffFactor: number,
   jitter: boolean
 ): number {
-  const baseDelay = Math.min(
-    initialDelayMs * Math.pow(backoffFactor, attempt - 1),
-    maxDelayMs
-  );
+  const baseDelay = Math.min(initialDelayMs * Math.pow(backoffFactor, attempt - 1), maxDelayMs);
 
   if (jitter) {
     const jitterAmount = baseDelay * 0.1;
@@ -76,5 +87,5 @@ function calculateDelay(
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

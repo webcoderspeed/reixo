@@ -32,6 +32,10 @@ export interface HTTPClientConfig {
   }) => void;
 }
 
+/**
+ * Main HTTP Client class providing a fluent API for making HTTP requests.
+ * Supports interceptors, retries, timeout, and progress tracking.
+ */
 export class HTTPClient extends EventEmitter {
   public interceptors = {
     request: [] as RequestInterceptor[],
@@ -48,7 +52,12 @@ export class HTTPClient extends EventEmitter {
   }
 
   /**
-   * Generic request method
+   * Generic request method that handles interceptors, progress, and error propagation.
+   *
+   * @template T The expected response data type
+   * @param url The URL to request
+   * @param options Request configuration options
+   * @returns Promise resolving to the HTTP response
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
     let mergedOptions: HTTPOptions = {
@@ -177,6 +186,9 @@ export class HTTPClient extends EventEmitter {
   }
 }
 
+/**
+ * Builder pattern for creating configured HTTPClient instances.
+ */
 export class HTTPBuilder {
   private config: HTTPClientConfig = {};
   private requestInterceptors: RequestInterceptor[] = [];
@@ -188,11 +200,18 @@ export class HTTPBuilder {
     }
   }
 
+  /**
+   * Sets the base URL for all requests.
+   */
   public withBaseURL(baseURL: string): this {
     this.config.baseURL = baseURL;
     return this;
   }
 
+  /**
+   * Sets the default timeout for requests.
+   * @param timeoutMs Timeout in milliseconds
+   */
   public withTimeout(timeoutMs: number): this {
     this.config.timeoutMs = timeoutMs;
     return this;

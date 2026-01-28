@@ -1,6 +1,9 @@
 import { QueueOptions, QueueTask } from '../types';
 import { EventEmitter } from './emitter';
 
+/**
+ * Manages concurrent execution of async tasks with priority and dependencies.
+ */
 export class TaskQueue extends EventEmitter {
   private queue: QueueTask<unknown>[] = [];
   private activeTaskIds = new Set<string>();
@@ -10,20 +13,33 @@ export class TaskQueue extends EventEmitter {
   private readonly concurrency: number;
   private readonly autoStart: boolean;
 
+  /**
+   * @param options Configuration options including concurrency limit
+   */
   constructor(options: QueueOptions = {}) {
     super();
     this.concurrency = options.concurrency || 3;
     this.autoStart = options.autoStart ?? true;
   }
 
-  public add<T>(fn: () => Promise<T>, options: { priority?: number; id?: string; dependencies?: string[] } = {}): Promise<T> {
+  /**
+   * Adds a task to the queue.
+   *
+   * @param fn The async function to execute
+   * @param options Task options (priority, ID, dependencies)
+   * @returns Promise resolving to the task result
+   */
+  public add<T>(
+    fn: () => Promise<T>,
+    options: { priority?: number; id?: string; dependencies?: string[] } = {}
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       const id = options.id || Math.random().toString(36).substring(7);
 
       // Check for duplicates
-      const existingPending = this.queue.find(t => t.id === id);
+      const existingPending = this.queue.find((t) => t.id === id);
       const existingActive = this.activeTaskIds.has(id);
-      
+
       if (existingPending || existingActive) {
         reject(new Error(`Task with ID ${id} is already in the queue or running`));
         return;
@@ -59,8 +75,13 @@ export class TaskQueue extends EventEmitter {
     });
   }
 
+  /**
+   * Cancels a pending task by ID.
+   * @param taskId The ID of the task to cancel
+   * @returns True if cancelled, false if not found
+   */
   public cancel(taskId: string): boolean {
-    const index = this.queue.findIndex(t => t.id === taskId);
+    const index = this.queue.findIndex((t) => t.id === taskId);
     if (index !== -1) {
       this.queue.splice(index, 1);
       this.emit('task:cancelled', { id: taskId });
@@ -69,17 +90,26 @@ export class TaskQueue extends EventEmitter {
     return false;
   }
 
+  /**
+   * Pauses queue processing. Active tasks will continue to completion.
+   */
   public pause(): void {
     this.isPaused = true;
     this.emit('queue:paused');
   }
 
+  /**
+   * Resumes queue processing.
+   */
   public resume(): void {
     this.isPaused = false;
     this.emit('queue:resumed');
     this.processNext();
   }
 
+  /**
+   * Clears all pending tasks.
+   */
   public clear(): void {
     this.queue = [];
     this.completedTasks.clear();
@@ -113,11 +143,11 @@ export class TaskQueue extends EventEmitter {
         });
       }
 
-      // This implementation is a bit naive for a concurrent queue because 
+      // This implementation is a bit naive for a concurrent queue because
       // we might miss events if we are not listening.
       // Ideally we should have a buffer of completed results.
       // But for now let's just wait for the next completion.
-      
+
       const result = await new Promise((resolve) => {
         this.once('task:completed', (arg: unknown) => {
           const { result } = arg as { result: unknown };
@@ -142,9 +172,9 @@ export class TaskQueue extends EventEmitter {
     }
 
     // Find the first task that has all dependencies met
-    const taskIndex = this.queue.findIndex(task => {
+    const taskIndex = this.queue.findIndex((task) => {
       if (!task.dependencies || task.dependencies.length === 0) return true;
-      return task.dependencies.every(depId => this.completedTasks.has(depId));
+      return task.dependencies.every((depId) => this.completedTasks.has(depId));
     });
 
     if (taskIndex === -1) {
@@ -154,7 +184,7 @@ export class TaskQueue extends EventEmitter {
 
     this.activeCount++;
     const [nextTask] = this.queue.splice(taskIndex, 1);
-    
+
     if (nextTask) {
       this.activeTaskIds.add(nextTask.id);
       try {

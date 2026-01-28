@@ -4,7 +4,7 @@ export const CircuitState = {
   HALF_OPEN: 'HALF_OPEN',
 } as const;
 
-export type CircuitState = typeof CircuitState[keyof typeof CircuitState];
+export type CircuitState = (typeof CircuitState)[keyof typeof CircuitState];
 
 export interface CircuitBreakerOptions {
   failureThreshold?: number;
@@ -14,6 +14,10 @@ export interface CircuitBreakerOptions {
   onStateChange?: (state: CircuitState) => void;
 }
 
+/**
+ * Implements the Circuit Breaker pattern to prevent cascading failures.
+ * Tracks failures and opens the circuit when a threshold is reached.
+ */
 export class CircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
   private failures = 0;
@@ -31,6 +35,14 @@ export class CircuitBreaker {
     this.onStateChange = options.onStateChange;
   }
 
+  /**
+   * Executes a function through the circuit breaker.
+   * If the circuit is OPEN, it throws immediately without executing the function.
+   *
+   * @param fn The async function to execute
+   * @returns The result of the function
+   * @throws Error if circuit is OPEN or if execution fails
+   */
   public async execute<T>(fn: () => Promise<T>): Promise<T> {
     if (this.state === CircuitState.OPEN) {
       if (Date.now() > this.nextAttempt) {
@@ -80,7 +92,7 @@ export class CircuitBreaker {
 
   private transitionTo(newState: CircuitState): void {
     this.state = newState;
-    
+
     if (newState === CircuitState.OPEN) {
       this.nextAttempt = Date.now() + this.resetTimeoutMs;
     } else if (newState === CircuitState.CLOSED) {
