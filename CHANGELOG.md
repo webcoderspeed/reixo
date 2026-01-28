@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/webcoderspeed/reixo/compare/v1.1.1...v1.2.0) (2026-01-28)
+
+### Features
+
+- add developer experience improvements and advanced data handling ([d8e0543](https://github.com/webcoderspeed/reixo/commit/d8e05435610600f71e697db3e026fe82225b27d1))
+- add pagination stopCondition and example suite ([144c70b](https://github.com/webcoderspeed/reixo/commit/144c70b2fcfc2daa907f66319f080b1e319a0fe5))
+- add security, caching, deduplication, and pagination features ([7cd4cb5](https://github.com/webcoderspeed/reixo/commit/7cd4cb57d8b06e4c3776f9e27d0fed0dbb1df4e1))
+- **http:** add connection pooling support for Node.js ([53040ad](https://github.com/webcoderspeed/reixo/commit/53040ad7023e8e306122543e76307c7482ac0aa1))
+- **metrics:** add request metrics collection to HTTP client ([d2f73da](https://github.com/webcoderspeed/reixo/commit/d2f73da31f1567f20f1a949bf5e6fcd1abab6780))
+- **resilience:** implement circuit breaker fallback and retry policies ([e005a3f](https://github.com/webcoderspeed/reixo/commit/e005a3fb2e50a53f2b16d3c22286d6c94cf86b9f))
+
 ### [1.1.1](https://github.com/webcoderspeed/reixo/compare/v1.1.0...v1.1.1) (2026-01-28)
 
 ## 1.1.0 (2026-01-28)
