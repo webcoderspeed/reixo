@@ -27,6 +27,10 @@ export interface HTTPClientConfig {
     requests: number;
     interval: number; // in milliseconds
   };
+  retryPolicies?: Array<{
+    pattern: string | RegExp;
+    retry: RetryOptions | boolean;
+  }>;
   onUploadProgress?: (progress: {
     loaded: number;
     total: number | null;
@@ -92,10 +96,27 @@ export class HTTPClient extends EventEmitter {
       this.rateLimiter.tryConsume();
     }
 
+    // Determine retry options based on policies
+    let retryOptions = this.config.retry;
+    if (this.config.retryPolicies) {
+      for (const policy of this.config.retryPolicies) {
+        const matches =
+          typeof policy.pattern === 'string'
+            ? url.includes(policy.pattern)
+            : policy.pattern.test(url);
+
+        if (matches) {
+          retryOptions = policy.retry;
+          break; // Use first matching policy
+        }
+      }
+    }
+
     let mergedOptions: HTTPOptions = {
       url,
       ...this.config,
-      ...options,
+      retry: retryOptions, // Default to resolved policy
+      ...options, // Request-specific options override everything
       headers: {
         ...this.config.headers,
         ...options.headers,

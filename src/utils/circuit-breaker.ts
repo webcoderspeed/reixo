@@ -26,12 +26,14 @@ export class CircuitBreaker {
   private readonly failureThreshold: number;
   private readonly resetTimeoutMs: number;
   private readonly halfOpenRetries: number;
+  private readonly fallback?: () => unknown;
   private readonly onStateChange?: (state: CircuitState) => void;
 
   constructor(options: CircuitBreakerOptions = {}) {
     this.failureThreshold = options.failureThreshold || 5;
     this.resetTimeoutMs = options.resetTimeoutMs || 10000;
     this.halfOpenRetries = options.halfOpenRetries || 3;
+    this.fallback = options.fallback;
     this.onStateChange = options.onStateChange;
   }
 
@@ -48,6 +50,9 @@ export class CircuitBreaker {
       if (Date.now() > this.nextAttempt) {
         this.transitionTo(CircuitState.HALF_OPEN);
       } else {
+        if (this.fallback) {
+          return this.fallback() as T;
+        }
         throw new Error('CircuitBreaker: Circuit is OPEN');
       }
     }
@@ -58,6 +63,9 @@ export class CircuitBreaker {
       return result;
     } catch (error) {
       this.onFailure();
+      if (this.fallback) {
+        return this.fallback() as T;
+      }
       throw error;
     }
   }

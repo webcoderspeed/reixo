@@ -178,11 +178,11 @@
 - [x] Implement sliding window algorithm (Token Bucket)
 - [x] Add request prioritization and queueing
 
-**⬜ [ ] Advanced Retry & Resilience**
+**✅ [x] Advanced Retry & Resilience**
 
-- [ ] Add circuit breaker with half-open state
-- [ ] Implement retry policies per API endpoint
-- [ ] Support fallback responses from cache
+- [x] Add circuit breaker with half-open state
+- [x] Implement retry policies per API endpoint
+- [x] Support fallback responses from cache (via CircuitBreaker fallback)
 
 **⬜ [ ] Metrics & Observability**
 
