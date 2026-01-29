@@ -83,6 +83,13 @@ export type HTTPEvents = {
   'download:progress': [
     { url: string; loaded: number; total: number | null; progress: number | null },
   ];
+  'request:start': [{ url: string; method: string; requestId: string }];
+  'response:success': [
+    { url: string; method: string; status: number; requestId: string; duration: number },
+  ];
+  'response:error': [
+    { url: string; method: string; error: unknown; requestId: string; duration: number },
+  ];
 };
 
 /**
@@ -373,6 +380,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       const requestId = Math.random().toString(36).substring(2, 15);
       this.abortControllers.set(requestId, abortController);
 
+      this.emit('request:start', {
+        url,
+        method: options.method || 'GET',
+        requestId,
+      });
+
       // Setup timeout for request abandonment detection (30 minutes)
       const abandonmentTimeout = setTimeout(
         () => {
@@ -483,6 +496,14 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
           });
         }
 
+        this.emit('response:success', {
+          url,
+          method: mergedOptions.method || 'GET',
+          status: response.status,
+          requestId,
+          duration: Date.now() - startTime,
+        });
+
         if (this.cacheManager && response.status >= 200 && response.status < 300) {
           const method = mergedOptions.method || 'GET';
           if (method.toUpperCase() === 'GET' && mergedOptions.cacheConfig !== false) {
@@ -503,6 +524,14 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
             success: false,
           });
         }
+
+        this.emit('response:error', {
+          url,
+          method: mergedOptions.method || 'GET',
+          error,
+          requestId,
+          duration: Date.now() - startTime,
+        });
 
         // Run response interceptors (error case) using recursion
         const runErrorInterceptors = async (
