@@ -20,6 +20,8 @@ A modern, type-safe HTTP client library with built-in resilience patterns, advan
 - **Cross-Platform** - Works in Node.js and modern browsers
 - **GraphQL Support** - First-class GraphQL client wrapper
 - **Debugging Tools** - Comprehensive error handling and logging
+- **Enterprise Ready** - Built-in Auth Refresh, SSR Forwarding, and Distributed Tracing
+- **Developer Experience** - Network Recorder, Chaos Testing, and Runtime Validation
 
 ## 📦 Installation
 

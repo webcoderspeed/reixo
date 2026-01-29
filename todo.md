@@ -219,9 +219,9 @@
 
 - [x] **Auth Flow Standard**: Pre-built "Refresh Token" strategy class (Solves "401 Handling Boilerplate")
 - [x] **Distributed Tracing**: OpenTelemetry integration to inject trace IDs (Solves "Debugging Distributed Systems")
-- [ ] **Service Discovery**: Pluggable resolver for dynamic backend URLs (Solves "Hardcoded Endpoints")
-- [ ] **Bulk API Wrapper**: Auto-group individual requests into batch calls (Solves "Chatty Interfaces")
-- [ ] **OIDC/OAuth2 Helper**: Built-in flow for handling token refresh and auth redirects (Solves "Auth Complexity")
+- [x] **Service Discovery**: Pluggable resolver for dynamic backend URLs (Solves "Hardcoded Endpoints")
+- [x] **Bulk API Wrapper**: Auto-group individual requests into batch calls (Solves "Chatty Interfaces")
+- [x] **OIDC/OAuth2 Helper**: Built-in flow for handling token refresh and auth redirects (Solves "Auth Complexity")
 
 **⬜ [ ] Real-world "Grunt Work" Automations**
 
