@@ -34,7 +34,7 @@ describe('Persistent TaskQueue', () => {
     expect(entry?.data).toHaveLength(0);
   });
 
-  it('should restore queue metadata from storage', () => {
+  it('should restore queue metadata from storage', async () => {
     // Pre-populate storage
     storage.set('reixo-queue', {
       data: [
@@ -45,37 +45,18 @@ describe('Persistent TaskQueue', () => {
       createdAt: Date.now(),
     });
 
-    const restoreSpy = vi.fn();
-
     // Create new queue which should load from storage
-    const queue = new TaskQueue({ storage, autoStart: false });
-    queue.on('queue:restored', restoreSpy);
-
-    // We need to re-instantiate or trigger load manually if constructor handles it
-    // But since constructor is sync and emits event, we might miss it if we attach listener after.
-    // However, in our implementation, we attach listener *after* constructor returns?
-    // Wait, EventEmitter emits synchronously. If we emit in constructor, we miss it.
-    // BUT: The user would typically attach listener *after* creating instance.
-    // This is a common issue with "init in constructor".
-    // Let's check implementation:
-    /*
-      if (this.storage) {
-        this.loadQueue();
-      }
-    */
-    // Yes, it loads immediately. So we can't catch the event unless we subclass or pass a callback?
-    // Or we check storage state.
-    // Actually, for this test, since we can't catch the event easily without changing implementation to async init,
-    // let's just verify that loadQueue logic works by exposing a public method or checking side effects if any.
-    // The current implementation emits 'queue:restored'.
-
-    // Workaround for test:
-    // We can spy on EventEmitter.prototype.emit before creating the instance?
-    // Or we can modify the class to load on start().
-
-    // Let's rely on checking if it *tries* to get from storage.
     const getSpy = vi.spyOn(storage, 'get');
-    new TaskQueue({ storage });
+    const queue = new TaskQueue({ storage });
+
+    // Create a promise that resolves when the restoration happens
+    const restorationPromise = new Promise<void>((resolve) => {
+      queue.on('queue:restored', () => resolve());
+    });
+
+    // Wait for async load
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     expect(getSpy).toHaveBeenCalledWith('reixo-queue');
   });
 

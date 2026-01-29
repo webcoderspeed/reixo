@@ -227,6 +227,92 @@
 - [x] **API Versioning Strategy**: Configurable versioning (Header/URL) to switch API versions globally (Solves "Legacy Support")
 - [x] **SSR Header Forwarding**: Auto-forwarding of Cookies/Auth headers in Next.js/Nuxt (Solves "SSR Authentication Context")
 
+## 🎯 Current Focus: Critical Missing Features Implementation
+
+### ⚡ Immediate Priority: Production-Ready Resilience
+
+**⬜ [ ] Memory Leak Prevention & Resource Cleanup**
+
+- [ ] Add automatic cleanup of abandoned requests and connections
+- [ ] Implement connection pool disposal mechanisms
+- [ ] Add garbage collection for timed-out requests
+- [ ] Create comprehensive memory leak detection in tests
+- [ ] Implement proper `AbortController` cleanup patterns
+
+**⬜ [ ] Complete Offline Support & Queue Persistence**
+
+- [ ] Verify end-to-end offline→online transition works reliably
+- [ ] Add comprehensive storage adapter testing
+- [ ] Implement queue serialization/deserialization validation
+- [ ] Add network state change detection and automatic sync
+- [ ] Create recovery scenarios for app restarts during offline
+
+**⬜ [ ] Automatic Token Refresh Complete Implementation**
+
+- [ ] Ensure full refresh-retry cycle with proper error handling
+- [ ] Add concurrent request queuing during refresh operations
+- [ ] Implement refresh token expiration and logout scenarios
+- [ ] Add comprehensive unit tests for auth flow edge cases
+- [ ] Create refresh token race condition prevention
+
+**⬜ [ ] True Request Prioritization System**
+
+- [ ] Verify critical requests truly jump ahead of background tasks
+- [ ] Implement priority-based task execution with preemption
+- [ ] Add priority inheritance for dependent tasks
+- [ ] Create comprehensive prioritization test scenarios
+- [ ] Ensure prioritization works with offline queue persistence
+
+### 🔧 Implementation Details
+
+**Memory Leak Prevention:**
+
+```typescript
+// Add to HTTPClient constructor
+dispose() {
+  this.connectionPool?.dispose();
+  this.inFlightRequests.clear();
+  this.metrics?.stop();
+}
+
+// Automatic cleanup on instance destruction
+```
+
+**Offline Support Verification:**
+
+```typescript
+// Test scenarios to implement
+- App goes offline with queued requests
+- Multiple requests queued during offline
+- App comes back online - verify automatic sync
+- Mixed priority requests during offline
+- Storage persistence across app restarts
+```
+
+**Token Refresh Completion:**
+
+```typescript
+// Edge cases to handle
+- Refresh token itself expires
+- Multiple concurrent 401 errors
+- Network failures during refresh
+- Refresh token API returns errors
+- Token refresh rate limiting
+```
+
+**True Prioritization:**
+
+```typescript
+// Priority levels to implement
+enum Priority {
+  CRITICAL = 0, // User interactions, real-time data
+  HIGH = 1, // Important background updates
+  NORMAL = 2, // Regular API calls
+  LOW = 3, // Prefetching, analytics
+  BACKGROUND = 4, // Non-urgent background tasks
+}
+```
+
 ## 🎯 Current Focus: Maintenance & Improvements
 
 ---

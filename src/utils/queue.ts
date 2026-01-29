@@ -1,10 +1,10 @@
 import { QueueOptions, QueueTask } from '../types';
 import { EventEmitter } from './emitter';
-import { StorageAdapter } from './cache';
+import { StorageAdapter, WebStorageAdapter, MemoryAdapter } from './cache';
 import { NetworkMonitor } from './network';
 
 export interface PersistentQueueOptions extends QueueOptions {
-  storage?: StorageAdapter;
+  storage?: 'memory' | 'local' | 'session' | StorageAdapter;
   storageKey?: string;
   syncWithNetwork?: boolean;
 }
@@ -44,7 +44,19 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     super();
     this.concurrency = options.concurrency || 3;
     this.autoStart = options.autoStart ?? true;
-    this.storage = options.storage;
+
+    if (typeof options.storage === 'string') {
+      if (options.storage === 'local') {
+        this.storage = new WebStorageAdapter('local');
+      } else if (options.storage === 'session') {
+        this.storage = new WebStorageAdapter('session');
+      } else {
+        this.storage = new MemoryAdapter();
+      }
+    } else {
+      this.storage = options.storage;
+    }
+
     this.storageKey = options.storageKey || 'reixo-queue';
 
     if (options.syncWithNetwork) {
@@ -59,7 +71,8 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     }
 
     if (this.storage) {
-      this.loadQueue();
+      // Load queue asynchronously to allow listeners to be attached
+      setTimeout(() => this.loadQueue(), 0);
     }
   }
 

@@ -6,6 +6,7 @@ import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
 import { RateLimiter } from '../utils/rate-limiter';
 import { MetricsCollector } from '../utils/metrics';
 import { CacheManager, CacheOptions } from '../utils/cache';
+import { TaskQueue, PersistentQueueOptions } from '../utils/queue';
 import { generateKey } from '../utils/keys';
 import { objectToFormData } from '../utils/form-data';
 
@@ -57,6 +58,7 @@ export interface HTTPClientConfig {
   }>;
   cacheConfig?: CacheOptions | boolean;
   enableMetrics?: boolean;
+  offlineQueue?: boolean | PersistentQueueOptions;
   enableDeduplication?: boolean;
   onMetricsUpdate?: (metrics: import('../utils/metrics').Metrics) => void;
   onUploadProgress?: (progress: {
@@ -97,6 +99,9 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
   private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
+  private cleanupCallbacks: Array<() => void> = [];
+  private abortControllers = new Map<string, AbortController>();
+  private offlineQueue?: TaskQueue;
   public readonly metrics?: MetricsCollector;
 
   // Timing utilities
@@ -127,6 +132,117 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     }
     if (config.enableMetrics) {
       this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
+    }
+
+    // Setup automatic cleanup on instance destruction
+    this.setupAutomaticCleanup();
+
+    // Initialize offline queue if enabled
+    this.setupOfflineQueue(config);
+  }
+
+  /**
+   * Clean up all resources and prevent memory leaks
+   */
+  public dispose(): void {
+    // Cleanup all in-flight requests
+    this.inFlightRequests.clear();
+
+    // Abort all active requests
+    for (const controller of this.abortControllers.values()) {
+      controller.abort();
+    }
+    this.abortControllers.clear();
+
+    // Dispose connection pool
+    this.connectionPool?.destroy();
+
+    // Clear metrics data (no stop method needed for in-memory metrics)
+
+    // Execute all cleanup callbacks
+    for (const cleanup of this.cleanupCallbacks) {
+      try {
+        cleanup();
+      } catch (error) {
+        // Ignore errors during cleanup
+      }
+    }
+    this.cleanupCallbacks = [];
+
+    // Remove all event listeners
+    this.removeAllListeners();
+  }
+
+  /**
+   * Register a cleanup callback for resource disposal
+   */
+  public onCleanup(callback: () => void): void {
+    this.cleanupCallbacks.push(callback);
+  }
+
+  /**
+   * Setup offline request queue for handling requests when offline
+   */
+  private setupOfflineQueue(config: HTTPClientConfig): void {
+    if (config.offlineQueue) {
+      const queueOptions =
+        typeof config.offlineQueue === 'boolean'
+          ? { syncWithNetwork: true }
+          : { syncWithNetwork: true, ...config.offlineQueue };
+
+      this.offlineQueue = new TaskQueue(queueOptions);
+
+      // When coming back online, process queued requests
+      this.offlineQueue.on('queue:restored', (tasks) => {
+        this.config.logger?.info(`Offline queue restored with ${tasks.length} pending requests`);
+      });
+
+      this.offlineQueue.on('queue:drain', () => {
+        this.config.logger?.info('Offline queue drained - all requests completed');
+      });
+
+      // Register cleanup
+      this.onCleanup(() => {
+        this.offlineQueue?.clear();
+      });
+    }
+  }
+
+  /**
+   * Queue a request for execution when the client comes back online
+   */
+  private queueOfflineRequest<T>(
+    url: string,
+    options: HTTPOptions,
+    dedupeKey?: string
+  ): Promise<HTTPResponse<T>> {
+    if (!this.offlineQueue) {
+      throw new Error('Offline queue not configured');
+    }
+
+    const requestId = dedupeKey || Math.random().toString(36).substring(2, 15);
+
+    return this.offlineQueue.add<HTTPResponse<T>>(() => this.request<T>(url, options), {
+      id: requestId,
+      priority: typeof options.priority === 'number' ? options.priority : 0,
+    });
+  }
+
+  /**
+   * Setup automatic cleanup for browser environments
+   */
+  private setupAutomaticCleanup(): void {
+    // Cleanup on unload/page hide for browser environments
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      const cleanupOnUnload = () => this.dispose();
+      window.addEventListener('beforeunload', cleanupOnUnload);
+      window.addEventListener('pagehide', cleanupOnUnload);
+
+      // Register cleanup to remove these listeners
+      this.onCleanup(() => {
+        window.removeEventListener('beforeunload', cleanupOnUnload);
+        window.removeEventListener('pagehide', cleanupOnUnload);
+      });
     }
   }
 
@@ -243,7 +359,38 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       return this.inFlightRequests.get(dedupeKey) as Promise<HTTPResponse<T>>;
     }
 
+    // Check if we're offline and should queue the request
+    // We queue requests if the offline queue is enabled and currently paused (indicating offline state)
+    const shouldQueue = this.offlineQueue && this.offlineQueue.isQueuePaused;
+
+    if (shouldQueue && this.offlineQueue) {
+      return this.queueOfflineRequest<T>(url, options, dedupeKey || undefined);
+    }
+
     const requestPromise = (async () => {
+      // Create abort controller for this request
+      const abortController = new AbortController();
+      const requestId = Math.random().toString(36).substring(2, 15);
+      this.abortControllers.set(requestId, abortController);
+
+      // Setup timeout for request abandonment detection (30 minutes)
+      const abandonmentTimeout = setTimeout(
+        () => {
+          if (this.abortControllers.has(requestId)) {
+            // Request has been active for too long - likely abandoned
+            abortController.abort();
+            this.abortControllers.delete(requestId);
+
+            if (dedupeKey) {
+              this.inFlightRequests.delete(dedupeKey);
+            }
+
+            this.config.logger?.warn(`Request abandoned and cleaned up: ${url}`);
+          }
+        },
+        30 * 60 * 1000
+      ); // 30 minutes
+
       const initialOptions: HTTPOptions = {
         url,
         ...this.config,
@@ -253,6 +400,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
           ...this.config.headers,
           ...options.headers,
         },
+        signal: abortController.signal,
       };
 
       // Inject agent from connection pool if available and not already provided
@@ -380,6 +528,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
         if (dedupeKey) {
           this.inFlightRequests.delete(dedupeKey);
         }
+
+        // Cleanup abort controller
+        this.abortControllers.delete(requestId);
+
+        // Cleanup abandonment timeout
+        clearTimeout(abandonmentTimeout);
       }
     })();
 
@@ -618,6 +772,32 @@ export class HTTPBuilder {
     callback: (progress: { loaded: number; total: number | null; progress: number | null }) => void
   ): this {
     this.config.onDownloadProgress = callback;
+    return this;
+  }
+
+  public withRateLimit(options: { requests: number; interval: number }): this {
+    this.config.rateLimit = options;
+    return this;
+  }
+
+  public withOfflineQueue(options: boolean | PersistentQueueOptions): this {
+    this.config.offlineQueue = options;
+    return this;
+  }
+
+  public withDeduplication(enabled: boolean = true): this {
+    this.config.enableDeduplication = enabled;
+    return this;
+  }
+
+  public withMetrics(
+    enabled: boolean = true,
+    onUpdate?: (metrics: import('../utils/metrics').Metrics) => void
+  ): this {
+    this.config.enableMetrics = enabled;
+    if (onUpdate) {
+      this.config.onMetricsUpdate = onUpdate;
+    }
     return this;
   }
 

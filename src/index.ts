@@ -1,15 +1,20 @@
-// Core exports
-export { withRetry } from './utils/retry';
-export { http, HTTPError } from './utils/http';
+// Core public API - these are the main exports users should use
 export { HTTPBuilder, HTTPClient } from './core/http-client';
+export { HTTPError } from './utils/http';
 export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
-export { MockAdapter } from './utils/mock-adapter';
-export { ConsoleLogger, LogLevel } from './utils/logger';
+
+// Advanced utilities (exported but users might not need them directly)
 export { TaskQueue } from './utils/queue';
-export { NetworkMonitor } from './utils/network';
-export { BatchProcessor } from './utils/batch';
 export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthInterceptor } from './utils/auth';
+export { BatchProcessor } from './utils/batch';
+
+// Internal utilities (exported for advanced usage but not typically needed)
+export { withRetry } from './utils/retry';
+export { http } from './utils/http';
+export { MockAdapter } from './utils/mock-adapter';
+export { ConsoleLogger, LogLevel } from './utils/logger';
+export { NetworkMonitor } from './utils/network';
 export { createBatchTransport } from './utils/batch-transport';
 export { paginate } from './utils/pagination';
 
@@ -22,14 +27,8 @@ import {
 } from './utils/circuit-breaker';
 import { BatchProcessor as _BatchProcessor } from './utils/batch';
 import { createAuthInterceptor as _createAuthInterceptor } from './utils/auth';
-import { createBatchTransport as _createBatchTransport } from './utils/batch-transport';
-import { paginate as _paginate } from './utils/pagination';
-import { withRetry as _withRetry } from './utils/retry';
-import { http as _http, HTTPError as _HTTPError } from './utils/http';
+import { HTTPError as _HTTPError } from './utils/http';
 import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
-import { MockAdapter as _MockAdapter } from './utils/mock-adapter';
-import { ConsoleLogger as _ConsoleLogger, LogLevel as _LogLevel } from './utils/logger';
-import { NetworkMonitor as _NetworkMonitor } from './utils/network';
 
 export const Reixo = {
   HTTPBuilder: _HTTPBuilder,
@@ -39,17 +38,8 @@ export const Reixo = {
   CircuitState: _CircuitState,
   BatchProcessor: _BatchProcessor,
   createAuthInterceptor: _createAuthInterceptor,
-  createBatchTransport: _createBatchTransport,
-  paginate: _paginate,
-  withRetry: _withRetry,
-  http: _http,
   HTTPError: _HTTPError,
   GraphQLClient: _GraphQLClient,
-
-  MockAdapter: _MockAdapter,
-  ConsoleLogger: _ConsoleLogger,
-  LogLevel: _LogLevel,
-  NetworkMonitor: _NetworkMonitor,
 };
 
 // Types

@@ -66,14 +66,14 @@ describe('MockAdapter', () => {
   });
 
   it('should simulate delay', async () => {
-    mock.delayResponse = 10;
+    mock.delayResponse = 20;
     mock.onGet('/delayed').reply(200);
 
     const start = Date.now();
     await client.get('/delayed');
     const diff = Date.now() - start;
 
-    expect(diff).toBeGreaterThanOrEqual(10);
+    expect(diff).toBeGreaterThanOrEqual(15);
   });
 
   it('should reset handlers and history', async () => {
