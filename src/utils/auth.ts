@@ -1,87 +1,125 @@
-import { HTTPClient, ResponseInterceptor } from '../core/http-client';
-import { HTTPOptions, HTTPError } from './http';
+import { HTTPClient } from '../core/http-client';
+import { HTTPOptions, HTTPResponse, HTTPError } from './http';
 
-export interface AuthRefreshOptions {
-  client: HTTPClient;
-  refreshTokenCall: () => Promise<string>; // Returns new access token or cookie value
-  shouldRefresh: (error: unknown) => boolean;
-  attachToken?: (config: HTTPOptions, token: string) => HTTPOptions;
-  authType?: 'bearer' | 'cookie';
-  cookieName?: string;
+export interface AuthConfig {
+  /**
+   * Function to retrieve the current access token.
+   */
+  getAccessToken: () => string | null | Promise<string | null>;
+
+  /**
+   * Function to refresh the tokens.
+   * Should throw if refresh fails.
+   * Should return the new access token.
+   */
+  refreshTokens: (client: HTTPClient) => Promise<string>;
+
+  /**
+   * Callback when refresh fails (e.g. logout user).
+   */
+  onRefreshFailed?: (error: unknown) => void;
+
+  /**
+   * Header name for the token (default: 'Authorization')
+   */
+  headerName?: string;
+
+  /**
+   * Token prefix (default: 'Bearer ')
+   */
+  tokenPrefix?: string;
 }
 
-export function createAuthRefreshInterceptor(options: AuthRefreshOptions): ResponseInterceptor {
-  const state = {
-    isRefreshing: false,
-    failedQueue: [] as {
-      resolve: (value: unknown) => void;
-      reject: (reason?: unknown) => void;
-      config: HTTPOptions;
-    }[],
-  };
+/**
+ * Creates an authentication interceptor that handles:
+ * 1. Attaching the access token to requests.
+ * 2. Intercepting 401 errors.
+ * 3. Refreshing the token.
+ * 4. Retrying the original request.
+ */
+export function createAuthInterceptor(client: HTTPClient, config: AuthConfig) {
+  let isRefreshing = false;
+  let failedQueue: Array<{
+    resolve: (token: string) => void;
+    reject: (error: unknown) => void;
+  }> = [];
 
   const processQueue = (error: unknown, token: string | null = null) => {
-    state.failedQueue.forEach((prom) => {
+    failedQueue.forEach((prom) => {
       if (error) {
         prom.reject(error);
       } else {
-        // Retry with new token or cookie
-        const newConfig = options.attachToken
-          ? options.attachToken(prom.config, token!)
-          : options.authType === 'cookie'
-            ? { ...prom.config }
-            : {
-                ...prom.config,
-                headers: { ...prom.config.headers, Authorization: `Bearer ${token}` },
-              };
-
-        options.client
-          .request(prom.config.url || '', newConfig)
-          .then(prom.resolve)
-          .catch(prom.reject);
+        prom.resolve(token!);
       }
     });
-    state.failedQueue = [];
+    failedQueue = [];
   };
 
-  return {
-    onRejected: async (error: unknown) => {
-      const originalRequest = error instanceof HTTPError ? error.config : undefined;
+  const headerName = config.headerName || 'Authorization';
+  const tokenPrefix = config.tokenPrefix || 'Bearer ';
 
-      if (originalRequest && options.shouldRefresh(error) && !originalRequest._retry) {
-        if (state.isRefreshing) {
-          return new Promise((resolve, reject) => {
-            state.failedQueue.push({ resolve, reject, config: originalRequest });
-          });
+  // Request Interceptor: Attach Token
+  client.interceptors.request.push({
+    onFulfilled: async (options) => {
+      const token = await config.getAccessToken();
+      if (token) {
+        options.headers = {
+          ...options.headers,
+          [headerName]: `${tokenPrefix}${token}`,
+        };
+      }
+      return options;
+    },
+  });
+
+  // Response Interceptor: Handle 401
+  client.interceptors.response.push({
+    onRejected: async (error: unknown) => {
+      const httpError = error as HTTPError;
+      const originalRequest = httpError.config as HTTPOptions & { _retry?: boolean };
+
+      if (httpError.status === 401 && !originalRequest._retry) {
+        if (isRefreshing) {
+          try {
+            const token = await new Promise<string>((resolve, reject) => {
+              failedQueue.push({ resolve, reject });
+            });
+
+            originalRequest.headers = {
+              ...originalRequest.headers,
+              [headerName]: `${tokenPrefix}${token}`,
+            };
+            return client.request(originalRequest.url || '', originalRequest);
+          } catch (err) {
+            return Promise.reject(err);
+          }
         }
 
         originalRequest._retry = true;
-        state.isRefreshing = true;
+        isRefreshing = true;
 
         try {
-          const newToken = await options.refreshTokenCall();
-          state.isRefreshing = false;
+          const newToken = await config.refreshTokens(client);
+          isRefreshing = false;
           processQueue(null, newToken);
 
-          // Return retried request
-          const newConfig = options.attachToken
-            ? options.attachToken(originalRequest, newToken)
-            : options.authType === 'cookie'
-              ? { ...originalRequest }
-              : {
-                  ...originalRequest,
-                  headers: { ...originalRequest.headers, Authorization: `Bearer ${newToken}` },
-                };
+          originalRequest.headers = {
+            ...originalRequest.headers,
+            [headerName]: `${tokenPrefix}${newToken}`,
+          };
 
-          return options.client.request(originalRequest.url || '', newConfig);
-        } catch (refreshError) {
-          state.isRefreshing = false;
-          processQueue(refreshError, null);
-          throw refreshError;
+          return client.request(originalRequest.url || '', originalRequest);
+        } catch (err) {
+          isRefreshing = false;
+          processQueue(err, null);
+          if (config.onRefreshFailed) {
+            config.onRefreshFailed(err);
+          }
+          return Promise.reject(err);
         }
       }
 
-      throw error;
+      return Promise.reject(error);
     },
-  };
+  });
 }

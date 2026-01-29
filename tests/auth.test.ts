@@ -1,235 +1,147 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createAuthRefreshInterceptor } from '../src/utils/auth';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HTTPClient } from '../src/core/http-client';
+import { createAuthInterceptor } from '../src/utils/auth';
 import { HTTPError, HTTPOptions } from '../src/utils/http';
 
-const createTestContext = () => {
-  const client = {
-    request: vi.fn().mockResolvedValue({ status: 200, data: 'success', headers: {} }),
-  } as unknown as HTTPClient;
+describe('Auth Interceptor', () => {
+  let client: HTTPClient;
+  let transport: any;
+  let getAccessToken: any;
+  let refreshTokens: any;
+  let onRefreshFailed: any;
 
-  const refreshTokenCall = vi.fn().mockResolvedValue('new-token');
-  const shouldRefresh = vi.fn().mockReturnValue(true);
+  beforeEach(() => {
+    transport = vi.fn();
+    client = new HTTPClient({ transport });
+    getAccessToken = vi.fn();
+    refreshTokens = vi.fn();
+    onRefreshFailed = vi.fn();
 
-  const interceptor = createAuthRefreshInterceptor({
-    client,
-    refreshTokenCall,
-    shouldRefresh,
+    createAuthInterceptor(client, {
+      getAccessToken,
+      refreshTokens,
+      onRefreshFailed,
+    });
   });
 
-  return { client, refreshTokenCall, shouldRefresh, interceptor };
-};
+  it('should attach access token to requests', async () => {
+    getAccessToken.mockResolvedValue('valid-token');
+    transport.mockResolvedValue({
+      status: 200,
+      data: {},
+      headers: new Headers(),
+      config: {},
+    });
 
-const createError = (
-  status = 401,
-  config: Partial<HTTPOptions> = { url: '/test', headers: {} }
-) => {
-  return new HTTPError('Unauthorized', { status, config: config as HTTPOptions });
-};
+    await client.get('/protected');
 
-describe('Auth Refresh Interceptor', () => {
-  it('should pass through if error is not HTTPError', async () => {
-    const { interceptor } = createTestContext();
-    const error = new Error('Network Error');
-    if (interceptor.onRejected) {
-      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
-    }
+    expect(transport).toHaveBeenCalledWith(
+      '/protected',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer valid-token',
+        }),
+      })
+    );
   });
 
-  it('should pass through if shouldRefresh returns false', async () => {
-    const { interceptor, shouldRefresh } = createTestContext();
-    shouldRefresh.mockReturnValue(false);
-    const error = createError();
-    if (interceptor.onRejected) {
-      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
-    }
-  });
+  it('should refresh token on 401 and retry', async () => {
+    getAccessToken.mockResolvedValue('expired-token');
 
-  it('should pass through if request has already been retried', async () => {
-    const { interceptor } = createTestContext();
-    const error = createError(401, { url: '/test', headers: {}, _retry: true });
-    if (interceptor.onRejected) {
-      await expect(interceptor.onRejected(error)).rejects.toThrow(error);
-    }
-  });
+    // First call fails with 401
+    transport.mockRejectedValueOnce(
+      new HTTPError('Unauthorized', {
+        status: 401,
+        config: { url: '/protected', headers: { Authorization: 'Bearer expired-token' } },
+      })
+    );
 
-  it('should refresh token and retry request', async () => {
-    const { interceptor, refreshTokenCall, client } = createTestContext();
-    const error = createError();
+    // Second call (retry) succeeds
+    transport.mockResolvedValueOnce({
+      status: 200,
+      data: { success: true },
+      headers: new Headers(),
+      config: {},
+    });
 
-    if (interceptor.onRejected) {
-      await interceptor.onRejected(error);
-    }
+    refreshTokens.mockImplementation(async () => {
+      getAccessToken.mockResolvedValue('new-token'); // Update token state
+      return 'new-token';
+    });
 
-    expect(refreshTokenCall).toHaveBeenCalled();
-    expect(client.request).toHaveBeenCalledWith(
-      '/test',
+    const result = await client.get('/protected');
+
+    expect(refreshTokens).toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledTimes(2);
+    // First call
+    expect(transport).toHaveBeenNthCalledWith(1, '/protected', expect.anything());
+    // Second call (retry with new token)
+    expect(transport).toHaveBeenNthCalledWith(
+      2,
+      '/protected',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer new-token',
         }),
       })
     );
+    expect(result.data).toEqual({ success: true });
   });
 
-  it('should queue concurrent requests while refreshing', async () => {
-    const { interceptor, refreshTokenCall, client } = createTestContext();
-    // Simulate slow refresh
-    refreshTokenCall.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve('slow-token'), 10))
-    );
+  it('should queue concurrent requests during refresh', async () => {
+    getAccessToken.mockResolvedValue('expired-token');
 
-    const error1 = createError(401, { url: '/1', headers: {} });
-    const error2 = createError(401, { url: '/2', headers: {} });
+    // All initial requests fail with 401
+    transport
+      .mockRejectedValueOnce(
+        new HTTPError('Unauthorized', {
+          status: 401,
+          config: { url: '/req1', headers: { Authorization: 'Bearer expired-token' } },
+        })
+      )
+      .mockRejectedValueOnce(
+        new HTTPError('Unauthorized', {
+          status: 401,
+          config: { url: '/req2', headers: { Authorization: 'Bearer expired-token' } },
+        })
+      );
 
-    if (interceptor.onRejected) {
-      const p1 = interceptor.onRejected(error1);
-      const p2 = interceptor.onRejected(error2);
-
-      await Promise.all([p1, p2]);
-    }
-
-    expect(refreshTokenCall).toHaveBeenCalledTimes(1); // Only one refresh call
-    expect(client.request).toHaveBeenCalledTimes(2);
-    expect(client.request).toHaveBeenCalledWith(
-      '/1',
-      expect.objectContaining({ headers: { Authorization: 'Bearer slow-token' } })
-    );
-    expect(client.request).toHaveBeenCalledWith(
-      '/2',
-      expect.objectContaining({ headers: { Authorization: 'Bearer slow-token' } })
-    );
-  });
-
-  it('should handle refresh failure', async () => {
-    const { interceptor, refreshTokenCall, client } = createTestContext();
-    const refreshError = new Error('Refresh failed');
-    refreshTokenCall.mockRejectedValue(refreshError);
-
-    const error = createError();
-
-    if (interceptor.onRejected) {
-      await expect(interceptor.onRejected(error)).rejects.toThrow(refreshError);
-    }
-    expect(client.request).not.toHaveBeenCalled();
-  });
-
-  it('should support cookie auth type', async () => {
-    const { client, refreshTokenCall, shouldRefresh } = createTestContext();
-    const interceptor = createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall,
-      shouldRefresh,
-      authType: 'cookie',
+    // Retries succeed
+    transport.mockResolvedValue({
+      status: 200,
+      data: { success: true },
+      headers: new Headers(),
+      config: {},
     });
 
-    const error = createError();
-    if (interceptor.onRejected) {
-      await interceptor.onRejected(error);
-    }
+    // Refresh takes some time
+    refreshTokens.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return 'new-token';
+    });
 
-    expect(client.request).toHaveBeenCalledWith(
-      '/test',
-      expect.objectContaining({
-        // Should not add Bearer header
-        headers: {},
+    const p1 = client.get('/req1');
+    const p2 = client.get('/req2');
+
+    await Promise.all([p1, p2]);
+
+    expect(refreshTokens).toHaveBeenCalledTimes(1); // Only one refresh
+    expect(transport).toHaveBeenCalledTimes(4); // 2 initial failures + 2 retries
+  });
+
+  it('should fail all requests if refresh fails', async () => {
+    getAccessToken.mockResolvedValue('expired-token');
+
+    transport.mockRejectedValue(
+      new HTTPError('Unauthorized', {
+        status: 401,
+        config: { url: '/protected', headers: { Authorization: 'Bearer expired-token' } },
       })
     );
-  });
 
-  it('should support custom token attachment', async () => {
-    const { client, refreshTokenCall, shouldRefresh } = createTestContext();
-    const interceptor = createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall,
-      shouldRefresh,
-      attachToken: (config, token) => ({
-        ...config,
-        headers: { ...config.headers, 'X-Custom-Token': token },
-      }),
-    });
+    refreshTokens.mockRejectedValue(new Error('Refresh failed'));
 
-    const error = createError();
-    if (interceptor.onRejected) {
-      await interceptor.onRejected(error);
-    }
-
-    expect(client.request).toHaveBeenCalledWith(
-      '/test',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'X-Custom-Token': 'new-token',
-        }),
-      })
-    );
-  });
-
-  it('should reject queued requests if refresh fails', async () => {
-    const { interceptor, refreshTokenCall } = createTestContext();
-    // Simulate slow refresh that fails
-    refreshTokenCall.mockImplementation(
-      () => new Promise((_, reject) => setTimeout(() => reject(new Error('Refresh failed')), 10))
-    );
-
-    const error1 = createError(401, { url: '/1', headers: {} });
-    const error2 = createError(401, { url: '/2', headers: {} });
-
-    if (interceptor.onRejected) {
-      const p1 = interceptor.onRejected(error1);
-      const p2 = interceptor.onRejected(error2);
-
-      await expect(p1).rejects.toThrow('Refresh failed');
-      await expect(p2).rejects.toThrow('Refresh failed');
-    }
-  });
-
-  it('should queue requests and use cookie auth', async () => {
-    const { client, shouldRefresh } = createTestContext();
-    const interceptor = createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall: () => new Promise((r) => setTimeout(() => r('cookie-val'), 10)),
-      shouldRefresh,
-      authType: 'cookie',
-    });
-
-    const error1 = createError(401, { url: '/1', headers: {} });
-    const error2 = createError(401, { url: '/2', headers: {} });
-
-    if (interceptor.onRejected) {
-      await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
-    }
-
-    // Verify calls didn't get bearer token
-    expect(client.request).toHaveBeenCalledWith(
-      '/2',
-      expect.not.objectContaining({
-        headers: expect.objectContaining({ Authorization: expect.any(String) }),
-      })
-    );
-  });
-
-  it('should queue requests and use custom attachToken', async () => {
-    const { client, shouldRefresh } = createTestContext();
-    const interceptor = createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall: () => new Promise((r) => setTimeout(() => r('custom-token'), 10)),
-      shouldRefresh,
-      attachToken: (config, token) => ({
-        ...config,
-        headers: { ...config.headers, 'X-Auth': token },
-      }),
-    });
-
-    const error1 = createError(401, { url: '/1', headers: {} });
-    const error2 = createError(401, { url: '/2', headers: {} });
-
-    if (interceptor.onRejected) {
-      await Promise.all([interceptor.onRejected(error1), interceptor.onRejected(error2)]);
-    }
-
-    expect(client.request).toHaveBeenCalledWith(
-      '/2',
-      expect.objectContaining({ headers: expect.objectContaining({ 'X-Auth': 'custom-token' }) })
-    );
+    await expect(client.get('/protected')).rejects.toThrow('Refresh failed');
+    expect(onRefreshFailed).toHaveBeenCalled();
   });
 });

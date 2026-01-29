@@ -1,5 +1,5 @@
 import { RetryOptions } from '../types';
-import { http, HTTPOptions, HTTPResponse, HTTPError } from '../utils/http';
+import { http, HTTPOptions, HTTPResponse, HTTPError, ValidationError } from '../utils/http';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
@@ -7,6 +7,9 @@ import { RateLimiter } from '../utils/rate-limiter';
 import { MetricsCollector } from '../utils/metrics';
 import { CacheManager, CacheOptions } from '../utils/cache';
 import { generateKey } from '../utils/keys';
+import { objectToFormData } from '../utils/form-data';
+import { generateCurlCommand } from '../utils/curl-generator';
+import { ChaosSimulator, ChaosOptions } from '../utils/chaos';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -68,6 +71,10 @@ export interface HTTPClientConfig {
     total: number | null;
     progress: number | null;
   }) => void;
+  apiVersion?: string;
+  versioningStrategy?: 'header' | 'url';
+  versionHeader?: string;
+  chaos?: ChaosOptions;
 }
 
 export type HTTPEvents = {
@@ -92,6 +99,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   private connectionPool?: ConnectionPool;
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
+  private chaosSimulator?: ChaosSimulator;
   private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
   public readonly metrics?: MetricsCollector;
 
@@ -123,6 +131,9 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     }
     if (config.enableMetrics) {
       this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
+    }
+    if (config.chaos) {
+      this.chaosSimulator = new ChaosSimulator(config.chaos);
     }
   }
 
@@ -177,6 +188,24 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
    * @returns Promise resolving to the HTTP response
    */
   public async request<T>(url: string, options: HTTPOptions = {}): Promise<HTTPResponse<T>> {
+    // API Versioning Logic
+    if (this.config.apiVersion) {
+      const strategy = this.config.versioningStrategy || 'header';
+      if (strategy === 'url') {
+        if (!url.startsWith('http') && !url.startsWith('https')) {
+          const version = this.config.apiVersion.replace(/^\/|\/$/g, '');
+          const cleanUrl = url.replace(/^\//, '');
+          url = `/${version}/${cleanUrl}`;
+        }
+      } else {
+        const headerName = this.config.versionHeader || 'X-API-Version';
+        options.headers = {
+          ...((options.headers as Record<string, string>) || {}),
+          [headerName]: this.config.apiVersion,
+        };
+      }
+    }
+
     const startTime = Date.now();
     // Handle Rate Limiting
     if (this.rateLimiter) {
@@ -185,6 +214,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
         await delay(waitTime);
       }
       this.rateLimiter.tryConsume();
+    }
+
+    // Chaos Simulation
+    if (this.chaosSimulator) {
+      await this.chaosSimulator.simulate(url);
     }
 
     if (this.cacheManager) {
@@ -286,6 +320,18 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
             : resp;
         }, Promise.resolve(initialResponse));
 
+        // Runtime Validation
+        if (mergedOptions.validationSchema) {
+          try {
+            const schema = mergedOptions.validationSchema;
+            const validatedData =
+              typeof schema === 'function' ? schema(response.data) : schema.parse(response.data);
+            response.data = validatedData;
+          } catch (error) {
+            throw new ValidationError('Response validation failed', response.data, error);
+          }
+        }
+
         if (this.metrics) {
           this.metrics.record({
             url,
@@ -355,6 +401,22 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   // ... rest of methods (get, post, put, delete, patch) remain unchanged as they delegate to request
 
   /**
+   * Generates a cURL command for the given request configuration.
+   * Note: This does not execute the request or run interceptors.
+   */
+  public generateCurl(url: string, options: HTTPOptions = {}): string {
+    const baseUrl = this.config.baseURL || '';
+    const fullUrl =
+      baseUrl && !url.startsWith('http')
+        ? `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`
+        : url;
+
+    const headers = { ...this.config.headers, ...options.headers };
+
+    return generateCurlCommand(fullUrl, options.method, headers, options.body);
+  }
+
+  /**
    * GET request
    */
   public get<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
@@ -365,14 +427,38 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
    * POST request
    */
   public post<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+    let body = data;
+    const headers: Record<string, string> = {
+      ...((options?.headers as Record<string, string>) || {}),
+    };
+
+    if (
+      options?.useFormData &&
+      data &&
+      typeof data === 'object' &&
+      !(typeof FormData !== 'undefined' && data instanceof FormData)
+    ) {
+      body = objectToFormData(data as Record<string, unknown>);
+    }
+
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+    if (isFormData) {
+      if (headers['Content-Type']) {
+        delete headers['Content-Type'];
+      }
+    } else {
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      body = data ? JSON.stringify(data) : undefined;
+    }
+
     return this.request<T>(url, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      body: body as BodyInit,
+      headers,
     });
   }
 
@@ -380,14 +466,38 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
    * PUT request
    */
   public put<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+    let body = data;
+    const headers: Record<string, string> = {
+      ...((options?.headers as Record<string, string>) || {}),
+    };
+
+    if (
+      options?.useFormData &&
+      data &&
+      typeof data === 'object' &&
+      !(typeof FormData !== 'undefined' && data instanceof FormData)
+    ) {
+      body = objectToFormData(data as Record<string, unknown>);
+    }
+
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+    if (isFormData) {
+      if (headers['Content-Type']) {
+        delete headers['Content-Type'];
+      }
+    } else {
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      body = data ? JSON.stringify(data) : undefined;
+    }
+
     return this.request<T>(url, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      body: body as BodyInit,
+      headers,
     });
   }
 
@@ -402,14 +512,38 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
    * PATCH request
    */
   public patch<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+    let body = data;
+    const headers: Record<string, string> = {
+      ...((options?.headers as Record<string, string>) || {}),
+    };
+
+    if (
+      options?.useFormData &&
+      data &&
+      typeof data === 'object' &&
+      !(typeof FormData !== 'undefined' && data instanceof FormData)
+    ) {
+      body = objectToFormData(data as Record<string, unknown>);
+    }
+
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+    if (isFormData) {
+      if (headers['Content-Type']) {
+        delete headers['Content-Type'];
+      }
+    } else {
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      body = data ? JSON.stringify(data) : undefined;
+    }
+
     return this.request<T>(url, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      body: body as BodyInit,
+      headers,
     });
   }
 }

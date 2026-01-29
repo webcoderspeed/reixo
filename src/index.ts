@@ -9,7 +9,7 @@ export { TaskQueue } from './utils/queue';
 export { NetworkMonitor } from './utils/network';
 export { BatchProcessor } from './utils/batch';
 export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
-export { createAuthRefreshInterceptor } from './utils/auth';
+export { createAuthInterceptor } from './utils/auth';
 export {
   checkBrowserCapabilities,
   getMissingPolyfills,
@@ -23,7 +23,7 @@ export type { HTTPOptions, HTTPResponse } from './utils/http';
 export type { HTTPClientConfig, RequestInterceptor, ResponseInterceptor } from './core/http-client';
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
-export type { AuthRefreshOptions } from './utils/auth';
+export type { AuthConfig } from './utils/auth';
 export type { BrowserCapabilities } from './utils/browser';
 
 // Import for main class
@@ -37,7 +37,7 @@ import { TaskQueue as _TaskQueue } from './utils/queue';
 import { NetworkMonitor as _NetworkMonitor } from './utils/network';
 import { BatchProcessor as _BatchProcessor } from './utils/batch';
 import { CircuitBreaker as _CircuitBreaker } from './utils/circuit-breaker';
-import { createAuthRefreshInterceptor as _createAuthRefreshInterceptor } from './utils/auth';
+import { createAuthInterceptor as _createAuthInterceptor } from './utils/auth';
 import { debounce as _debounce, throttle as _throttle, delay as _delay } from './utils/timing';
 import {
   checkBrowserCapabilities as _checkBrowserCapabilities,
@@ -59,7 +59,7 @@ export class Reixo {
   static NetworkMonitor = _NetworkMonitor;
   static BatchProcessor = _BatchProcessor;
   static CircuitBreaker = _CircuitBreaker;
-  static createAuthRefreshInterceptor = _createAuthRefreshInterceptor;
+  static createAuthInterceptor = _createAuthInterceptor;
   static debounce = _debounce;
   static throttle = _throttle;
   static delay = _delay;

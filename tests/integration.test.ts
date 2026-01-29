@@ -50,14 +50,12 @@ describe('Reixo Integration', () => {
   it('should use interceptors for auth refresh', async () => {
     const client = Reixo.HTTPBuilder.create('https://api.example.com').build();
     const refreshLogic = vi.fn().mockResolvedValue('new-token');
+    const getAccessToken = vi.fn().mockResolvedValue('token');
 
-    const interceptor = Reixo.createAuthRefreshInterceptor({
-      client,
-      refreshTokenCall: refreshLogic,
-      shouldRefresh: (err: unknown) => (err as HTTPError).status === 401,
+    Reixo.createAuthInterceptor(client, {
+      getAccessToken,
+      refreshTokens: refreshLogic,
     });
-
-    client.interceptors.response.push(interceptor);
 
     const fetchMock = global.fetch as unknown as Mock;
     fetchMock

@@ -21,6 +21,22 @@ export interface HTTPOptions extends RequestInit {
     total: number | null;
     progress: number | null;
   }) => void;
+  validationSchema?: ValidationSchema<any>;
+  useFormData?: boolean;
+}
+
+export type ValidationSchema<T> = { parse: (data: unknown) => T } | ((data: unknown) => T);
+
+export class ValidationError extends Error {
+  public readonly data: unknown;
+  public readonly originalError: unknown;
+
+  constructor(message: string, data: unknown, originalError: unknown) {
+    super(message);
+    this.name = 'ValidationError';
+    this.data = data;
+    this.originalError = originalError;
+  }
 }
 
 export interface HTTPResponse<T> {

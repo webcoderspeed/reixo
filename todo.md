@@ -202,10 +202,10 @@
 **⬜ [ ] Enhanced Developer Experience (DX)**
 
 - [ ] **Interactive DevTools**: Browser overlay to visualize active requests, cache hits/misses, and queue status (Solves "Observability/Debugging")
-- [ ] **Network Recorder**: Utility to record live traffic and generate mock fixtures for testing (Solves "Environment Inconsistency" & "Mocking")
-- [ ] **Snippet Generator**: "Copy as cURL" or "Copy as Reixo Code" helper for debugging
-- [ ] **Runtime Validation**: Integration with Zod/Valibot for strict type safety on API responses (Solves "Type Safety" & "Unexpected API Changes")
-- [ ] **Transformer Pipelines**: Type-safe data transformation pipes to decouple logic from UI components (Solves "Frontend vs Backend Logic Sprawl")
+- [x] **Network Recorder**: Utility to record live traffic and generate mock fixtures for testing (Solves "Environment Inconsistency" & "Mocking")
+- [x] **Snippet Generator**: "Copy as cURL" or "Copy as Reixo Code" helper for debugging
+- [x] **Runtime Validation**: Integration with Zod/Valibot for strict type safety on API responses (Solves "Type Safety" & "Unexpected API Changes")
+- [x] **Transformer Pipelines**: Type-safe data transformation pipes to decouple logic from UI components (Solves "Frontend vs Backend Logic Sprawl")
 
 **⬜ [ ] Framework Integration (State Management)**
 
@@ -217,19 +217,19 @@
 
 **⬜ [ ] Microservices & Enterprise Challenges**
 
-- [ ] **Auth Flow Standard**: Pre-built "Refresh Token" strategy class (Solves "401 Handling Boilerplate")
-- [ ] **Distributed Tracing**: OpenTelemetry integration to inject trace IDs (Solves "Debugging Distributed Systems")
+- [x] **Auth Flow Standard**: Pre-built "Refresh Token" strategy class (Solves "401 Handling Boilerplate")
+- [x] **Distributed Tracing**: OpenTelemetry integration to inject trace IDs (Solves "Debugging Distributed Systems")
 - [ ] **Service Discovery**: Pluggable resolver for dynamic backend URLs (Solves "Hardcoded Endpoints")
 - [ ] **Bulk API Wrapper**: Auto-group individual requests into batch calls (Solves "Chatty Interfaces")
 - [ ] **OIDC/OAuth2 Helper**: Built-in flow for handling token refresh and auth redirects (Solves "Auth Complexity")
 
 **⬜ [ ] Real-world "Grunt Work" Automations**
 
-- [ ] **Resumable File Uploads**: Built-in chunking & retry support for large files (Solves "Upload Failures" & "Timeouts")
-- [ ] **Smart FormData**: Auto-serialize complex nested objects to FormData (Solves "Boilerplate Code")
-- [ ] **API Versioning Strategy**: Configurable versioning (Header/URL) to switch API versions globally (Solves "Legacy Support")
-- [ ] **SSR Header Forwarding**: Auto-forwarding of Cookies/Auth headers in Next.js/Nuxt (Solves "SSR Authentication Context")
-- [ ] **Chaos Testing Utility**: Simulate slow networks/failures in dev mode to verify UI resilience (Solves "Happy Path Bias")
+- [x] **Resumable File Uploads**: Built-in chunking & retry support for large files (Solves "Upload Failures" & "Timeouts")
+- [x] **Smart FormData**: Auto-serialize complex nested objects to FormData (Solves "Boilerplate Code")
+- [x] **API Versioning Strategy**: Configurable versioning (Header/URL) to switch API versions globally (Solves "Legacy Support")
+- [x] **SSR Header Forwarding**: Auto-forwarding of Cookies/Auth headers in Next.js/Nuxt (Solves "SSR Authentication Context")
+- [x] **Chaos Testing Utility**: Simulate slow networks/failures in dev mode to verify UI resilience (Solves "Happy Path Bias")
 
 ## 🎯 Current Focus: Maintenance & Improvements
 
