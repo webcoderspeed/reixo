@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0](https://github.com/webcoderspeed/reixo/compare/v1.3.0...v2.0.0) (2026-01-29)
+
+### Features
+
+- add service discovery, batch transport, and OAuth2 helpers ([9552181](https://github.com/webcoderspeed/reixo/commit/95521819bf0678d7eba50fb25aae9271107e23da))
+
 ## [1.3.0](https://github.com/webcoderspeed/reixo/compare/v1.2.1...v1.3.0) (2026-01-29)
 
 ### Features
