@@ -1,6 +1,6 @@
 {
   "name": "reixo",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A modern, type-safe HTTP client with built-in resilience patterns, queue management, and enterprise-grade features for Node.js and browsers",
   "keywords": [
     "http",

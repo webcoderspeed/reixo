@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.0.1](https://github.com/webcoderspeed/reixo/compare/v2.0.0...v2.0.1) (2026-01-29)
+
+### Features
+
+- **core:** add request lifecycle events and update todo ([ec2cd98](https://github.com/webcoderspeed/reixo/commit/ec2cd989b4b0e27ec528739d29850b7081cd136d))
+- **http:** add stream response support and typed validation ([7001491](https://github.com/webcoderspeed/reixo/commit/7001491072a29744fd7cc5c4c2e740fb478cfb0e))
+
 ## [2.0.0](https://github.com/webcoderspeed/reixo/compare/v1.3.0...v2.0.0) (2026-01-29)
 
 ### Features
