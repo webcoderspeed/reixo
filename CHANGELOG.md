@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.0.2](https://github.com/webcoderspeed/reixo/compare/v2.0.1...v2.0.2) (2026-01-29)
+
+### Features
+
+- add SSEClient and polling utilities for real-time connectivity ([03e22fb](https://github.com/webcoderspeed/reixo/commit/03e22fb25767f92d26165f1fdd668ac72750a83d))
+- **websocket:** add WebSocketClient with auto-reconnect and heartbeat ([02d196c](https://github.com/webcoderspeed/reixo/commit/02d196c35b793e75551dda7b2bd287d211b8e00b))
+
 ### [2.0.1](https://github.com/webcoderspeed/reixo/compare/v2.0.0...v2.0.1) (2026-01-29)
 
 ### Features
