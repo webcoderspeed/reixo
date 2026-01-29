@@ -57,6 +57,17 @@ export class RateLimiter {
   }
 
   /**
+   * Waits until a token is available.
+   */
+  public async waitForToken(): Promise<void> {
+    const waitTime = this.getTimeToWait();
+    if (waitTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+    this.tryConsume();
+  }
+
+  /**
    * Resets the limiter to its initial state.
    */
   public reset(): void {

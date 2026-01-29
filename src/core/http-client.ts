@@ -8,8 +8,6 @@ import { MetricsCollector } from '../utils/metrics';
 import { CacheManager, CacheOptions } from '../utils/cache';
 import { generateKey } from '../utils/keys';
 import { objectToFormData } from '../utils/form-data';
-import { generateCurlCommand } from '../utils/curl-generator';
-import { ChaosSimulator, ChaosOptions } from '../utils/chaos';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -74,7 +72,6 @@ export interface HTTPClientConfig {
   apiVersion?: string;
   versioningStrategy?: 'header' | 'url';
   versionHeader?: string;
-  chaos?: ChaosOptions;
 }
 
 export type HTTPEvents = {
@@ -99,7 +96,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   private connectionPool?: ConnectionPool;
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
-  private chaosSimulator?: ChaosSimulator;
   private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
   public readonly metrics?: MetricsCollector;
 
@@ -131,9 +127,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     }
     if (config.enableMetrics) {
       this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
-    }
-    if (config.chaos) {
-      this.chaosSimulator = new ChaosSimulator(config.chaos);
     }
   }
 
@@ -207,20 +200,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     }
 
     const startTime = Date.now();
-    // Handle Rate Limiting
-    if (this.rateLimiter) {
-      const waitTime = this.rateLimiter.getTimeToWait();
-      if (waitTime > 0) {
-        await delay(waitTime);
-      }
-      this.rateLimiter.tryConsume();
-    }
-
-    // Chaos Simulation
-    if (this.chaosSimulator) {
-      await this.chaosSimulator.simulate(url);
-    }
-
     if (this.cacheManager) {
       const method = options.method || 'GET';
       const isCacheable = method.toUpperCase() === 'GET' && options.cacheConfig !== false;
@@ -240,6 +219,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
           };
         }
       }
+    }
+
+    // Rate limiting
+    if (this.rateLimiter) {
+      await this.rateLimiter.waitForToken();
     }
 
     // Determine retry options based on policies
@@ -287,7 +271,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       const configUpload = this.config.onUploadProgress;
       const requestUpload = options.onUploadProgress;
 
-      initialOptions.onUploadProgress = (progress) => {
+      initialOptions.onUploadProgress = (progress: {
+        loaded: number;
+        total: number | null;
+        progress: number | null;
+      }) => {
         if (configUpload) configUpload(progress);
         if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
         this.emit('upload:progress', { url, ...progress });
@@ -296,7 +284,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       const configDownload = this.config.onDownloadProgress;
       const requestDownload = options.onDownloadProgress;
 
-      initialOptions.onDownloadProgress = (progress) => {
+      initialOptions.onDownloadProgress = (progress: {
+        loaded: number;
+        total: number | null;
+        progress: number | null;
+      }) => {
         if (configDownload) configDownload(progress);
         if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
         this.emit('download:progress', { url, ...progress });
@@ -411,9 +403,17 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
         ? `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`
         : url;
 
-    const headers = { ...this.config.headers, ...options.headers };
-
-    return generateCurlCommand(fullUrl, options.method, headers, options.body);
+    // Basic implementation for debugging purposes if needed
+    const method = options.method || 'GET';
+    const headers = options.headers
+      ? Object.entries({ ...this.config.headers, ...options.headers })
+          .map(([k, v]) => `-H '${k}: ${v}'`)
+          .join(' ')
+      : '';
+    const body = options.body
+      ? `-d '${typeof options.body === 'string' ? options.body : JSON.stringify(options.body)}'`
+      : '';
+    return `curl -X ${method} ${headers} ${body} '${fullUrl}'`.trim();
   }
 
   /**

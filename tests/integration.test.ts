@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { Reixo, CircuitState } from '../src';
-import { HTTPError } from '../src/utils/http';
+import { Reixo } from '../src';
 
 // Helper to mock fetch response
 const mockFetchResponse = (ok: boolean, status: number, data: unknown) => {
@@ -117,7 +116,7 @@ describe('Reixo Integration', () => {
 
     await Promise.all([p1, p2, p3]);
 
-    expect(circuitBreaker.currentState).toBe(CircuitState.OPEN);
+    expect(circuitBreaker.currentState).toBe(Reixo.CircuitState.OPEN);
   });
 
   it('should batch HTTP requests using BatchProcessor', async () => {

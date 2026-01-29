@@ -25,6 +25,20 @@ export interface HTTPOptions extends RequestInit {
   useFormData?: boolean;
 }
 
+export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+
+export interface Interceptors {
+  request: import('../core/http-client').RequestInterceptor[];
+  response: import('../core/http-client').ResponseInterceptor[];
+}
+
+export type RetryConfig = RetryOptions | boolean;
+
+export interface RateLimitConfig {
+  requests: number;
+  interval: number;
+}
+
 export type ValidationSchema<T> = { parse: (data: unknown) => T } | ((data: unknown) => T);
 
 export class ValidationError extends Error {
