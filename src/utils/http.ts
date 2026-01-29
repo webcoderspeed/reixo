@@ -11,6 +11,7 @@ export interface HTTPOptions extends RequestInit {
   cacheConfig?: CacheOptions | boolean; // Custom caching options
   agent?: unknown; // Node.js http.Agent or https.Agent
   _retry?: boolean; // For tracking retries
+  responseType?: 'json' | 'text' | 'stream' | 'blob' | 'arraybuffer'; // Expected response type
   onDownloadProgress?: (progress: {
     loaded: number;
     total: number | null;
@@ -21,7 +22,7 @@ export interface HTTPOptions extends RequestInit {
     total: number | null;
     progress: number | null;
   }) => void;
-  validationSchema?: ValidationSchema<any>;
+  validationSchema?: ValidationSchema<unknown>;
   useFormData?: boolean;
 }
 
@@ -138,59 +139,102 @@ export async function http<T = unknown>(
     }
 
     const response = await fetchWithTimeout();
-
-    // Auto-detect and parse JSON if Content-Type is application/json
     const contentType = response.headers.get('content-type');
+    const responseType = options.responseType;
 
-    const data = await (async () => {
-      if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
-        // Handle download progress for environments supporting Web Streams (Browser / Node 18+)
-        const reader = (response.body as ReadableStream<Uint8Array>).getReader();
-        const contentLength = response.headers.get('Content-Length');
-        const total = contentLength ? parseInt(contentLength, 10) : null;
-        const state = { loaded: 0 };
+    const data = await (async (): Promise<unknown> => {
+      if (responseType === 'stream') {
+        if (options.onDownloadProgress && response.body && typeof TransformStream !== 'undefined') {
+          // Wrap stream for progress without buffering
+          const contentLength = response.headers.get('Content-Length');
+          const total = contentLength ? parseInt(contentLength, 10) : null;
+          let loaded = 0;
 
-        const chunks: Uint8Array[] = [];
+          const transformStream = new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, controller) {
+              loaded += chunk.length;
+              if (options.onDownloadProgress) {
+                const progress = total ? Math.round((loaded / total) * 100) : null;
+                options.onDownloadProgress({ loaded, total, progress });
+              }
+              controller.enqueue(chunk);
+            },
+          });
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          if (value) {
-            chunks.push(value);
-            state.loaded += value.length;
-
-            if (options.onDownloadProgress) {
-              const progress = total ? Math.round((state.loaded / total) * 100) : null;
-              options.onDownloadProgress({ loaded: state.loaded, total, progress });
-            }
-          }
-        }
-
-        // Combine chunks
-        const allChunks = new Uint8Array(state.loaded);
-        chunks.reduce((position, chunk) => {
-          allChunks.set(chunk, position);
-          return position + chunk.length;
-        }, 0);
-
-        const text = new TextDecoder('utf-8').decode(allChunks);
-
-        if (contentType?.includes('application/json')) {
-          try {
-            return JSON.parse(text);
-          } catch {
-            return text;
-          }
+          return (response.body as ReadableStream<Uint8Array>).pipeThrough(transformStream);
         } else {
-          return text;
+          return response.body;
         }
       } else {
-        // Standard handling
-        if (contentType?.includes('application/json')) {
-          return response.json();
+        // Non-stream response types (json, text, blob, arraybuffer)
+        if (options.onDownloadProgress && response.body && 'getReader' in response.body) {
+          // Handle download progress with buffering
+          const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+          const contentLength = response.headers.get('Content-Length');
+          const total = contentLength ? parseInt(contentLength, 10) : null;
+          let loaded = 0;
+          const chunks: Uint8Array[] = [];
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              loaded += value.length;
+              if (options.onDownloadProgress) {
+                const progress = total ? Math.round((loaded / total) * 100) : null;
+                options.onDownloadProgress({ loaded, total, progress });
+              }
+            }
+          }
+
+          // Combine chunks
+          const allChunks = new Uint8Array(loaded);
+          let position = 0;
+          for (const chunk of chunks) {
+            allChunks.set(chunk, position);
+            position += chunk.length;
+          }
+
+          // Convert to requested type
+          if (responseType === 'arraybuffer') {
+            return allChunks.buffer;
+          } else if (responseType === 'blob') {
+            return new Blob([allChunks], { type: contentType || undefined });
+          } else {
+            // Default to text/json
+            const text = new TextDecoder('utf-8').decode(allChunks);
+            if (
+              responseType === 'json' ||
+              (!responseType && contentType?.includes('application/json'))
+            ) {
+              try {
+                return JSON.parse(text);
+              } catch {
+                return text;
+              }
+            } else {
+              return text;
+            }
+          }
         } else {
-          return response.text();
+          // No progress tracking needed, use native methods
+          if (responseType === 'arraybuffer') {
+            return response.arrayBuffer();
+          } else if (responseType === 'blob') {
+            return response.blob();
+          } else if (responseType === 'json') {
+            return response.json();
+          } else if (responseType === 'text') {
+            return response.text();
+          } else {
+            // Default auto-detection
+            if (contentType?.includes('application/json')) {
+              return response.json();
+            } else {
+              return response.text();
+            }
+          }
         }
       }
     })();

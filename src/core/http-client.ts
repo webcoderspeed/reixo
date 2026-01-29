@@ -466,7 +466,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
             const schema = mergedOptions.validationSchema;
             const validatedData =
               typeof schema === 'function' ? schema(response.data) : schema.parse(response.data);
-            response.data = validatedData;
+            response.data = validatedData as T;
           } catch (error) {
             throw new ValidationError('Response validation failed', response.data, error);
           }
