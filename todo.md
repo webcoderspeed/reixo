@@ -207,14 +207,6 @@
 - [x] **Runtime Validation**: Integration with Zod/Valibot for strict type safety on API responses (Solves "Type Safety" & "Unexpected API Changes")
 - [x] **Transformer Pipelines**: Type-safe data transformation pipes to decouple logic from UI components (Solves "Frontend vs Backend Logic Sprawl")
 
-**⬜ [ ] Framework Integration (State Management)**
-
-- [ ] **React Hooks**: `useReixoQuery` and `useReixoMutation` for easy UI state sync (Solves "State Management Complexity")
-- [ ] **Race Condition Guard**: Automatic cancellation of outdated requests in hooks (Solves "useEffect Race Conditions")
-- [ ] **Optimistic UI Manager**: Helper to apply temporary state and rollback on failure (Solves "Sluggish UI Feedback")
-- [ ] **Vue Composables**: `useReixo` for Vue 3 ecosystem
-- [ ] **Svelte Stores**: Store-based integration for Svelte
-
 **⬜ [ ] Microservices & Enterprise Challenges**
 
 - [x] **Auth Flow Standard**: Pre-built "Refresh Token" strategy class (Solves "401 Handling Boilerplate")
@@ -227,6 +219,28 @@
 - [x] **Smart FormData**: Auto-serialize complex nested objects to FormData (Solves "Boilerplate Code")
 - [x] **API Versioning Strategy**: Configurable versioning (Header/URL) to switch API versions globally (Solves "Legacy Support")
 - [x] **SSR Header Forwarding**: Auto-forwarding of Cookies/Auth headers in Next.js/Nuxt (Solves "SSR Authentication Context")
+
+### Phase 10: Real-Time & Connectivity (New)
+
+**✅ [x] Server-Sent Events (SSE)**
+
+- [x] Create `SSEClient` for one-way real-time streams
+- [x] Support automatic reconnection with backoff
+- [x] Add typed event emitters
+- [x] Unit tests for connection and recovery
+
+**✅ [x] Smart Polling Utility**
+
+- [x] Create `poll` helper for legacy APIs
+- [x] Support exponential backoff for intervals
+- [x] Add stop conditions and timeout
+- [x] Unit tests with mock timers
+
+**⬜ [ ] Framework Integration (Future)**
+
+- [ ] **React Hooks**: `useReixoQuery`, `useReixoMutation`
+- [ ] **Vue Composables**: `useReixo` for Vue 3
+- [ ] **Svelte Stores**: Integration with Svelte reactivity
 
 ## 🎯 Current Focus: Critical Missing Features Implementation
 

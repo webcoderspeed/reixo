@@ -3,12 +3,14 @@ export { HTTPBuilder, HTTPClient } from './core/http-client';
 export { HTTPError } from './utils/http';
 export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
 export { WebSocketClient } from './core/websocket-client';
+export { SSEClient } from './core/sse-client';
 
 // Advanced utilities (exported but users might not need them directly)
 export { TaskQueue } from './utils/queue';
 export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthInterceptor } from './utils/auth';
 export { BatchProcessor } from './utils/batch';
+export { poll, PollingController } from './utils/polling';
 
 // Internal utilities (exported for advanced usage but not typically needed)
 export { withRetry } from './utils/retry';
@@ -31,6 +33,8 @@ import { createAuthInterceptor as _createAuthInterceptor } from './utils/auth';
 import { HTTPError as _HTTPError } from './utils/http';
 import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
 import { WebSocketClient as _WebSocketClient } from './core/websocket-client';
+import { SSEClient as _SSEClient } from './core/sse-client';
+import { poll as _poll } from './utils/polling';
 
 export const Reixo = {
   HTTPBuilder: _HTTPBuilder,
@@ -43,6 +47,8 @@ export const Reixo = {
   HTTPError: _HTTPError,
   GraphQLClient: _GraphQLClient,
   WebSocketClient: _WebSocketClient,
+  SSEClient: _SSEClient,
+  poll: _poll,
 };
 
 // Types
@@ -54,3 +60,5 @@ export type { CircuitBreakerOptions } from './utils/circuit-breaker';
 export type { AuthConfig } from './utils/auth';
 export type { BatchTransportConfig, BatchRequestItem } from './utils/batch-transport';
 export type { WebSocketConfig, WebSocketEvents } from './core/websocket-client';
+export type { SSEConfig, SSEEvents } from './core/sse-client';
+export type { PollingOptions } from './utils/polling';
