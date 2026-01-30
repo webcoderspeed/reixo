@@ -1,4 +1,4 @@
-import { http, HTTPOptions, HTTPResponse } from './http';
+import { http } from './http';
 
 export interface UploadOptions {
   chunkSize?: number; // Size of each chunk in bytes (default: 1MB)

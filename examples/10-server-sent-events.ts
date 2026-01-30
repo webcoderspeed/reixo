@@ -24,7 +24,7 @@ async function main() {
     try {
       const data = JSON.parse(event.data);
       console.log(`📰 [${data.type}] ${data.title} (${data.user})`);
-    } catch (e) {
+    } catch {
       console.log('📩 Received raw:', event.data);
     }
   });

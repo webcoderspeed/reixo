@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { HTTPBuilder } from '../../src/core/http-client';
-import { HTTPClient } from '../../src/core/http-client';
 
 // Note: These tests hit a real external API (JSONPlaceholder).
 // They require an internet connection and are subject to the external API's availability and rate limits.

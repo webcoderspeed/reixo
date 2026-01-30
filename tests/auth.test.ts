@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HTTPClient } from '../src/core/http-client';
 import { createAuthInterceptor } from '../src/utils/auth';
-import { HTTPError, HTTPOptions } from '../src/utils/http';
+import { HTTPError } from '../src/utils/http';
 
 describe('Auth Interceptor', () => {
   let client: HTTPClient;

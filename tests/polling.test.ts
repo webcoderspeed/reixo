@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { poll, PollingController } from '../src/utils/polling';
-import { delay } from '../src/utils/timing';
+import { poll } from '../src/utils/polling';
 
 describe('Polling', () => {
   beforeEach(() => {
@@ -51,7 +50,7 @@ describe('Polling', () => {
   it('should support manual cancellation', async () => {
     const task = vi.fn().mockResolvedValue('pending');
 
-    const { promise, cancel } = poll(task, {
+    const { cancel } = poll(task, {
       interval: 100,
     });
 

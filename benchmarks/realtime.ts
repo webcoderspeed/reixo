@@ -29,7 +29,7 @@ class MockWebSocket {
     setTimeout(() => this.onopen?.({}), 0);
   }
 
-  send(data: unknown) {
+  send(_data: unknown) {
     // Mock send
   }
   close() {
@@ -63,12 +63,13 @@ globalScope.EventSource = MockEventSource;
 const bench = new Bench({ time: 1000 });
 
 // Setup clients
-const wsClient = new Reixo.WebSocketClient({
+// wsClient and sseClient instantiated for side-effect/type-check testing
+new Reixo.WebSocketClient({
   url: 'ws://mock.com',
   autoConnect: false,
 });
 
-const sseClient = new Reixo.SSEClient({
+new Reixo.SSEClient({
   url: 'http://mock.com',
 });
 

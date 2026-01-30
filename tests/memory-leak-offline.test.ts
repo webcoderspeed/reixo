@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HTTPBuilder, HTTPClientConfig } from '../src/core/http-client';
+import { HTTPBuilder } from '../src/core/http-client';
 import { NetworkMonitor } from '../src/utils/network';
 import { MemoryAdapter } from '../src/utils/cache';
 import { PersistentQueueOptions } from '../src/utils/queue';
@@ -120,9 +120,6 @@ describe('Memory Leak Prevention & Offline Support', () => {
     });
 
     it('should cleanup connection pool when disposed', async () => {
-      const config: HTTPClientConfig = {
-        pool: { maxSockets: 10 },
-      };
       const client = HTTPBuilder.create('https://api.example.com').build();
 
       // Manually set connection pool for testing
@@ -240,8 +237,8 @@ describe('Memory Leak Prevention & Offline Support', () => {
       client['setupOfflineQueue'](client['config']);
 
       // Make requests with different priorities (using any to bypass type checking for test)
-      const lowPriorityRequest = client.get('/low', { priority: 1 as any });
-      const highPriorityRequest = client.get('/high', { priority: 10 as any });
+      client.get('/low', { priority: 1 as any });
+      client.get('/high', { priority: 10 as any });
 
       // Verify both requests are queued
       expect(client['offlineQueue']?.size).toBe(2);
@@ -377,7 +374,9 @@ describe('Memory Leak Prevention & Offline Support', () => {
       client['setupOfflineQueue'](client['config']);
 
       // Make multiple requests while offline
-      const requests = [client.get('/api1'), client.get('/api2'), client.get('/api3')];
+      client.get('/api1');
+      client.get('/api2');
+      client.get('/api3');
 
       // Verify all requests are queued
       expect(client['offlineQueue']?.size).toBe(3);

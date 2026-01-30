@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createBatchTransport, BatchRequestItem } from '../src/utils/batch-transport';
-import { HTTPOptions, HTTPResponse } from '../src/utils/http';
+import { HTTPResponse } from '../src/utils/http';
 
 describe('Batch Transport', () => {
   const mockResponse = <T>(data: T): HTTPResponse<T> => ({

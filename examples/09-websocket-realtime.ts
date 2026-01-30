@@ -38,7 +38,7 @@ async function main() {
       // Parse if string, otherwise use as is
       const message = typeof data === 'string' ? JSON.parse(data) : data;
       console.log('📩 Received:', message);
-    } catch (e) {
+    } catch {
       console.log('📩 Received raw:', data);
     }
   });

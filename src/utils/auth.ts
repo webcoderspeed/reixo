@@ -1,5 +1,5 @@
 import { HTTPClient } from '../core/http-client';
-import { HTTPOptions, HTTPResponse, HTTPError } from './http';
+import { HTTPOptions, HTTPError } from './http';
 
 export interface AuthConfig {
   /**

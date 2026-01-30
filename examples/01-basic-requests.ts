@@ -1,4 +1,4 @@
-import { Reixo, HTTPClientConfig } from '../src';
+import { Reixo } from '../src';
 
 /**
  * Example 1: Basic HTTP Requests

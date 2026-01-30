@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createTraceInterceptor } from '../src/utils/tracing';
 import { HTTPOptions } from '../src/utils/http';
 

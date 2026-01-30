@@ -51,7 +51,7 @@ class MockWebSocket {
     }, 10);
   }
 
-  send(data: any) {}
+  send(_data: any) {}
   close(code?: number, reason?: string) {
     this.readyState = MockWebSocket.CLOSED;
     this.onclose?.(new CloseEvent('close', { code, reason }));

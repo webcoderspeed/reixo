@@ -38,11 +38,6 @@ describe('Pipeline', () => {
   });
 
   it('should maintain type safety', () => {
-    interface User {
-      id: number;
-      name: string;
-    }
-
     const rawData = { id: 1, name: 'Alice', extra: 'ignored' };
 
     const pipeline = Pipeline.from<typeof rawData>()

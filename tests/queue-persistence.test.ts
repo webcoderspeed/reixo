@@ -50,7 +50,7 @@ describe('Persistent TaskQueue', () => {
     const queue = new TaskQueue({ storage });
 
     // Create a promise that resolves when the restoration happens
-    const restorationPromise = new Promise<void>((resolve) => {
+    new Promise<void>((resolve) => {
       queue.on('queue:restored', () => resolve());
     });
 

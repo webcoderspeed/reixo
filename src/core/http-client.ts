@@ -190,7 +190,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     for (const cleanup of this.cleanupCallbacks) {
       try {
         cleanup();
-      } catch (error) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
@@ -433,7 +433,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   ): Promise<void> {
     if (!this.cacheManager) return;
 
-    const key = this.cacheManager.generateKey(url, options.params);
+    // Generate cache key but don't assign to variable since it's only used internally
+    this.cacheManager.generateKey(url, options.params);
 
     let newData: T;
     if (typeof data === 'function') {
