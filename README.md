@@ -5,7 +5,7 @@ A modern, type-safe HTTP client library with built-in resilience patterns, advan
 [![npm version](https://img.shields.io/npm/v/reixo)](https://www.npmjs.com/package/reixo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-4.9%2B-blue)](https://www.typescriptlang.org/)
-[![Test Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/your-username/reixo)
+[![Test Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/webcoderspeed/reixo)
 [![Zero Any Types](https://img.shields.io/badge/zero%20any%20types-✅-success)](https://www.typescriptlang.org/)
 
 ## ✨ Why Choose Reixo?
@@ -1347,10 +1347,10 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🆘 Support
 
-- 📖 [Documentation](https://github.com/your-username/reixo/wiki)
-- 🐛 [Issue Tracker](https://github.com/your-username/reixo/issues)
-- 💬 [Discussions](https://github.com/your-username/reixo/discussions)
-- 📧 [Email Support](mailto:support@example.com)
+- 📖 [Documentation](https://github.com/webcoderspeed/reixo#readme)
+- 🐛 [Issue Tracker](https://github.com/webcoderspeed/reixo/issues)
+- 💬 [Discussions](https://github.com/webcoderspeed/reixo/discussions)
+- 📧 [Email Support](mailto:webcoderspeed@gmail.com)
 
 ## 🎯 Real-World Examples
 
@@ -1370,6 +1370,6 @@ Check the [`/examples`](examples/) directory for comprehensive examples:
 
 ---
 
-Built with ❤️ by [Your Team](https://github.com/your-username)
+Built with ❤️ by [WebCoderSpeed](https://github.com/webcoderspeed)
 
 **Reixo** - The Enterprise HTTP Client That Just Works™
