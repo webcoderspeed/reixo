@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.1.0](https://github.com/webcoderspeed/reixo/compare/v2.0.2...v2.1.0) (2026-01-30)
+
+### Features
+
+- **examples:** add real-time client examples and benchmarks ([d06802b](https://github.com/webcoderspeed/reixo/commit/d06802bbcafb0ecf76afcada2a5b1a485d84085b))
+
 ### [2.0.2](https://github.com/webcoderspeed/reixo/compare/v2.0.1...v2.0.2) (2026-01-29)
 
 ### Features
