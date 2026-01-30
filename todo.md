@@ -219,6 +219,7 @@
 - [x] **Smart FormData**: Auto-serialize complex nested objects to FormData (Solves "Boilerplate Code")
 - [x] **API Versioning Strategy**: Configurable versioning (Header/URL) to switch API versions globally (Solves "Legacy Support")
 - [x] **SSR Header Forwarding**: Auto-forwarding of Cookies/Auth headers in Next.js/Nuxt (Solves "SSR Authentication Context")
+- [ ] **Advanced Query Serialization**: Support for complex objects/arrays in URL params (e.g., `filters[date]=...`) with custom serializers (Solves "QS parsing hell")
 
 ### Phase 10: Real-Time & Connectivity (New)
 
@@ -238,9 +239,27 @@
 
 **⬜ [ ] Framework Integration (Future)**
 
-- [ ] **React Hooks**: `useReixoQuery`, `useReixoMutation`
+- [ ] **React Hooks**: `useReixoQuery`, `useReixoMutation` (inspired by TanStack Query)
 - [ ] **Vue Composables**: `useReixo` for Vue 3
 - [ ] **Svelte Stores**: Integration with Svelte reactivity
+- [ ] **SolidJS Signals**: Integration with SolidJS reactivity
+- [ ] **RSC / Next.js Support**: Compatibility with React Server Components and Next.js App Router (cache-friendly).
+
+### Phase 11: Modern Data Synchronization (Query Layer)
+
+**⬜ [x] Smart Caching Strategies**
+
+- [x] **Stale-While-Revalidate (SWR)**: Return cached data immediately, then fetch fresh data in background.
+- [x] **Window Focus Refetching**: Automatically revalidate data when user returns to the tab.
+- [x] **Network Reconnect Refetching**: Trigger revalidation when device comes back online.
+- [x] **Prefetching API**: `client.prefetch(url)` to prime the cache before data is needed (e.g., on hover).
+
+**⬜ [ ] Advanced UI Patterns**
+
+- [x] **Optimistic Updates**: Mechanism to update UI state before server response (with rollback on failure).
+- [x] **Suspense Support**: Throw promises to trigger React/Vue Suspense boundaries.
+- [ ] **Infinite Queries**: Specialized helpers for bi-directional infinite scrolling (cursor/offset based).
+- [ ] **Persisted Queries**: Support for hashing long queries/params for bandwidth optimization.
 
 ## 🎯 Current Focus: Critical Missing Features Implementation
 

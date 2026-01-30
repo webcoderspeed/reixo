@@ -131,6 +131,7 @@ export interface CacheOptions {
   maxEntries?: number; // Maximum number of entries in cache (Memory only)
   storage?: 'memory' | 'local' | 'session' | StorageAdapter;
   keyPrefix?: string;
+  strategy?: 'cache-first' | 'network-only' | 'stale-while-revalidate';
 }
 
 /**
@@ -171,8 +172,17 @@ export class CacheManager {
     });
   }
 
-  public get<T>(key: string): T | null {
+  /**
+   * Returns the raw cache entry including metadata.
+   * Does NOT auto-delete expired entries.
+   */
+  public getEntry<T>(key: string): CacheEntry<T> | null {
     const entry = this.adapter.get(key);
+    return entry ? (entry as CacheEntry<T>) : null;
+  }
+
+  public get<T>(key: string): T | null {
+    const entry = this.getEntry<T>(key);
 
     if (!entry) {
       return null;
@@ -183,7 +193,7 @@ export class CacheManager {
       return null;
     }
 
-    return entry.data as T;
+    return entry.data;
   }
 
   public delete(key: string): void {

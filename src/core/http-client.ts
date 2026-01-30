@@ -74,6 +74,8 @@ export interface HTTPClientConfig {
   apiVersion?: string;
   versioningStrategy?: 'header' | 'url';
   versionHeader?: string;
+  revalidateOnFocus?: boolean;
+  revalidateOnReconnect?: boolean;
 }
 
 export type HTTPEvents = {
@@ -90,7 +92,16 @@ export type HTTPEvents = {
   'response:error': [
     { url: string; method: string; error: unknown; requestId: string; duration: number },
   ];
+  'cache:revalidate': [{ url: string; key: string; data: unknown }];
+  focus: [];
+  online: [];
 };
+
+interface ActiveQuery {
+  url: string;
+  options: HTTPOptions;
+  observers: Set<(data: unknown) => void>;
+}
 
 /**
  * Main HTTP Client class providing a fluent API for making HTTP requests.
@@ -109,6 +120,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   private cleanupCallbacks: Array<() => void> = [];
   private abortControllers = new Map<string, AbortController>();
   private offlineQueue?: TaskQueue;
+  private activeQueries = new Map<string, ActiveQuery>();
   public readonly metrics?: MetricsCollector;
 
   // Timing utilities
@@ -245,6 +257,29 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       window.addEventListener('beforeunload', cleanupOnUnload);
       window.addEventListener('pagehide', cleanupOnUnload);
 
+      if (this.config.revalidateOnFocus !== false) {
+        const onFocus = () => {
+          this.emit('focus');
+          this.revalidateActiveQueries();
+        };
+        window.addEventListener('focus', onFocus);
+        window.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') onFocus();
+        });
+        this.onCleanup(() => {
+          window.removeEventListener('focus', onFocus);
+        });
+      }
+
+      if (this.config.revalidateOnReconnect !== false) {
+        const onOnline = () => {
+          this.emit('online');
+          this.revalidateActiveQueries();
+        };
+        window.addEventListener('online', onOnline);
+        this.onCleanup(() => window.removeEventListener('online', onOnline));
+      }
+
       // Register cleanup to remove these listeners
       this.onCleanup(() => {
         window.removeEventListener('beforeunload', cleanupOnUnload);
@@ -296,6 +331,153 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
   }
 
   /**
+   * Subscribe to changes for a specific URL.
+   * Returns an unsubscribe function.
+   */
+  public subscribe<T>(
+    url: string,
+    onChange: (data: T) => void,
+    options: HTTPOptions = {}
+  ): () => void {
+    const cacheKey = this.cacheManager?.generateKey(url, options.params) || url;
+
+    if (!this.activeQueries.has(cacheKey)) {
+      this.activeQueries.set(cacheKey, {
+        url,
+        options,
+        observers: new Set(),
+      });
+    }
+
+    const query = this.activeQueries.get(cacheKey)!;
+    query.observers.add(onChange as unknown as (data: unknown) => void);
+
+    return () => {
+      query.observers.delete(onChange as unknown as (data: unknown) => void);
+      if (query.observers.size === 0) {
+        this.activeQueries.delete(cacheKey);
+      }
+    };
+  }
+
+  /**
+   * Revalidates all active queries (those with observers).
+   */
+  public async revalidateActiveQueries(): Promise<void> {
+    const promises: Promise<unknown>[] = [];
+
+    for (const query of this.activeQueries.values()) {
+      // Force network request by setting strategy to network-only or just calling request
+      // calling request will respect cache config, so we might need to override it if we want "fresh" data.
+      // Usually "revalidate" means fetch fresh.
+      const options = { ...query.options };
+      if (options.cacheConfig && typeof options.cacheConfig === 'object') {
+        options.cacheConfig.strategy = 'network-only';
+      } else {
+        // If no cache config, request() does network anyway.
+        // But if it was cache-first, we need to bypass cache.
+        options.cacheConfig = { strategy: 'network-only' };
+      }
+
+      promises.push(
+        this.request(query.url, options).catch((err) => {
+          this.config.logger?.warn(`Auto-revalidation failed for ${query.url}`, err);
+        })
+      );
+    }
+
+    await Promise.allSettled(promises);
+  }
+
+  /**
+   * Manually set data in the cache.
+   * Useful for optimistic updates.
+   */
+  public setQueryData<T>(
+    url: string,
+    data: T,
+    params?: Record<string, string | number | boolean>
+  ): void {
+    if (!this.cacheManager) return;
+    const key = this.cacheManager.generateKey(url, params);
+    this.cacheManager.set(key, data);
+    this.notifyObservers(key, data);
+  }
+
+  /**
+   * Optimistically update the cache and optionally revalidate.
+   */
+  public async mutate<T>(
+    url: string,
+    data: T | ((oldData: T | undefined) => T),
+    options: { revalidate?: boolean; params?: Record<string, string | number | boolean> } = {}
+  ): Promise<void> {
+    if (!this.cacheManager) return;
+
+    const key = this.cacheManager.generateKey(url, options.params);
+
+    let newData: T;
+    if (typeof data === 'function') {
+      const oldData = this.getQueryData<T>(url, options.params) ?? undefined;
+      newData = (data as (old: T | undefined) => T)(oldData);
+    } else {
+      newData = data;
+    }
+
+    this.setQueryData(url, newData, options.params);
+
+    if (options.revalidate) {
+      const reqOptions: HTTPOptions = { params: options.params };
+      if (reqOptions.cacheConfig && typeof reqOptions.cacheConfig === 'object') {
+        reqOptions.cacheConfig.strategy = 'network-only';
+      } else {
+        reqOptions.cacheConfig = { strategy: 'network-only' };
+      }
+      await this.request(url, reqOptions);
+    }
+  }
+
+  /**
+   * Get data from cache synchronously.
+   */
+  public getQueryData<T>(
+    url: string,
+    params?: Record<string, string | number | boolean>
+  ): T | null {
+    if (!this.cacheManager) return null;
+    const key = this.cacheManager.generateKey(url, params);
+    return this.cacheManager.get<T>(key);
+  }
+
+  /**
+   * Suspense-ready read method.
+   * Throws a promise if data is loading/missing.
+   * Returns data if available.
+   */
+  public read<T>(url: string, options: HTTPOptions = {}): T {
+    const key = this.cacheManager?.generateKey(url, options.params) || url;
+    const cached = this.getQueryData<T>(url, options.params);
+
+    if (cached) return cached;
+
+    // Check for in-flight request
+    if (this.inFlightRequests.has(key)) {
+      throw this.inFlightRequests.get(key);
+    }
+
+    // Start request
+    const promise = this.request<T>(url, options);
+    throw promise;
+  }
+
+  private notifyObservers(key: string, data: unknown) {
+    const query = this.activeQueries.get(key);
+    if (query) {
+      query.observers.forEach((cb) => cb(data));
+    }
+  }
+
+  /**
    * Generic request method that handles interceptors, progress, and error propagation.
    *
    * @template T The expected response data type
@@ -322,27 +504,76 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       }
     }
 
-    const startTime = Date.now();
     if (this.cacheManager) {
       const method = options.method || 'GET';
       const isCacheable = method.toUpperCase() === 'GET' && options.cacheConfig !== false;
 
       if (isCacheable) {
         const cacheKey = this.cacheManager.generateKey(url, options.params);
-        const cachedData = this.cacheManager.get<T>(cacheKey);
 
-        if (cachedData) {
-          // Return valid HTTPResponse structure
-          return {
-            data: cachedData,
-            status: 200,
-            statusText: 'OK (Cached)',
-            headers: new Headers(),
-            config: { ...this.config, ...options, url },
-          };
+        let strategy = 'cache-first';
+        const reqCacheConfig = options.cacheConfig as CacheOptions | undefined;
+        const globalCacheConfig = this.config.cacheConfig as CacheOptions | undefined;
+
+        if (reqCacheConfig?.strategy) {
+          strategy = reqCacheConfig.strategy;
+        } else if (globalCacheConfig?.strategy) {
+          strategy = globalCacheConfig.strategy;
+        }
+
+        if (strategy === 'stale-while-revalidate') {
+          const cachedEntry = this.cacheManager.getEntry<T>(cacheKey);
+          if (cachedEntry) {
+            // Background Revalidation
+            this._executeRequest<T>(url, options)
+              .then((response) => {
+                this.emit('cache:revalidate', { url, key: cacheKey, data: response.data });
+              })
+              .catch((err) => {
+                this.config.logger?.warn(`Background revalidation failed for ${url}`, err);
+              });
+
+            return {
+              data: cachedEntry.data,
+              status: 200,
+              statusText: 'OK (Cached)',
+              headers: new Headers(),
+              config: { ...this.config, ...options, url },
+            };
+          }
+        } else if (strategy === 'cache-first') {
+          const cachedData = this.cacheManager.get<T>(cacheKey);
+          if (cachedData) {
+            return {
+              data: cachedData,
+              status: 200,
+              statusText: 'OK (Cached)',
+              headers: new Headers(),
+              config: { ...this.config, ...options, url },
+            };
+          }
         }
       }
     }
+
+    return this._executeRequest<T>(url, options);
+  }
+
+  /**
+   * Prefetch a URL and cache the result.
+   */
+  public prefetch(url: string, options: HTTPOptions = {}): void {
+    this.request(url, {
+      ...options,
+      cacheConfig: {
+        ...(typeof options.cacheConfig === 'object' ? options.cacheConfig : {}),
+        strategy: 'network-only',
+      },
+    }).catch(() => {});
+  }
+
+  private async _executeRequest<T>(url: string, options: HTTPOptions): Promise<HTTPResponse<T>> {
+    const startTime = Date.now();
 
     // Rate limiting
     if (this.rateLimiter) {
@@ -356,7 +587,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
       )?.retry ?? this.config.retry;
 
     // Deduplication check
-    // Only deduplicate GET requests or if explicitly enabled
     const shouldDeduplicate =
       this.config.enableDeduplication && (options.method || 'GET').toUpperCase() === 'GET';
 
@@ -367,7 +597,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     }
 
     // Check if we're offline and should queue the request
-    // We queue requests if the offline queue is enabled and currently paused (indicating offline state)
     const shouldQueue = this.offlineQueue && this.offlineQueue.isQueuePaused;
 
     if (shouldQueue && this.offlineQueue) {
@@ -845,6 +1074,12 @@ export class HTTPBuilder {
     onRejected?: (error: unknown) => unknown
   ): this {
     this.responseInterceptors.push({ onFulfilled, onRejected });
+    return this;
+  }
+
+  public withRevalidation(options: { focus?: boolean; reconnect?: boolean }): this {
+    if (options.focus !== undefined) this.config.revalidateOnFocus = options.focus;
+    if (options.reconnect !== undefined) this.config.revalidateOnReconnect = options.reconnect;
     return this;
   }
 
