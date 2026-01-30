@@ -61,6 +61,18 @@ export function createAuthInterceptor(client: HTTPClient, config: AuthConfig) {
   // Request Interceptor: Attach Token
   client.interceptors.request.push({
     onFulfilled: async (options) => {
+      // If token refresh is in progress, wait for it to complete
+      if (isRefreshing) {
+        try {
+          await new Promise<string>((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          });
+        } catch (error) {
+          // If refresh fails, the request should probably fail too
+          return Promise.reject(error);
+        }
+      }
+
       const token = await config.getAccessToken();
       if (token) {
         options.headers = {

@@ -760,6 +760,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           if (method.toUpperCase() === 'GET' && mergedOptions.cacheConfig !== false) {
             const cacheKey = this.cacheManager.generateKey(url, mergedOptions.params);
             this.cacheManager.set(cacheKey, response.data);
+            this.notifyObservers(cacheKey, response.data);
           }
         }
 
