@@ -1001,6 +1001,79 @@ client.offlineQueue?.on('queue:drain', () => {
 });
 ```
 
+### 15. WebSocket Client
+
+Robust WebSocket client with automatic reconnection and heartbeat support.
+
+```typescript
+const ws = new Reixo.WebSocketClient({
+  url: 'wss://api.example.com/ws',
+  reconnect: {
+    maxRetries: 10,
+    initialDelayMs: 1000,
+    backoffFactor: 1.5,
+  },
+  heartbeat: {
+    interval: 30000,
+    message: 'ping',
+    timeout: 5000,
+  },
+});
+
+ws.on('open', () => console.log('Connected'));
+ws.on('message', (data) => console.log('Received:', data));
+ws.on('close', () => console.log('Disconnected'));
+ws.on('error', (err) => console.error('Error:', err));
+
+ws.connect();
+
+// Send data
+ws.send({ type: 'subscribe', channel: 'updates' });
+```
+
+### 16. Server-Sent Events (SSE)
+
+Consume real-time event streams with ease.
+
+```typescript
+const sse = new Reixo.SSEClient({
+  url: 'https://api.example.com/events',
+  withCredentials: true,
+  reconnect: {
+    maxRetries: 5,
+    initialDelayMs: 1000,
+  },
+  headers: { Authorization: 'Bearer token' },
+});
+
+sse.on('message', (event) => {
+  console.log('Received:', event.data);
+});
+
+sse.on('error', (error) => {
+  console.error('SSE Error:', error);
+});
+
+sse.connect();
+```
+
+### 17. Smart Polling Utility
+
+For legacy APIs that don't support real-time connections, use smart polling with backoff.
+
+```typescript
+// Poll until status is 'completed'
+const result = await Reixo.poll(async () => await client.get('/job/123'), {
+  interval: 2000, // Start with 2s interval
+  timeout: 60000, // Stop after 1 minute
+  stopCondition: (response) => response.data.status === 'completed',
+  backoff: {
+    factor: 1.5, // Increase interval by 50% each time
+    maxInterval: 10000, // Max 10s interval
+  },
+});
+```
+
 ## 🚀 Migration Guide
 
 ### From axios
