@@ -247,19 +247,19 @@
 
 ### Phase 11: Modern Data Synchronization (Query Layer)
 
-**⬜ [x] Smart Caching Strategies**
+**✅ [x] Smart Caching Strategies**
 
 - [x] **Stale-While-Revalidate (SWR)**: Return cached data immediately, then fetch fresh data in background.
 - [x] **Window Focus Refetching**: Automatically revalidate data when user returns to the tab.
 - [x] **Network Reconnect Refetching**: Trigger revalidation when device comes back online.
 - [x] **Prefetching API**: `client.prefetch(url)` to prime the cache before data is needed (e.g., on hover).
 
-**⬜ [ ] Advanced UI Patterns**
+**✅ [x] Advanced UI Patterns**
 
 - [x] **Optimistic Updates**: Mechanism to update UI state before server response (with rollback on failure).
 - [x] **Suspense Support**: Throw promises to trigger React/Vue Suspense boundaries.
-- [ ] **Infinite Queries**: Specialized helpers for bi-directional infinite scrolling (cursor/offset based).
-- [ ] **Persisted Queries**: Support for hashing long queries/params for bandwidth optimization.
+- [x] **Infinite Queries**: Specialized helpers for bi-directional infinite scrolling (cursor/offset based).
+- [x] **Persisted Queries**: Support for hashing long queries/params for bandwidth optimization.
 
 ## 🎯 Current Focus: Critical Missing Features Implementation
 

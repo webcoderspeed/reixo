@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HTTPBuilder } from '../src/core/http-client';
-import { InfiniteQuery } from '../src/utils/infinite-query';
 
 // Mock fetch
 const fetchMock = vi.fn();
