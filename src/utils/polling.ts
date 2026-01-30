@@ -1,10 +1,10 @@
 import { delay } from './timing';
 
-export interface PollingOptions {
+export interface PollingOptions<T = unknown> {
   interval: number;
   timeout?: number;
   maxAttempts?: number;
-  stopCondition?: (data: unknown) => boolean;
+  stopCondition?: (data: T) => boolean;
   backoff?:
     | boolean
     | {
@@ -13,21 +13,21 @@ export interface PollingOptions {
       };
 }
 
-export class PollingController {
+export class PollingController<T = unknown> {
   private isRunning = false;
   private attempts = 0;
   private currentInterval: number;
   private abortController: AbortController;
 
   constructor(
-    private task: () => Promise<unknown>,
-    private options: PollingOptions
+    private task: () => Promise<T>,
+    private options: PollingOptions<T>
   ) {
     this.currentInterval = options.interval;
     this.abortController = new AbortController();
   }
 
-  public async start<T>(): Promise<T | void> {
+  public async start(): Promise<T | void> {
     this.isRunning = true;
     this.attempts = 0;
     const startTime = Date.now();
@@ -47,7 +47,7 @@ export class PollingController {
 
         if (this.options.stopCondition && this.options.stopCondition(result)) {
           this.stop();
-          return result as T;
+          return result;
         }
 
         if (!this.isRunning) return;
@@ -91,11 +91,11 @@ export class PollingController {
  */
 export function poll<T>(
   task: () => Promise<T>,
-  options: PollingOptions
+  options: PollingOptions<T>
 ): { promise: Promise<T | void>; cancel: () => void } {
-  const controller = new PollingController(task as () => Promise<unknown>, options);
+  const controller = new PollingController<T>(task, options);
   return {
-    promise: controller.start<T>(),
+    promise: controller.start(),
     cancel: () => controller.stop(),
   };
 }
