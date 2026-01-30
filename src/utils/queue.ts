@@ -10,7 +10,9 @@ export interface PersistentQueueOptions extends QueueOptions {
 }
 
 export type QueueEvents = {
-  'queue:restored': [Array<{ id: string; priority?: number; dependencies?: string[] }>];
+  'queue:restored': [
+    Array<{ id: string; priority?: number; dependencies?: string[]; data?: unknown }>,
+  ];
   'task:start': [{ id: string }];
   'task:completed': [{ id: string; result: unknown }];
   'task:error': [{ id: string; error: unknown }];
@@ -95,6 +97,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
       id: t.id,
       priority: t.priority,
       dependencies: t.dependencies,
+      data: t.data,
     }));
 
     this.storage.set(this.storageKey, {
@@ -113,7 +116,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
    */
   public add<T>(
     fn: () => Promise<T>,
-    options: { priority?: number; id?: string; dependencies?: string[] } = {}
+    options: { priority?: number; id?: string; dependencies?: string[]; data?: unknown } = {}
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const id = options.id || Math.random().toString(36).substring(7);
@@ -145,9 +148,16 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
         },
         priority: options.priority || 0,
         dependencies: options.dependencies,
+        data: options.data,
       };
 
       this.queue.push(task);
+
+      // Handle priority inheritance
+      if (task.dependencies && task.dependencies.length > 0) {
+        this.applyPriorityInheritance(task);
+      }
+
       this.sortQueue();
       this.saveQueue();
       this.emit('task:added', { id, priority: task.priority });
@@ -240,6 +250,22 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
         });
       });
       yield result;
+    }
+  }
+
+  private applyPriorityInheritance(task: QueueTask<unknown>): void {
+    if (!task.dependencies) return;
+
+    for (const depId of task.dependencies) {
+      const depTask = this.queue.find((t) => t.id === depId);
+      if (depTask) {
+        // If dependent task has lower priority, boost it
+        if ((depTask.priority || 0) < (task.priority || 0)) {
+          depTask.priority = task.priority;
+          // Recursively apply to its dependencies
+          this.applyPriorityInheritance(depTask);
+        }
+      }
     }
   }
 

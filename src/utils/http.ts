@@ -24,6 +24,7 @@ export interface HTTPOptions extends RequestInit {
   }) => void;
   validationSchema?: ValidationSchema<unknown>;
   useFormData?: boolean;
+  taskPriority?: number;
 }
 
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';

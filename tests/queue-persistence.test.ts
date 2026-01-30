@@ -78,4 +78,22 @@ describe('Persistent TaskQueue', () => {
     const entry = storage.get('reixo-queue');
     expect(entry?.data).toHaveLength(0);
   });
+
+  it('should save and restore data payload', async () => {
+    const queue = new TaskQueue({ storage, autoStart: false });
+    const payload = { url: '/api', method: 'POST' };
+
+    queue.add(async () => 'task1', { id: 't1', data: payload });
+
+    const entry = storage.get('reixo-queue');
+    expect((entry?.data as any[])[0].data).toEqual(payload);
+
+    // Simulate restore
+    const restoredTasks = await new Promise<any[]>((resolve) => {
+      const q2 = new TaskQueue({ storage });
+      q2.on('queue:restored', (tasks) => resolve(tasks));
+    });
+
+    expect(restoredTasks[0].data).toEqual(payload);
+  });
 });

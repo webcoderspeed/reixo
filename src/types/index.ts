@@ -26,4 +26,5 @@ export interface QueueTask<T> {
   priority?: number;
   timeoutMs?: number;
   dependencies?: string[];
+  data?: unknown; // Serializable payload for persistence
 }

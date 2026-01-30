@@ -222,6 +222,16 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       // When coming back online, process queued requests
       this.offlineQueue.on('queue:restored', (tasks) => {
         this.config.logger?.info(`Offline queue restored with ${tasks.length} pending requests`);
+
+        tasks.forEach((task) => {
+          if (task.data && typeof task.data === 'object' && 'url' in task.data) {
+            const { url, options } = task.data as { url: string; options: HTTPOptions };
+            // Re-queue the task
+            this.queueOfflineRequest(url, options, task.id).catch((err) => {
+              this.config.logger?.error(`Failed to process restored task ${task.id}`, err);
+            });
+          }
+        });
       });
 
       this.offlineQueue.on('queue:drain', () => {
@@ -251,7 +261,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
 
     return this.offlineQueue.add<HTTPResponse<T>>(() => this.request<T>(url, options), {
       id: requestId,
-      priority: typeof options.priority === 'number' ? options.priority : 0,
+      priority: typeof options.taskPriority === 'number' ? options.taskPriority : 0,
+      data: { url, options },
     });
   }
 
