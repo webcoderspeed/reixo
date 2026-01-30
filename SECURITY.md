@@ -14,7 +14,7 @@ currently being supported with security updates.
 
 We take security seriously. If you discover a vulnerability, please do NOT open an issue.
 
-Instead, please send an email to **sanjeev@webcoderspeed.com**.
+Instead, please send an email to **webcoderspeed@gmail.com**.
 
 We will acknowledge your email within 48 hours and provide a timeline for a fix.
 We will publicly acknowledge your responsible disclosure once the vulnerability is fixed.
