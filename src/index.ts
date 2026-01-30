@@ -11,6 +11,7 @@ export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthInterceptor } from './utils/auth';
 export { BatchProcessor } from './utils/batch';
 export { poll, PollingController } from './utils/polling';
+export { InfiniteQuery } from './utils/infinite-query';
 
 // Internal utilities (exported for advanced usage but not typically needed)
 export { withRetry } from './utils/retry';
@@ -35,6 +36,7 @@ import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
 import { WebSocketClient as _WebSocketClient } from './core/websocket-client';
 import { SSEClient as _SSEClient } from './core/sse-client';
 import { poll as _poll } from './utils/polling';
+import { InfiniteQuery as _InfiniteQuery } from './utils/infinite-query';
 
 export const Reixo = {
   HTTPBuilder: _HTTPBuilder,
@@ -49,6 +51,7 @@ export const Reixo = {
   WebSocketClient: _WebSocketClient,
   SSEClient: _SSEClient,
   poll: _poll,
+  InfiniteQuery: _InfiniteQuery,
 };
 
 // Types
@@ -62,3 +65,4 @@ export type { BatchTransportConfig, BatchRequestItem } from './utils/batch-trans
 export type { WebSocketConfig, WebSocketEvents } from './core/websocket-client';
 export type { SSEConfig, SSEEvents } from './core/sse-client';
 export type { PollingOptions } from './utils/polling';
+export type { InfiniteQueryOptions, InfiniteData } from './utils/infinite-query';

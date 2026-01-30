@@ -62,6 +62,10 @@ export interface HTTPResponse<T> {
   config: HTTPOptions;
 }
 
+export interface IHTTPClient {
+  get<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>>;
+}
+
 export class HTTPError extends Error {
   public readonly status?: number;
   public readonly statusText?: string;

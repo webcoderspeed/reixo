@@ -1,5 +1,12 @@
 import { RetryOptions } from '../types';
-import { http, HTTPOptions, HTTPResponse, HTTPError, ValidationError } from '../utils/http';
+import {
+  http,
+  HTTPOptions,
+  HTTPResponse,
+  HTTPError,
+  ValidationError,
+  IHTTPClient,
+} from '../utils/http';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
@@ -9,6 +16,7 @@ import { CacheManager, CacheOptions } from '../utils/cache';
 import { TaskQueue, PersistentQueueOptions } from '../utils/queue';
 import { generateKey } from '../utils/keys';
 import { objectToFormData } from '../utils/form-data';
+import { InfiniteQuery, InfiniteQueryOptions } from '../utils/infinite-query';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -107,7 +115,7 @@ interface ActiveQuery {
  * Main HTTP Client class providing a fluent API for making HTTP requests.
  * Supports interceptors, retries, timeout, and progress tracking.
  */
-export class HTTPClient extends EventEmitter<HTTPEvents> {
+export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient {
   public interceptors = {
     request: [] as RequestInterceptor[],
     response: [] as ResponseInterceptor[],
@@ -468,6 +476,20 @@ export class HTTPClient extends EventEmitter<HTTPEvents> {
     // Start request
     const promise = this.request<T>(url, options);
     throw promise;
+  }
+
+  /**
+   * Creates an InfiniteQuery instance for handling pagination/infinite scrolling.
+   */
+  public infiniteQuery<T>(
+    url: string,
+    options: Omit<InfiniteQueryOptions<T>, 'client' | 'url'>
+  ): InfiniteQuery<T> {
+    return new InfiniteQuery<T>({
+      client: this,
+      url,
+      ...options,
+    });
   }
 
   private notifyObservers(key: string, data: unknown) {
