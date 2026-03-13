@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.2](https://github.com/webcoderspeed/reixo/compare/v2.1.1...v2.1.2) (2026-03-13)
+
+### Features
+
+- add infinite query utility for paginated data fetching ([a00dfd8](https://github.com/webcoderspeed/reixo/commit/a00dfd87ac6b423887acff67473a4c256eac0166))
+- **auth:** implement token refresh queue and cache notifications ([51e9291](https://github.com/webcoderspeed/reixo/commit/51e9291c6a9d240d66512f9c7ab268ae50076160))
+- **cache:** implement advanced caching strategies and real-time data synchronization ([657ad9a](https://github.com/webcoderspeed/reixo/commit/657ad9abe98457b97ec77adf6bfc9a8d689d1f3d))
+- enhance core clients, utilities and add tests ([6abeb6a](https://github.com/webcoderspeed/reixo/commit/6abeb6a0e98040271cd7d7b884aa4a86864c0949))
+- **graphql:** add automatic persisted queries and hashed cache keys ([b3ce11e](https://github.com/webcoderspeed/reixo/commit/b3ce11e8d42ddda9b8fca4be3e1cde9972c5136c))
+- **queue:** add data payload and priority inheritance for persistence ([d2b81d8](https://github.com/webcoderspeed/reixo/commit/d2b81d82437be6e01b90d3251d88e0634b65f7bc))
+
 ### [2.1.1](https://github.com/webcoderspeed/reixo/compare/v2.1.0...v2.1.1) (2026-01-30)
 
 ## [2.1.0](https://github.com/webcoderspeed/reixo/compare/v2.0.2...v2.1.0) (2026-01-30)
