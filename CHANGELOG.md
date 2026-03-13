@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.5](https://github.com/webcoderspeed/reixo/compare/v2.1.4...v2.1.5) (2026-03-13)
+
+### Features
+
+- add Result API, OpenTelemetry support, deduplication and new examples ([7c50a81](https://github.com/webcoderspeed/reixo/commit/7c50a8112e063342d032621657415fd19bfb92c9))
+
+### Bug Fixes
+
+- resolve lint errors in examples/05-interceptors.ts and others ([f87116a](https://github.com/webcoderspeed/reixo/commit/f87116a2abbb8d972cd18ee7c64e5fb272110420))
+
 ### [2.1.4](https://github.com/webcoderspeed/reixo/compare/v2.1.3...v2.1.4) (2026-03-13)
 
 ### Bug Fixes
