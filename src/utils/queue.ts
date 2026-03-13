@@ -48,10 +48,16 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     this.autoStart = options.autoStart ?? true;
 
     if (typeof options.storage === 'string') {
-      if (options.storage === 'local') {
-        this.storage = new WebStorageAdapter('local');
-      } else if (options.storage === 'session') {
-        this.storage = new WebStorageAdapter('session');
+      if (options.storage === 'local' || options.storage === 'session') {
+        // Fall back to MemoryAdapter in SSR/Node environments where Web Storage is unavailable
+        try {
+          this.storage = new WebStorageAdapter(options.storage);
+        } catch {
+          console.warn(
+            `[Reixo] ${options.storage}Storage not available — falling back to MemoryAdapter.`
+          );
+          this.storage = new MemoryAdapter();
+        }
       } else {
         this.storage = new MemoryAdapter();
       }
@@ -119,7 +125,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     options: { priority?: number; id?: string; dependencies?: string[]; data?: unknown } = {}
   ): Promise<T> {
     return new Promise((resolve, reject) => {
-      const id = options.id || Math.random().toString(36).substring(7);
+      const id = options.id || crypto.randomUUID();
 
       // Check for duplicates
       const existingPending = this.queue.find((t) => t.id === id);

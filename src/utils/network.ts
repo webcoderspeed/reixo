@@ -67,15 +67,11 @@ export class NetworkMonitor extends EventEmitter<NetworkEvents> {
 
       clearTimeout(timeoutId);
 
-      if (response.ok || response.status < 500) {
-        if (!this.isOnline) {
-          this.handleOnline();
-        }
-      } else {
-        // Server error doesn't necessarily mean offline, but let's assume online if we got a response
-        if (!this.isOnline) {
-          this.handleOnline();
-        }
+      // Any HTTP response (including 5xx) means the network is reachable.
+      // Only an actual fetch failure (network error / timeout) indicates offline state.
+      void response; // explicit no-op — status is irrelevant for connectivity detection
+      if (!this.isOnline) {
+        this.handleOnline();
       }
     } catch {
       clearTimeout(timeoutId);

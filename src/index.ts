@@ -1,6 +1,6 @@
 // Core public API - these are the main exports users should use
 export { HTTPBuilder, HTTPClient } from './core/http-client';
-export { HTTPError } from './utils/http';
+export { HTTPError, ValidationError } from './utils/http';
 export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
 export { WebSocketClient } from './core/websocket-client';
 export { SSEClient } from './core/sse-client';
@@ -21,6 +21,9 @@ export { ConsoleLogger, LogLevel } from './utils/logger';
 export { NetworkMonitor } from './utils/network';
 export { createBatchTransport } from './utils/batch-transport';
 export { paginate } from './utils/pagination';
+export { CacheManager, MemoryAdapter, WebStorageAdapter } from './utils/cache';
+export { RateLimiter } from './utils/rate-limiter';
+export { MetricsCollector } from './utils/metrics';
 
 // Reixo namespace for public API
 import { HTTPBuilder as _HTTPBuilder, HTTPClient as _HTTPClient } from './core/http-client';
@@ -56,7 +59,7 @@ export const Reixo = {
 
 // Types
 export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
-export type { HTTPOptions, HTTPResponse } from './utils/http';
+export type { HTTPOptions, HTTPResponse, HTTPMethod, ValidationSchema } from './utils/http';
 export type { HTTPClientConfig, RequestInterceptor, ResponseInterceptor } from './core/http-client';
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
@@ -66,3 +69,13 @@ export type { WebSocketConfig, WebSocketEvents } from './core/websocket-client';
 export type { SSEConfig, SSEEvents } from './core/sse-client';
 export type { PollingOptions } from './utils/polling';
 export type { InfiniteQueryOptions, InfiniteData } from './utils/infinite-query';
+export type { CacheOptions, CacheEntry, StorageAdapter } from './utils/cache';
+export type { PersistentQueueOptions, QueueEvents } from './utils/queue';
+export type { Metrics } from './utils/metrics';
+// IntelliSense helper types — re-exported so users can annotate their own code
+export type {
+  KnownRequestHeader,
+  HeadersRecord,
+  HeadersWithSuggestions,
+  MimeType,
+} from './types/http-well-known';

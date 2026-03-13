@@ -1,14 +1,69 @@
 import { delay } from './timing';
 
+/**
+ * Options for {@link PollingController} and the {@link poll} helper.
+ *
+ * @template T The resolved type of each poll result.
+ *
+ * @example
+ * const { promise, cancel } = poll(
+ *   () => client.get<Order>('/orders/123'),
+ *   {
+ *     interval: 2000,
+ *     timeout: 60_000,
+ *     stopCondition: (order) => order.data.status === 'fulfilled',
+ *     backoff: { factor: 1.5, maxInterval: 10_000 },
+ *   }
+ * );
+ */
 export interface PollingOptions<T = unknown> {
+  /**
+   * Base interval between poll attempts, in milliseconds.
+   * When `backoff` is enabled this is the *initial* interval.
+   */
   interval: number;
+
+  /**
+   * Wall-clock deadline for the entire polling session, in milliseconds.
+   * An error is thrown if the deadline is exceeded before `stopCondition` fires.
+   */
   timeout?: number;
+
+  /**
+   * Maximum number of total attempts (successes + errors) before giving up.
+   * An error is thrown when the limit is reached.
+   */
   maxAttempts?: number;
+
+  /**
+   * Return `true` to stop polling and resolve the session with the latest
+   * result. When omitted polling continues until `timeout` or `maxAttempts`.
+   */
   stopCondition?: (data: T) => boolean;
+
+  /**
+   * Called when the polling task throws. Receives the error and the current
+   * attempt count (including this failed attempt).
+   * Return `false` to stop polling and re-throw the error.
+   * Any other return value (including `void`) continues polling.
+   */
+  onError?: (error: unknown, attempts: number) => boolean | void;
+
+  /**
+   * Exponential back-off applied to the interval after each attempt.
+   * - `true` — use defaults: `factor: 1.5`, `maxInterval: 30_000`
+   * - `false` / omitted — constant interval
+   * - Object — custom multiplier and ceiling
+   *
+   * @example
+   * backoff: { factor: 2, maxInterval: 30_000 }
+   */
   backoff?:
     | boolean
     | {
+        /** Multiplier applied after each attempt. @example 1.5 */
         factor: number;
+        /** Maximum interval ceiling in milliseconds. @example 30000 */
         maxInterval: number;
       };
 }
@@ -67,10 +122,20 @@ export class PollingController<T = unknown> {
           );
         }
       } catch (error) {
-        // If task fails, decide whether to continue or throw
-        // For now, we continue polling unless it's a critical error
-        // But in a real scenario, we might want an error handler in options
-        console.error('Polling task error:', error);
+        // Always count the failed attempt so maxAttempts is respected
+        this.attempts++;
+
+        if (this.options.onError) {
+          const shouldContinue = this.options.onError(error, this.attempts);
+          if (shouldContinue === false) {
+            this.stop();
+            throw error;
+          }
+        } else {
+          console.error('Polling task error:', error);
+        }
+
+        if (!this.isRunning) return;
         await delay(this.currentInterval);
       }
     }

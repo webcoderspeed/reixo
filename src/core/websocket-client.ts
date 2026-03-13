@@ -2,24 +2,84 @@ import { EventEmitter } from '../utils/emitter';
 import { RetryOptions } from '../types/index';
 import { delay } from '../utils/timing';
 
+/**
+ * Configuration for {@link WebSocketClient}.
+ *
+ * @example
+ * const ws = new WebSocketClient({
+ *   url: 'wss://api.example.com/ws',
+ *   reconnect: { maxRetries: 5, initialDelayMs: 1000, backoffFactor: 2 },
+ *   heartbeat: { interval: 30_000, message: 'ping', timeout: 5_000 },
+ * });
+ * ws.on('message', (e) => console.log(JSON.parse(e.data)));
+ */
 export interface WebSocketConfig {
+  /** The WebSocket server URL (must start with `ws://` or `wss://`). */
   url: string;
+
+  /**
+   * One or more sub-protocol names passed to the `WebSocket` constructor.
+   * The server selects which protocol to use.
+   * @example 'json' or ['v1.protocol', 'v2.protocol']
+   */
   protocols?: string | string[];
+
+  /**
+   * Automatic reconnect behaviour when the connection is lost.
+   * Pass `true` for defaults (5 retries, exponential back-off starting at 1s)
+   * or a `RetryOptions` object to customise the delay and attempt count.
+   * @default false
+   */
   reconnect?: boolean | RetryOptions;
+
+  /**
+   * Heartbeat / keep-alive configuration.
+   * A ping message is sent at `interval` ms. If no server response arrives
+   * within `timeout` ms, the socket is closed (triggering reconnect if enabled).
+   */
   heartbeat?: {
+    /** How often to send the ping message, in milliseconds. */
     interval: number;
+    /**
+     * Message payload sent as the heartbeat ping.
+     * Objects are automatically JSON-serialised.
+     * @default 'ping'
+     */
     message?: string | object;
+    /**
+     * Milliseconds to wait for a response before closing the socket.
+     * When omitted, no timeout is applied.
+     */
     timeout?: number;
   };
+
+  /**
+   * Whether to open the WebSocket connection immediately when the client
+   * is constructed. Set to `false` to defer until `connect()` is called.
+   * @default true
+   */
   autoConnect?: boolean;
 }
 
+/**
+ * Events emitted by {@link WebSocketClient}.
+ *
+ * @example
+ * ws.on('open',          (e)   => console.log('Connected'));
+ * ws.on('close',         (e)   => console.log('Disconnected:', e.code));
+ * ws.on('error',         (e)   => console.error('Error', e));
+ * ws.on('message',       (e)   => console.log('Data:', e.data));
+ * ws.on('reconnect',     (n)   => console.log(`Attempt #${n}`));
+ * ws.on('reconnect:fail',(err) => console.error('Gave up:', err));
+ */
 export type WebSocketEvents = {
   open: [Event];
   close: [CloseEvent];
   error: [Event];
   message: [MessageEvent];
-  reconnect: [number]; // attempt number
+  /** Emitted before each reconnect attempt with the current attempt number. */
+  reconnect: [number];
+  /** Emitted when all reconnect attempts are exhausted. */
   'reconnect:fail': [Error];
 };
 
@@ -38,14 +98,15 @@ export class WebSocketClient extends EventEmitter<WebSocketEvents> {
   }
 
   public connect(): void {
+    // Respect an explicit close() call — a delayed reconnect must not override it
+    if (this.isExplicitlyClosed) return;
+
     if (
       this.ws &&
       (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)
     ) {
       return;
     }
-
-    this.isExplicitlyClosed = false;
 
     try {
       this.ws = new WebSocket(this.config.url, this.config.protocols);
@@ -136,22 +197,25 @@ export class WebSocketClient extends EventEmitter<WebSocketEvents> {
   }
 
   private startHeartbeat(): void {
-    if (!this.config.heartbeat) return;
+    const heartbeat = this.config.heartbeat;
+    if (!heartbeat) return;
 
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        const message = this.config.heartbeat?.message || 'ping';
+        const message = heartbeat.message || 'ping';
         this.send(typeof message === 'object' ? JSON.stringify(message) : message);
 
-        if (this.config.heartbeat?.timeout) {
+        // Capture timeout value once to avoid repeated optional chaining inside callbacks
+        const timeoutMs = heartbeat.timeout;
+        if (timeoutMs) {
           this.heartbeatTimeoutTimer = setTimeout(() => {
-            // No response received in time
+            // No response received in time — close the socket to trigger reconnect
             this.ws?.close();
-          }, this.config.heartbeat.timeout);
+          }, timeoutMs);
         }
       }
-    }, this.config.heartbeat.interval);
+    }, heartbeat.interval);
   }
 
   private stopHeartbeat(): void {

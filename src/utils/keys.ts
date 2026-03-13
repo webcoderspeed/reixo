@@ -7,13 +7,19 @@ import { simpleHash } from './hash';
  */
 export function generateKey(
   url: string,
-  params?: Record<string, string | number | boolean>
+  params?: Record<string, string | number | boolean | Array<string | number | boolean>>
 ): string {
   let key = url;
   if (params) {
     const sortedParams = Object.entries(params)
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([key, value]) => `${key}=${String(value)}`)
+      .flatMap(([k, value]) => {
+        if (Array.isArray(value)) {
+          // Sort array values for consistency so [b,a] and [a,b] produce the same key
+          return [...value].sort().map((v) => `${k}=${String(v)}`);
+        }
+        return [`${k}=${String(value)}`];
+      })
       .join('&');
     const separator = url.includes('?') ? '&' : '?';
     key = `${url}${separator}${sortedParams}`;

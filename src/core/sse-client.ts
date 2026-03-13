@@ -1,12 +1,49 @@
 import { EventEmitter } from '../utils/emitter';
 import { RetryOptions } from '../types/index';
 import { delay } from '../utils/timing';
+import type { HeadersRecord } from '../types/http-well-known';
 
+/**
+ * Configuration for {@link SSEClient}.
+ *
+ * @example
+ * const sse = new SSEClient({
+ *   url: 'https://api.example.com/events',
+ *   withCredentials: true,
+ *   reconnect: { maxRetries: 5, initialDelayMs: 1000 },
+ * });
+ * sse.on('message', (e) => console.log(e.data));
+ */
 export interface SSEConfig {
+  /** The SSE endpoint URL. */
   url: string;
+
+  /**
+   * Whether to send cookies and auth headers with the EventSource request
+   * (equivalent to `withCredentials` on `XMLHttpRequest`).
+   * @default false
+   */
   withCredentials?: boolean;
+
+  /**
+   * Automatic reconnect behaviour when the stream closes unexpectedly.
+   * Pass `true` for defaults (5 retries, exponential back-off) or a
+   * `RetryOptions` object to customise.
+   * @default false
+   */
   reconnect?: boolean | RetryOptions;
-  headers?: Record<string, string>; // Note: EventSource doesn't support headers natively in browser, but polyfills might
+
+  /**
+   * Additional request headers.
+   *
+   * **Note:** The native browser `EventSource` API does not support custom
+   * headers. This field is forwarded only when a fetch-based SSE polyfill
+   * is in use. Common header names are suggested by IntelliSense.
+   *
+   * @example
+   * headers: { Authorization: 'Bearer <token>' }
+   */
+  headers?: HeadersRecord;
 }
 
 export type SSEEvents = {
@@ -29,12 +66,13 @@ export class SSEClient extends EventEmitter<SSEEvents> {
   }
 
   public connect(): void {
+    // Respect an explicit close() call — a delayed reconnect must not override it
+    if (this.isExplicitlyClosed) return;
+
     if (this.eventSource && this.eventSource.readyState !== 2) {
       // 2 = CLOSED
       return;
     }
-
-    this.isExplicitlyClosed = false;
 
     try {
       // Note: Native EventSource only supports second argument as object with withCredentials

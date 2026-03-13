@@ -236,9 +236,9 @@ describe('Memory Leak Prevention & Offline Support', () => {
       client['config'].offlineQueue = true;
       client['setupOfflineQueue'](client['config']);
 
-      // Make requests with different priorities (using any to bypass type checking for test)
-      client.get('/low', { priority: 1 as any });
-      client.get('/high', { priority: 10 as any });
+      // Make requests with different priorities using the correct HTTPOptions field `taskPriority`
+      client.get('/low', { taskPriority: 1 });
+      client.get('/high', { taskPriority: 10 });
 
       // Verify both requests are queued
       expect(client['offlineQueue']?.size).toBe(2);

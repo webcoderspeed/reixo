@@ -38,17 +38,28 @@ export class SecurityUtils {
     return sanitized;
   }
 
+  /** Maximum recursion depth for {@link maskSensitiveData}. */
+  private static readonly MAX_MASK_DEPTH = 20;
+
   /**
    * Recursively masks sensitive fields in an object.
    * Useful for logging request/response bodies.
+   *
+   * @param data   The value to mask.
+   * @param _depth Internal recursion counter — do not pass externally.
    */
-  public static maskSensitiveData<T>(data: T): T {
+  public static maskSensitiveData<T>(data: T, _depth = 0): T {
     if (!data || typeof data !== 'object') {
       return data;
     }
 
+    // Guard against circular references and pathologically deep structures
+    if (_depth >= SecurityUtils.MAX_MASK_DEPTH) {
+      return '[MaxDepthReached]' as unknown as T;
+    }
+
     if (Array.isArray(data)) {
-      return data.map((item) => this.maskSensitiveData(item)) as unknown as T;
+      return data.map((item) => this.maskSensitiveData(item, _depth + 1)) as unknown as T;
     }
 
     const masked = {} as Record<string, unknown>;
@@ -59,7 +70,7 @@ export class SecurityUtils {
       if (this.SENSITIVE_FIELDS.some((field) => lowerKey.includes(field.toLowerCase()))) {
         masked[key] = '***';
       } else {
-        masked[key] = this.maskSensitiveData(obj[key]);
+        masked[key] = this.maskSensitiveData(obj[key], _depth + 1);
       }
     }
     return masked as unknown as T;

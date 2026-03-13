@@ -46,7 +46,7 @@ export class NetworkRecorder {
         if (!this.isRecording) return config;
 
         const recordedConfig = config as RecordedHTTPOptions;
-        const id = Math.random().toString(36).substring(7);
+        const id = crypto.randomUUID();
         recordedConfig._recordingId = id;
         recordedConfig._recordingStartTime = Date.now();
 
@@ -80,8 +80,8 @@ export class NetworkRecorder {
   }
 
   private recordResponse(response: HTTPResponse<unknown>) {
-    const config = response.config as RecordedHTTPOptions;
-    if (!config._recordingId) return;
+    const config = response.config as RecordedHTTPOptions | undefined;
+    if (!config || !config._recordingId) return;
 
     const endTime = Date.now();
     const startTime = config._recordingStartTime || endTime;

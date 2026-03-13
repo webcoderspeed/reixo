@@ -45,7 +45,10 @@ export function objectToFormData(
             formData.append(formKey, String(item));
           }
         });
-      } else if (typeof value === 'object' && !(value instanceof Date)) {
+      } else if (value instanceof Date) {
+        // Use ISO 8601 format for deterministic, locale-independent serialisation
+        formData.append(formKey, value.toISOString());
+      } else if (typeof value === 'object') {
         objectToFormData(value as Record<string, unknown>, formData, formKey);
       } else {
         formData.append(formKey, String(value));

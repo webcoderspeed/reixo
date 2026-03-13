@@ -1,5 +1,6 @@
 import { HTTPClient } from '../core/http-client';
 import { HTTPOptions, HTTPError } from './http';
+import type { KnownRequestHeader } from '../types/http-well-known';
 
 export interface AuthConfig {
   /**
@@ -20,9 +21,11 @@ export interface AuthConfig {
   onRefreshFailed?: (error: unknown) => void;
 
   /**
-   * Header name for the token (default: 'Authorization')
+   * Header name used to attach the access token. Common header names are
+   * suggested by IntelliSense.
+   * @default 'Authorization'
    */
-  headerName?: string;
+  headerName?: KnownRequestHeader;
 
   /**
    * Token prefix (default: 'Bearer ')

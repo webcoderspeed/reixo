@@ -26,14 +26,23 @@ export class MemoryAdapter implements StorageAdapter {
 
   get(key: string): CacheEntry<unknown> | null {
     const entry = this.cache.get(key);
-    return entry || null;
+    if (!entry) return null;
+
+    // LRU: move accessed entry to end of Map so it becomes "most recently used".
+    // JavaScript Maps maintain insertion order — last entry = most recently used.
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry;
   }
 
   set(key: string, entry: CacheEntry<unknown>): void {
+    // LRU eviction: first entry in Map = least recently used → evict it when full
     if (this.cache.size >= this.maxEntries && !this.cache.has(key)) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey) this.cache.delete(firstKey);
+      const lruKey = this.cache.keys().next().value;
+      if (lruKey) this.cache.delete(lruKey);
     }
+    // Re-insert (or update) at the end to mark as most recently used
+    this.cache.delete(key);
     this.cache.set(key, entry);
   }
 
@@ -58,9 +67,16 @@ export class WebStorageAdapter implements StorageAdapter {
   private storage: Storage;
   private prefix: string;
 
+  /**
+   * @throws Error if the storage type is not available (SSR / Node.js).
+   *         Callers should catch this and fall back to MemoryAdapter.
+   */
   constructor(type: 'local' | 'session', prefix: string = 'reixo-cache:') {
     if (typeof window === 'undefined' || !window[`${type}Storage`]) {
-      throw new Error(`Storage type "${type}" is not available in this environment.`);
+      throw new Error(
+        `Storage type "${type}" is not available in this environment (e.g. Node.js / SSR). ` +
+          `Use storage: 'memory' or provide a custom StorageAdapter instead.`
+      );
     }
     this.storage = window[`${type}Storage`];
     this.prefix = prefix;
@@ -146,10 +162,17 @@ export class CacheManager {
 
     if (typeof options.storage === 'object') {
       this.adapter = options.storage;
-    } else if (options.storage === 'local') {
-      this.adapter = new WebStorageAdapter('local', options.keyPrefix);
-    } else if (options.storage === 'session') {
-      this.adapter = new WebStorageAdapter('session', options.keyPrefix);
+    } else if (options.storage === 'local' || options.storage === 'session') {
+      // Fall back to MemoryAdapter in SSR/Node environments where Web Storage is unavailable
+      try {
+        this.adapter = new WebStorageAdapter(options.storage, options.keyPrefix);
+      } catch {
+        console.warn(
+          `[Reixo] ${options.storage}Storage not available — falling back to MemoryAdapter. ` +
+            `This is expected in SSR/Node environments.`
+        );
+        this.adapter = new MemoryAdapter(options.maxEntries || 100);
+      }
     } else {
       this.adapter = new MemoryAdapter(options.maxEntries || 100);
     }
@@ -159,7 +182,10 @@ export class CacheManager {
    * Generates a cache key from URL and options.
    * Delegates to the shared utility.
    */
-  public generateKey(url: string, params?: Record<string, string | number | boolean>): string {
+  public generateKey(
+    url: string,
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>
+  ): string {
     return generateKey(url, params);
   }
 

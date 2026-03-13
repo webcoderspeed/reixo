@@ -7,6 +7,7 @@ import {
   ValidationError,
   IHTTPClient,
 } from '../utils/http';
+import type { HeadersWithSuggestions } from '../types/http-well-known';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
@@ -41,48 +42,220 @@ export interface Logger {
   error(message: string, meta?: unknown): void;
 }
 
+/**
+ * Configuration object passed to `new HTTPClient(config)` or `HTTPBuilder.create()`.
+ *
+ * Every option can be overridden per-request via `HTTPOptions`.
+ *
+ * @example
+ * const client = new HTTPClient({
+ *   baseURL: 'https://api.example.com/v1',
+ *   timeoutMs: 10_000,
+ *   headers: {
+ *     Authorization: 'Bearer <token>',
+ *     Accept: 'application/json',
+ *   },
+ *   retry: { maxRetries: 3, backoffFactor: 2 },
+ * });
+ */
 export interface HTTPClientConfig {
+  /**
+   * Base URL prepended to every request path. Trailing / leading slashes are
+   * normalised automatically.
+   * @example 'https://api.example.com/v1'
+   */
   baseURL?: string;
+
+  /**
+   * Default request timeout in milliseconds. Individual requests may override
+   * this via `HTTPOptions.timeoutMs`.
+   * @default 30000
+   */
   timeoutMs?: number;
-  headers?: Record<string, string>;
-  transport?: HTTPRequestFunction; // Custom transport layer
-  logger?: Logger; // Custom logger
+
+  /**
+   * Default headers sent with every request. Common header names are suggested
+   * by IntelliSense — any custom header is still accepted.
+   *
+   * @example
+   * headers: {
+   *   Authorization: 'Bearer <token>',
+   *   'X-Api-Key': 'secret',
+   *   Accept: 'application/json',
+   * }
+   */
+  headers?: HeadersWithSuggestions;
+
+  /**
+   * Swap out the default `fetch`-based transport. Useful for testing with a
+   * `MockAdapter` or for Node.js environments that require a custom agent.
+   *
+   * @example
+   * const mock = new MockAdapter();
+   * const client = new HTTPClient({ transport: mock.transport });
+   */
+  transport?: HTTPRequestFunction;
+
+  /**
+   * Custom logger. Implement `info`, `warn`, and `error` to route log output
+   * to your preferred sink (e.g. Winston, Pino, Datadog).
+   *
+   * @example
+   * import { ConsoleLogger, LogLevel } from 'reixo';
+   * logger: new ConsoleLogger(LogLevel.DEBUG)
+   */
+  logger?: Logger;
+
+  /**
+   * Default retry strategy applied to all requests. Pass `true` for sensible
+   * defaults (3 retries, exponential back-off, 5xx / 429 / 408 only), `false`
+   * to disable retries globally, or a `RetryOptions` object to customise.
+   * @default true
+   */
   retry?: RetryOptions | boolean;
+
+  /**
+   * HTTP connection-pool settings (Node.js only).
+   * Controls the maximum number of sockets and idle keep-alive timeouts.
+   */
   pool?: ConnectionPoolOptions;
+
+  /**
+   * TLS/SSL options forwarded to the Node.js `https` module.
+   * Has no effect in browser environments.
+   */
   ssl?: {
+    /** Reject servers with self-signed or untrusted certificates. @default true */
     rejectUnauthorized?: boolean;
+    /** Custom CA certificate(s) in PEM format. */
     ca?: string | Buffer | Array<string | Buffer>;
+    /** Client certificate in PEM format (mutual TLS). */
     cert?: string | Buffer | Array<string | Buffer>;
+    /** Client private key in PEM format (mutual TLS). */
     key?: string | Buffer | Array<string | Buffer>;
+    /** Passphrase for an encrypted private key. */
     passphrase?: string;
   };
+
+  /**
+   * Token-bucket rate limiter applied globally before every outgoing request.
+   *
+   * @example
+   * rateLimit: { requests: 60, interval: 60_000 } // 60 req / min
+   */
   rateLimit?: {
+    /** Maximum number of requests allowed within `interval` milliseconds. */
     requests: number;
-    interval: number; // in milliseconds
+    /** Window duration in milliseconds. */
+    interval: number;
   };
+
+  /**
+   * Per-URL-pattern retry overrides. The first matching pattern wins.
+   * Useful when some endpoints need stricter (or more lenient) retry behaviour.
+   *
+   * @example
+   * retryPolicies: [
+   *   { pattern: /\/auth\//, retry: false },          // never retry auth
+   *   { pattern: '/api/upload', retry: { maxRetries: 1 } },
+   * ]
+   */
   retryPolicies?: Array<{
+    /** String prefix or RegExp matched against the full request URL. */
     pattern: string | RegExp;
     retry: RetryOptions | boolean;
   }>;
+
+  /**
+   * Response cache. Pass `true` to enable in-memory caching with defaults,
+   * or a `CacheOptions` object for full control (TTL, strategy, storage
+   * adapter, etc.).
+   */
   cacheConfig?: CacheOptions | boolean;
+
+  /**
+   * Collect per-request timing, error-rate, and throughput metrics.
+   * Access them via `client.getMetrics()` or the `onMetricsUpdate` callback.
+   * @default false
+   */
   enableMetrics?: boolean;
+
+  /**
+   * Buffer requests made while the device is offline and replay them once
+   * connectivity is restored. Pass `true` for defaults or a
+   * `PersistentQueueOptions` object to persist the queue across page reloads.
+   * @default false
+   */
   offlineQueue?: boolean | PersistentQueueOptions;
+
+  /**
+   * Deduplicate identical in-flight GET requests — concurrent calls to the same
+   * URL + params share a single network request.
+   * @default false
+   */
   enableDeduplication?: boolean;
+
+  /**
+   * Called every time the internal metrics snapshot is updated. Useful for
+   * forwarding metrics to an observability platform.
+   *
+   * @example
+   * onMetricsUpdate: (m) => console.log(`Error rate: ${m.errorRate}%`)
+   */
   onMetricsUpdate?: (metrics: import('../utils/metrics').Metrics) => void;
+
+  /**
+   * Global upload-progress callback (applies to all requests).
+   * For per-request progress, use `HTTPOptions.onUploadProgress` instead.
+   */
   onUploadProgress?: (progress: {
     loaded: number;
     total: number | null;
     progress: number | null;
   }) => void;
+
+  /**
+   * Global download-progress callback (applies to all requests).
+   * For per-request progress, use `HTTPOptions.onDownloadProgress` instead.
+   */
   onDownloadProgress?: (progress: {
     loaded: number;
     total: number | null;
     progress: number | null;
   }) => void;
+
+  /**
+   * API version string appended to every request, either as a URL segment
+   * (`/v2/users`) or as a header, depending on `versioningStrategy`.
+   * @example 'v2'
+   */
   apiVersion?: string;
+
+  /**
+   * How `apiVersion` is included in requests.
+   * - `'url'` — prepends the version as a path segment: `/v2/users`
+   * - `'header'` — sends the version in a request header (see `versionHeader`)
+   * @default 'url'
+   */
   versioningStrategy?: 'header' | 'url';
+
+  /**
+   * Header name used when `versioningStrategy` is `'header'`.
+   * @default 'Accept-Version'
+   */
   versionHeader?: string;
+
+  /**
+   * Re-fetch stale cache entries when the browser tab regains focus
+   * (similar to SWR / React Query behaviour).
+   * @default false
+   */
   revalidateOnFocus?: boolean;
+
+  /**
+   * Re-fetch stale cache entries when the device reconnects to the network.
+   * @default false
+   */
   revalidateOnReconnect?: boolean;
 }
 
@@ -125,6 +298,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
   private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
+  /** Dedicated promise store for the Suspense read() method — prevents infinite re-fetch loops */
+  private suspenseRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
   private cleanupCallbacks: Array<() => void> = [];
   private abortControllers = new Map<string, AbortController>();
   private offlineQueue?: TaskQueue;
@@ -172,8 +347,9 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * Clean up all resources and prevent memory leaks
    */
   public dispose(): void {
-    // Cleanup all in-flight requests
+    // Cleanup all in-flight and suspense requests
     this.inFlightRequests.clear();
+    this.suspenseRequests.clear();
 
     // Abort all active requests
     for (const controller of this.abortControllers.values()) {
@@ -257,7 +433,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       throw new Error('Offline queue not configured');
     }
 
-    const requestId = dedupeKey || Math.random().toString(36).substring(2, 15);
+    const requestId = dedupeKey || crypto.randomUUID();
 
     return this.offlineQueue.add<HTTPResponse<T>>(() => this.request<T>(url, options), {
       id: requestId,
@@ -308,10 +484,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
-   * Destroys the client and cleans up resources (e.g., connection pools).
+   * Destroys the client and cleans up all resources.
+   * Alias for dispose() — prefer dispose() for explicit resource management.
+   * @deprecated Use dispose() instead for full cleanup.
    */
   public destroy(): void {
-    this.connectionPool?.destroy();
+    this.dispose();
   }
 
   private setupLogging() {
@@ -415,7 +593,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   public setQueryData<T>(
     url: string,
     data: T,
-    params?: Record<string, string | number | boolean>
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>
   ): void {
     if (!this.cacheManager) return;
     const key = this.cacheManager.generateKey(url, params);
@@ -429,12 +607,14 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   public async mutate<T>(
     url: string,
     data: T | ((oldData: T | undefined) => T),
-    options: { revalidate?: boolean; params?: Record<string, string | number | boolean> } = {}
+    options: {
+      revalidate?: boolean;
+      params?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+    } = {}
   ): Promise<void> {
     if (!this.cacheManager) return;
 
-    // Generate cache key but don't assign to variable since it's only used internally
-    this.cacheManager.generateKey(url, options.params);
+    const key = this.cacheManager.generateKey(url, options.params);
 
     let newData: T;
     if (typeof data === 'function') {
@@ -462,7 +642,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    */
   public getQueryData<T>(
     url: string,
-    params?: Record<string, string | number | boolean>
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>
   ): T | null {
     if (!this.cacheManager) return null;
     const key = this.cacheManager.generateKey(url, params);
@@ -480,13 +660,25 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
 
     if (cached) return cached;
 
-    // Check for in-flight request
+    // Check the deduplication map first (populated when enableDeduplication is on)
     if (this.inFlightRequests.has(key)) {
       throw this.inFlightRequests.get(key);
     }
 
-    // Start request
-    const promise = this.request<T>(url, options);
+    // Check our dedicated Suspense promise store — this prevents infinite re-fetch
+    // loops when deduplication is disabled, because each React render would otherwise
+    // create a new Promise to throw, causing React to re-render and call read() again.
+    if (this.suspenseRequests.has(key)) {
+      throw this.suspenseRequests.get(key);
+    }
+
+    // Start request and store the promise so subsequent calls within the same render
+    // cycle throw the same promise reference (React de-duplicates by reference).
+    const promise = this.request<T>(url, options).finally(() => {
+      this.suspenseRequests.delete(key);
+    });
+
+    this.suspenseRequests.set(key, promise as Promise<HTTPResponse<unknown>>);
     throw promise;
   }
 
@@ -640,7 +832,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     const requestPromise = (async () => {
       // Create abort controller for this request
       const abortController = new AbortController();
-      const requestId = Math.random().toString(36).substring(2, 15);
+      const requestId = crypto.randomUUID();
       this.abortControllers.set(requestId, abortController);
 
       this.emit('request:start', {
@@ -673,9 +865,9 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         retry: retryOptions, // Default to resolved policy
         ...options, // Request-specific options override everything
         headers: {
-          ...this.config.headers,
-          ...options.headers,
-        },
+          ...(this.config.headers as Record<string, string> | undefined),
+          ...(options.headers as Record<string, string> | undefined),
+        } as HeadersWithSuggestions,
         signal: abortController.signal,
       };
 
@@ -864,6 +1056,45 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
+   * Shared body serialization for POST / PUT / PATCH requests.
+   * Handles FormData (smart Content-Type removal) and JSON stringify.
+   * Extracted to avoid triplicating the same logic across all mutation methods.
+   */
+  private _serializeBody(
+    data: unknown,
+    options?: HTTPOptions
+  ): { body: BodyInit | undefined; headers: Record<string, string> } {
+    let body: unknown = data;
+    const headers: Record<string, string> = {
+      ...((options?.headers as Record<string, string>) || {}),
+    };
+
+    // Auto-convert plain objects to FormData when useFormData: true
+    if (
+      options?.useFormData &&
+      data &&
+      typeof data === 'object' &&
+      !(typeof FormData !== 'undefined' && data instanceof FormData)
+    ) {
+      body = objectToFormData(data as Record<string, unknown>);
+    }
+
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+    if (isFormData) {
+      // Let the browser set the correct multipart boundary automatically
+      delete headers['Content-Type'];
+    } else {
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      body = data ? JSON.stringify(data) : undefined;
+    }
+
+    return { body: body as BodyInit | undefined, headers };
+  }
+
+  /**
    * GET request
    */
   public get<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
@@ -871,81 +1102,33 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
+   * HEAD request — useful for checking resource existence or reading headers without a body.
+   */
+  public head<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+    return this.request<T>(url, { ...options, method: 'HEAD' });
+  }
+
+  /**
+   * OPTIONS request — useful for CORS preflight checks and API capability discovery.
+   */
+  public options<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+    return this.request<T>(url, { ...options, method: 'OPTIONS' });
+  }
+
+  /**
    * POST request
    */
   public post<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
-    let body = data;
-    const headers: Record<string, string> = {
-      ...((options?.headers as Record<string, string>) || {}),
-    };
-
-    if (
-      options?.useFormData &&
-      data &&
-      typeof data === 'object' &&
-      !(typeof FormData !== 'undefined' && data instanceof FormData)
-    ) {
-      body = objectToFormData(data as Record<string, unknown>);
-    }
-
-    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
-
-    if (isFormData) {
-      if (headers['Content-Type']) {
-        delete headers['Content-Type'];
-      }
-    } else {
-      if (!headers['Content-Type']) {
-        headers['Content-Type'] = 'application/json';
-      }
-      body = data ? JSON.stringify(data) : undefined;
-    }
-
-    return this.request<T>(url, {
-      ...options,
-      method: 'POST',
-      body: body as BodyInit,
-      headers,
-    });
+    const { body, headers } = this._serializeBody(data, options);
+    return this.request<T>(url, { ...options, method: 'POST', body, headers });
   }
 
   /**
    * PUT request
    */
   public put<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
-    let body = data;
-    const headers: Record<string, string> = {
-      ...((options?.headers as Record<string, string>) || {}),
-    };
-
-    if (
-      options?.useFormData &&
-      data &&
-      typeof data === 'object' &&
-      !(typeof FormData !== 'undefined' && data instanceof FormData)
-    ) {
-      body = objectToFormData(data as Record<string, unknown>);
-    }
-
-    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
-
-    if (isFormData) {
-      if (headers['Content-Type']) {
-        delete headers['Content-Type'];
-      }
-    } else {
-      if (!headers['Content-Type']) {
-        headers['Content-Type'] = 'application/json';
-      }
-      body = data ? JSON.stringify(data) : undefined;
-    }
-
-    return this.request<T>(url, {
-      ...options,
-      method: 'PUT',
-      body: body as BodyInit,
-      headers,
-    });
+    const { body, headers } = this._serializeBody(data, options);
+    return this.request<T>(url, { ...options, method: 'PUT', body, headers });
   }
 
   /**
@@ -959,39 +1142,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * PATCH request
    */
   public patch<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
-    let body = data;
-    const headers: Record<string, string> = {
-      ...((options?.headers as Record<string, string>) || {}),
-    };
-
-    if (
-      options?.useFormData &&
-      data &&
-      typeof data === 'object' &&
-      !(typeof FormData !== 'undefined' && data instanceof FormData)
-    ) {
-      body = objectToFormData(data as Record<string, unknown>);
-    }
-
-    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
-
-    if (isFormData) {
-      if (headers['Content-Type']) {
-        delete headers['Content-Type'];
-      }
-    } else {
-      if (!headers['Content-Type']) {
-        headers['Content-Type'] = 'application/json';
-      }
-      body = data ? JSON.stringify(data) : undefined;
-    }
-
-    return this.request<T>(url, {
-      ...options,
-      method: 'PATCH',
-      body: body as BodyInit,
-      headers,
-    });
+    const { body, headers } = this._serializeBody(data, options);
+    return this.request<T>(url, { ...options, method: 'PATCH', body, headers });
   }
 }
 
@@ -1030,12 +1182,12 @@ export class HTTPBuilder {
     if (!this.config.headers) {
       this.config.headers = {};
     }
-    this.config.headers[key] = value;
+    (this.config.headers as Record<string, string>)[key] = value;
     return this;
   }
 
   public withHeaders(headers: Record<string, string>): this {
-    this.config.headers = { ...this.config.headers, ...headers };
+    this.config.headers = { ...(this.config.headers as Record<string, string>), ...headers };
     return this;
   }
 

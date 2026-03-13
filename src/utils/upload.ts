@@ -83,25 +83,23 @@ export class ResumableUploader {
     items: T[],
     processor: (item: T) => Promise<void>,
     batchSize: number
-  ) {
+  ): Promise<void> {
     const queue = [...items];
-    const activeWorkers: Promise<void>[] = [];
+    // Use a Set so removal is O(1) and there is no stale reference issue
+    const active = new Set<Promise<void>>();
 
-    while (queue.length > 0 || activeWorkers.length > 0) {
-      while (queue.length > 0 && activeWorkers.length < batchSize) {
+    while (queue.length > 0 || active.size > 0) {
+      // Fill up to batchSize
+      while (queue.length > 0 && active.size < batchSize) {
         const item = queue.shift()!;
-        const worker = processor(item).then(() => {
-          const index = activeWorkers.indexOf(worker);
-          if (index > -1) {
-            activeWorkers.splice(index, 1);
-          }
-        });
-        activeWorkers.push(worker);
+        // `.finally()` always fires (success or error), keeping `active` in sync
+        const p: Promise<void> = processor(item).finally(() => active.delete(p));
+        active.add(p);
       }
 
-      if (activeWorkers.length > 0) {
-        // Wait for at least one to finish
-        await Promise.race(activeWorkers);
+      if (active.size > 0) {
+        // Throws immediately if any worker rejects — correct behaviour for chunked uploads
+        await Promise.race(active);
       }
     }
   }

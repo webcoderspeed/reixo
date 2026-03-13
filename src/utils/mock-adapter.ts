@@ -150,7 +150,7 @@ export class MockAdapter {
     return this.history.length;
   }
 
-  public get latestRequest() {
+  public get latestRequest(): { url: string; options: HTTPOptions } | undefined {
     return this.history[this.history.length - 1];
   }
 }

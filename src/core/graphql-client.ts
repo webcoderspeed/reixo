@@ -128,12 +128,13 @@ export class GraphQLClient {
       // If server doesn't recognize the hash (or other error), retry with full query
       // We check for specific error messages or status codes usually
       // Standard APQ returns "PersistedQueryNotFound" or similar
-      const errMsg = (error as Error).message;
+      // Safe message extraction — `error` may not be an Error instance
+      const errMsg = error instanceof Error ? error.message : String(error);
       const isAPQError =
         errMsg === 'PersistedQueryNotFound' ||
         (
           error as { response?: { data?: { errors?: Array<{ message: string }> } } }
-        ).response?.data?.errors?.some((e) => e.message === 'PersistedQueryNotFound');
+        ).response?.data?.errors?.some((e) => e.message === 'PersistedQueryNotFound') === true;
 
       if (isAPQError || errMsg.includes('PersistedQueryNotFound')) {
         // Retry with full query + hash

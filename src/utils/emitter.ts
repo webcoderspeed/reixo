@@ -20,7 +20,19 @@ export class EventEmitter<Events extends EventMap = Record<string, unknown[]>> {
 
   public emit<K extends keyof Events>(event: K, ...args: Events[K]): void {
     if (!this.events[event]) return;
-    this.events[event]!.forEach((listener) => listener(...args));
+    // Snapshot listeners so mutations inside a callback don't skip or duplicate entries
+    const listeners = [...this.events[event]!];
+    for (const listener of listeners) {
+      try {
+        listener(...args);
+      } catch (err) {
+        // Isolate listener errors: surface as an unhandled rejection without
+        // interrupting the current emit loop so other listeners still fire.
+        queueMicrotask(() => {
+          throw err;
+        });
+      }
+    }
   }
 
   public once<K extends keyof Events>(event: K, listener: (...args: Events[K]) => void): void {
