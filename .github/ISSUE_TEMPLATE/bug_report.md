@@ -12,10 +12,18 @@ A clear and concise description of what the bug is.
 **To Reproduce**
 Steps to reproduce the behavior:
 
-1. Go to '...'
-2. Click on '...'
-3. Scroll down to '...'
-4. See error
+1. Create a client with config '...'
+2. Make a request to '...'
+3. See error
+
+**Reproduction Code**
+Please provide a minimal code snippet that reproduces the issue.
+
+```ts
+import { HTTPBuilder } from 'reixo';
+
+// Your code here
+```
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
