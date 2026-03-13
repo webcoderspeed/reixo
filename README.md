@@ -1,6 +1,6 @@
 # reixo
 
-A TypeScript-first HTTP client for Node.js and browsers. Handles the things you'd otherwise write by hand — retries, circuit breaking, request queuing, caching, auth token refresh, and typed errors — so your application code stays focused on business logic.
+A TypeScript-first HTTP client for Node.js, browsers, and edge runtimes. Handles retries, circuit breaking, request deduplication, OpenTelemetry tracing, typed error returns, offline queuing, caching, auth token refresh, and more — so your application code stays focused on business logic.
 
 [![npm version](https://img.shields.io/npm/v/reixo)](https://www.npmjs.com/package/reixo)
 [![npm downloads](https://img.shields.io/npm/dm/reixo)](https://www.npmjs.com/package/reixo)
@@ -12,16 +12,20 @@ A TypeScript-first HTTP client for Node.js and browsers. Handles the things you'
 
 ## Why reixo?
 
-The native `fetch` API is flexible but low-level. Common tasks — request timeouts, retries on transient failures, error normalization, token refresh, deduplication — require boilerplate that ends up duplicated across every project. `axios` fills some of those gaps, but leaves the hard parts (circuit breaking, typed errors, offline queuing, request cancellation, structured logging) to third-party plugins or custom code.
+The native `fetch` API is low-level. Common tasks — timeouts, retries, error normalisation, token refresh, distributed tracing, request deduplication — require boilerplate that gets duplicated across every project. `axios` fills some gaps but leaves the hard parts (circuit breaking, typed errors, offline queuing, OpenTelemetry, Result-style error handling) to third-party plugins or custom code.
 
-reixo bundles those patterns into a single, cohesive library with:
+reixo bundles all of those patterns into one cohesive, zero-dependency library:
 
-- **Zero `any` types.** The entire codebase is written with strict TypeScript. No silent type widening.
-- **Typed error classes.** Catch `NetworkError`, `TimeoutError`, `AbortError`, `CircuitOpenError`, or `RetryError` with `instanceof` — no string matching.
-- **First-class resilience.** Retry with exponential backoff, circuit breaker, and rate limiting are configuration options, not add-ons.
-- **Request lifecycle control.** Cancel individual requests by ID, cancel all in-flight requests, or prefetch with a cancellable handle.
+- **No-throw `Result<T, E>` API.** `tryGet`, `tryPost`, etc. return `Ok | Err` instead of throwing. No `try/catch` tax.
+- **W3C OpenTelemetry tracing.** Inject `traceparent`, `tracestate`, and `baggage` headers out of the box — no `@opentelemetry/*` packages needed.
+- **In-flight request deduplication.** Concurrent identical GET requests collapse into one network round-trip — zero duplicated calls.
+- **Smart transient-error detection.** `isTransientNetworkError()` understands `ETIMEDOUT`, `ECONNRESET`, browser `Failed to fetch`, and more across every runtime.
+- **Runtime detection.** Know at runtime whether you're in Node.js, Bun, Deno, Cloudflare Workers, Vercel Edge, or a browser.
+- **Zero `any` types.** Strict TypeScript throughout. `HeadersRecord`, `JsonValue`, `BodyData` — every boundary is typed.
+- **Typed error classes.** `instanceof HTTPError | NetworkError | TimeoutError | AbortError | CircuitOpenError` — no string matching.
+- **First-class resilience.** Retry with exponential backoff, circuit breaker, and token-bucket rate limiting are config options, not add-ons.
+- **No runtime dependencies.** Core relies only on the platform's native `fetch` and `AbortController`.
 - **Dual ESM + CJS output.** Works in Node.js 18+, modern browsers, edge runtimes, and server-side rendering.
-- **No runtime dependencies.** The core relies only on the platform's native `fetch` and `AbortController`.
 
 ---
 
@@ -31,14 +35,19 @@ reixo bundles those patterns into a single, cohesive library with:
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Making Requests](#making-requests)
-- [Error Handling](#error-handling)
+- [Result API — No-Throw Error Handling](#result-api--no-throw-error-handling)
+- [Error Handling — Try/Catch Style](#error-handling--trycatch-style)
 - [Retries](#retries)
 - [Circuit Breaker](#circuit-breaker)
+- [Request Deduplication](#request-deduplication)
+- [OpenTelemetry Tracing](#opentelemetry-tracing)
+- [Network Error Classification](#network-error-classification)
+- [Runtime Detection](#runtime-detection)
 - [Request Cancellation](#request-cancellation)
 - [Caching](#caching)
 - [Interceptors](#interceptors)
 - [Auth Token Refresh](#auth-token-refresh)
-- [Request Queue & Offline Support](#request-queue--offline-support)
+- [Offline Queue](#offline-queue)
 - [Polling](#polling)
 - [WebSocket Client](#websocket-client)
 - [Server-Sent Events](#server-sent-events)
@@ -46,9 +55,11 @@ reixo bundles those patterns into a single, cohesive library with:
 - [Logging](#logging)
 - [Mock Adapter](#mock-adapter)
 - [Testing](#testing)
+- [API Reference](#api-reference)
 - [Migration from axios](#migration-from-axios)
 - [Migration from fetch](#migration-from-fetch)
-- [Browser & Node.js Support](#browser--nodejs-support)
+- [Runtime Support](#runtime-support)
+- [Code Examples](#code-examples)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -77,17 +88,24 @@ const client = new HTTPBuilder()
   .withHeader('Authorization', 'Bearer <token>')
   .build();
 
+// Throwing style — HTTPError thrown on 4xx/5xx
 const response = await client.get<User[]>('/users');
 console.log(response.data); // User[]
-```
 
-`response.data` is already parsed. HTTP errors (4xx, 5xx) throw `HTTPError` automatically — no manual `if (!response.ok)` required.
+// No-throw style — Result<T, E> returned instead of throwing
+const result = await client.tryGet<User[]>('/users');
+if (result.ok) {
+  console.log(result.data.data); // User[]
+} else {
+  console.error(result.error.status); // HTTPError.status
+}
+```
 
 ---
 
 ## Configuration
 
-The `HTTPBuilder` provides a fluent API that covers every option in `HTTPClientConfig`.
+`HTTPBuilder` provides a fluent API that covers every option in `HTTPClientConfig`.
 
 ```ts
 import { HTTPBuilder, LogLevel, ConsoleLogger } from 'reixo';
@@ -109,19 +127,18 @@ const client = new HTTPBuilder()
     failureThreshold: 5,
     resetTimeoutMs: 30_000,
   })
-  .withRateLimit({
-    requestsPerSecond: 20,
-    burstCapacity: 40,
-  })
+  .withRateLimit({ requests: 20, interval: 1_000 })
   .withCache({
     ttl: 60_000,
     strategy: 'cache-first',
   })
+  .withDeduplication() // collapse concurrent identical GETs
+  .withOpenTelemetry({ serviceName: 'my-service' }) // W3C trace headers
   .withLogger(new ConsoleLogger({ level: LogLevel.WARN, format: 'json' }))
   .build();
 ```
 
-You can also construct `HTTPClient` directly if you prefer plain objects over the builder:
+You can also construct `HTTPClient` directly with a plain config object:
 
 ```ts
 import { HTTPClient } from 'reixo';
@@ -163,10 +180,8 @@ const allowed = await client.options('/users');
 
 ### Query Parameters
 
-reixo serializes `params` automatically. Nested objects use bracket notation; arrays repeat the key.
-
 ```ts
-// Flat
+// Flat params
 client.get('/items', { params: { page: 2, limit: 50 } });
 // → /items?page=2&limit=50
 
@@ -175,8 +190,8 @@ client.get('/items', { params: { tags: ['js', 'ts'] } });
 // → /items?tags=js&tags=ts
 
 // Nested objects (bracket notation)
-client.get('/items', { params: { filter: { status: 'active', year: 2026 } } });
-// → /items?filter%5Bstatus%5D=active&filter%5Byear%5D=2026
+client.get('/items', { params: { filter: { status: 'active' } } });
+// → /items?filter%5Bstatus%5D=active
 
 // Custom serializer
 client.get('/items', {
@@ -211,11 +226,80 @@ const response = await client.get('/export/large.csv', {
 response.data.pipe(fs.createWriteStream('output.csv'));
 ```
 
+### Generating a cURL Command
+
+```ts
+const curl = client.generateCurl('/users/1', {
+  headers: { Authorization: 'Bearer token' },
+});
+// → curl -X GET 'https://api.example.com/users/1' -H 'Authorization: Bearer token'
+```
+
 ---
 
-## Error Handling
+## Result API — No-Throw Error Handling
 
-reixo throws specific error classes so you can handle failures precisely:
+The `try*` methods return a `Result<T, E>` discriminated union instead of throwing. This is the recommended style for code paths where errors are expected and handled inline.
+
+```ts
+import { ok, err, toResult, mapResult, unwrap, unwrapOr } from 'reixo';
+
+// tryGet / tryPost / tryPut / tryPatch / tryDelete — never throw
+const result = await client.tryGet<Post>('/posts/1');
+
+if (result.ok) {
+  console.log(result.data.data.title); // Post
+} else {
+  console.error(result.error.status); // HTTPError.status
+}
+```
+
+### Chaining with `mapResult`
+
+```ts
+// Transform the payload without leaving the Result context
+const titleResult = mapResult(
+  await client.tryGet<Post>('/posts/1'),
+  (res) => res.data.title // HTTPResponse<Post> → string
+);
+
+if (titleResult.ok) console.log(titleResult.data); // string
+```
+
+### `unwrap` / `unwrapOr`
+
+```ts
+// unwrap — throws if Err (use when you're certain it succeeds)
+const res = unwrap(await client.tryGet<Post>('/posts/1'));
+
+// unwrapOr — returns a fallback on Err (never throws)
+const post = unwrapOr(await client.tryGet<Post>('/posts/1'), { id: 0, title: 'Unknown' });
+```
+
+### `toResult` — wrap any existing Promise
+
+```ts
+// Wrap any Promise-based API into Result
+const result = await toResult(client.get<Post>('/posts/1'));
+```
+
+### Building Results manually
+
+```ts
+function parseJson(raw: string): Result<unknown, Error> {
+  try {
+    return ok(JSON.parse(raw));
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
+}
+```
+
+---
+
+## Error Handling — Try/Catch Style
+
+When you prefer the throwing style, reixo throws specific, typed error classes:
 
 ```ts
 import {
@@ -233,28 +317,22 @@ try {
   if (err instanceof HTTPError) {
     // 4xx / 5xx response
     console.error(`HTTP ${err.status}: ${err.statusText}`);
-    console.error('Request config:', err.config);
   } else if (err instanceof TimeoutError) {
-    // Request exceeded timeoutMs
     console.error(`Timed out after ${err.timeoutMs}ms`);
   } else if (err instanceof AbortError) {
-    // Request was cancelled via AbortController or client.cancel()
     console.warn('Request was cancelled');
   } else if (err instanceof CircuitOpenError) {
-    // Circuit breaker is OPEN — service is unavailable
-    console.warn('Circuit open, using fallback');
+    console.warn('Circuit breaker is open — using fallback');
   } else if (err instanceof NetworkError) {
-    // fetch() rejected — no connectivity, DNS failure, etc.
     console.error('Network failure:', err.message);
   } else if (err instanceof RetryError) {
-    // withRetry() exhausted all attempts (direct use of the utility)
-    console.error(`Failed after ${err.attempts} attempts over ${err.durationMs}ms`);
-    console.error('Original error:', err.cause);
+    // Only surfaced when calling withRetry() directly
+    console.error(`Gave up after ${err.attempts} attempts`);
   }
 }
 ```
 
-`HTTPClient` methods automatically unwrap `RetryError` — if you use `client.get()` with retry enabled, you receive the original typed error (e.g. `HTTPError` or `NetworkError`), not `RetryError`. `RetryError` is only surfaced when calling `withRetry()` directly.
+`HTTPClient` methods automatically unwrap `RetryError`. When retry is configured on the client, `client.get()` throws the original error (`HTTPError`, `NetworkError`, etc.) — not `RetryError`. `RetryError` is only surfaced when calling `withRetry()` directly.
 
 ---
 
@@ -268,9 +346,13 @@ const client = new HTTPBuilder()
     maxRetries: 3,
     initialDelayMs: 100,
     backoffFactor: 2,
-    jitter: true, // ±50% jitter to spread retries
+    jitter: true, // ±50% jitter to spread concurrent retries
     maxDelayMs: 10_000,
-    retryCondition: (err) => err instanceof NetworkError || err.status >= 500,
+    retryCondition: (err) => {
+      if (err instanceof NetworkError) return true; // always retry transport failures
+      if (err instanceof HTTPError) return err.status >= 500 || err.status === 429;
+      return false;
+    },
     onRetry: (err, attempt, delayMs) => {
       console.log(`Retry #${attempt} in ${delayMs}ms`);
     },
@@ -278,19 +360,21 @@ const client = new HTTPBuilder()
   .build();
 ```
 
+The default `retryCondition` (when not overridden) retries: reixo's own `NetworkError`, any error matching `isTransientNetworkError()` (ETIMEDOUT, ECONNRESET, etc.), HTTP 5xx responses, HTTP 429, and HTTP 408.
+
 ### Per-request override
 
 ```ts
-// Disable retry for this request
+// Disable retry for this specific request
 await client.get('/idempotent', { retry: false });
 
-// Override retry options for this request
+// Override per request
 await client.post('/payment', body, {
   retry: { maxRetries: 1, retryCondition: () => false },
 });
 ```
 
-### Standalone utility
+### Standalone `withRetry` utility
 
 ```ts
 import { withRetry, RetryError } from 'reixo';
@@ -313,11 +397,9 @@ try {
 
 ## Circuit Breaker
 
-The circuit breaker prevents cascading failures by short-circuiting calls to a failing service.
+Prevents cascading failures by short-circuiting calls to a failing service.
 
 State machine: `CLOSED` → (failures ≥ threshold) → `OPEN` → (after reset timeout) → `HALF_OPEN` → (probe succeeds) → `CLOSED`.
-
-### Configured on the client
 
 ```ts
 const client = new HTTPBuilder()
@@ -333,7 +415,7 @@ const client = new HTTPBuilder()
 
 When the breaker is open, requests throw `CircuitOpenError` immediately without hitting the network.
 
-### Shared across clients
+### Shared breaker across clients
 
 ```ts
 import { CircuitBreaker } from 'reixo';
@@ -347,12 +429,202 @@ const clientB = new HTTPBuilder().withCircuitBreaker(sharedBreaker).build();
 
 ---
 
+## Request Deduplication
+
+When multiple callers request the same URL simultaneously, reixo fires only **one** network request and shares the same Promise with all waiters. All callers get the identical result when it resolves or rejects.
+
+```ts
+const client = new HTTPBuilder()
+  .withBaseURL('https://api.example.com')
+  .withDeduplication() // GET, HEAD, OPTIONS are deduplicated by default
+  .build();
+
+// Five simultaneous calls → one network request
+const [r1, r2, r3, r4, r5] = await Promise.all([
+  client.get('/config'),
+  client.get('/config'),
+  client.get('/config'),
+  client.get('/config'),
+  client.get('/config'),
+]);
+// All five receive the same response — one round-trip
+
+// Opt out per request
+await client.get('/live-price', { deduplicate: false });
+```
+
+### Standalone `RequestDeduplicator`
+
+Use it outside of HTTP requests — deduplicate any async operation:
+
+```ts
+import { RequestDeduplicator, buildDedupKey, DEDUP_SAFE_METHODS } from 'reixo';
+
+const dedup = new RequestDeduplicator();
+
+// Collapse 5 concurrent calls into 1 execution
+const results = await Promise.all(
+  Array.from({ length: 5 }, () =>
+    dedup.deduplicate(buildDedupKey('GET', '/api/users'), () => fetchFromDatabase())
+  )
+);
+
+console.log(dedup.stats()); // { inflight: 0, savedRequests: 4 }
+console.log([...DEDUP_SAFE_METHODS]); // ['GET', 'HEAD', 'OPTIONS']
+```
+
+---
+
+## OpenTelemetry Tracing
+
+reixo implements the [W3C Trace Context](https://www.w3.org/TR/trace-context/) spec (`traceparent`, `tracestate`, `baggage`) natively — **no `@opentelemetry/*` packages required**.
+
+### Zero-config
+
+```ts
+const client = new HTTPBuilder()
+  .withBaseURL('https://api.example.com')
+  .withOpenTelemetry() // auto-generates a fresh trace per request
+  .build();
+
+// Every outgoing request carries:
+//   traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+```
+
+### Service name and custom baggage
+
+```ts
+const client = new HTTPBuilder()
+  .withOpenTelemetry({
+    serviceName: 'checkout-service',
+    baggage: {
+      'user.tier': 'premium',
+      env: 'production',
+    },
+  })
+  .build();
+// baggage: service.name=checkout-service,user.tier=premium,env=production
+```
+
+### Continuing a parent trace
+
+```ts
+import { parseTraceparent } from 'reixo';
+
+// Extract from an incoming request header (e.g. in Express / Hono / Next.js)
+const parentCtx = parseTraceparent(req.headers['traceparent']);
+
+const client = new HTTPBuilder()
+  .withOpenTelemetry({
+    parentContext: parentCtx ?? undefined, // continues the upstream trace
+    serviceName: 'checkout-service',
+  })
+  .build();
+// All outgoing requests share the same traceId — one distributed trace
+```
+
+### Span lifecycle hooks
+
+```ts
+const client = new HTTPBuilder()
+  .withOpenTelemetry({
+    hooks: {
+      onSpanStart(ctx) {
+        myTelemetry.startSpan(ctx.traceId, ctx.spanId, ctx.url);
+      },
+      onSpanEnd(ctx) {
+        myTelemetry.finishSpan(ctx.spanId, ctx.status);
+      },
+    },
+  })
+  .build();
+```
+
+### Low-level helpers
+
+```ts
+import { parseTraceparent, formatTraceparent } from 'reixo';
+
+const ctx = parseTraceparent('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01');
+// { traceId: '4bf92f...', spanId: '00f067...', traceFlags: 1 }
+// Returns null for invalid or malformed values
+
+const header = formatTraceparent({ traceId: '...', spanId: '...', traceFlags: 1 });
+// '00-...-...-01'
+```
+
+---
+
+## Network Error Classification
+
+`isTransientNetworkError` and `classifyNetworkError` work across Node.js, Bun, Deno, Cloudflare Workers, and browsers — no runtime-specific branching needed.
+
+```ts
+import {
+  isTransientNetworkError,
+  isTimeoutError,
+  isDnsError,
+  classifyNetworkError,
+  TRANSIENT_NETWORK_CODES,
+} from 'reixo';
+
+// True for ETIMEDOUT, ECONNRESET, ENOTFOUND, 'Failed to fetch', etc.
+isTransientNetworkError(error);
+
+// Specific checks
+isTimeoutError(error); // ETIMEDOUT, TimeoutError
+isDnsError(error); // ENOTFOUND, EAI_AGAIN
+
+// Structured classification for logging / telemetry
+const kind = classifyNetworkError(error);
+// 'timeout' | 'dns' | 'connection_refused' | 'connection_reset'
+// | 'network_unavailable' | 'other_transient' | 'non_transient'
+
+// The full set of recognised error codes
+console.log([...TRANSIENT_NETWORK_CODES]);
+// ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', ...]
+```
+
+---
+
+## Runtime Detection
+
+```ts
+import { detectRuntime, getRuntimeCapabilities, isNode, isBrowser, isEdgeRuntime } from 'reixo';
+
+const runtime = detectRuntime();
+// 'node' | 'bun' | 'deno' | 'workerd' | 'edge-light' | 'fastly' | 'browser' | 'unknown'
+
+const caps = getRuntimeCapabilities();
+// {
+//   name: 'node',
+//   hasFetch: true,
+//   hasStreams: true,
+//   hasCrypto: true,
+//   hasXHR: false,
+//   hasNodeErrorCodes: true,
+//   hasHTTP2: true,
+// }
+
+// Convenience booleans
+if (isNode()) {
+  /* Node.js or Bun */
+}
+if (isBrowser()) {
+  /* browser context */
+}
+if (isEdgeRuntime()) {
+  /* Vercel Edge, Cloudflare Workers */
+}
+```
+
+---
+
 ## Request Cancellation
 
 ### Cancel by request ID
 
 ```ts
-// requestWithId() resolves to { requestId, promise }
 const { requestId, promise } = client.requestWithId('/slow-endpoint');
 
 // Cancel before it completes
@@ -361,9 +633,7 @@ client.cancel(requestId);
 try {
   await promise;
 } catch (err) {
-  if (err instanceof AbortError) {
-    console.log('Cancelled');
-  }
+  if (err instanceof AbortError) console.log('Cancelled');
 }
 ```
 
@@ -373,7 +643,7 @@ try {
 client.cancelAll();
 ```
 
-### Cancel via AbortController
+### Cancel via `AbortController`
 
 ```ts
 const controller = new AbortController();
@@ -387,7 +657,6 @@ controller.abort();
 ### Cancellable prefetch
 
 ```ts
-// Prefetch on hover, cancel if the user leaves
 const handle = client.prefetch('/api/product/42');
 
 element.addEventListener('mouseleave', () => {
@@ -399,13 +668,11 @@ element.addEventListener('mouseleave', () => {
 
 ## Caching
 
-### Strategies
-
 ```ts
 const client = new HTTPBuilder()
   .withCache({
     ttl: 120_000, // 2 minutes
-    strategy: 'stale-while-revalidate', // or 'cache-first', 'network-first', 'network-only'
+    strategy: 'stale-while-revalidate', // or 'cache-first' | 'network-first' | 'network-only'
     storage: 'memory', // or 'localStorage' (browser only)
     maxEntries: 200,
     invalidateOn: ['POST', 'PUT', 'PATCH', 'DELETE'],
@@ -422,14 +689,11 @@ const client = new HTTPBuilder()
 
 ### Cache metadata
 
-Responses served from cache include a `cacheMetadata` field:
-
 ```ts
 const res = await client.get('/config');
 
 if (res.cacheMetadata?.hit) {
   console.log(`Cache hit — ${res.cacheMetadata.age}s old, ${res.cacheMetadata.ttl}s remaining`);
-  console.log(`Strategy: ${res.cacheMetadata.strategy}`);
 }
 ```
 
@@ -439,7 +703,7 @@ if (res.cacheMetadata?.hit) {
 // Optimistic update
 await client.mutate('/users/1', { name: 'Bob' }, { name: 'Bob' });
 
-// Invalidate a URL
+// Invalidate
 await client.invalidate('/users');
 
 // Read from cache without a network call
@@ -451,7 +715,7 @@ const cached = client.getQueryData<User>('/users/1');
 ## Interceptors
 
 ```ts
-// Request interceptor
+// Request interceptor — run before the request is sent
 client.addRequestInterceptor(async (config) => {
   config.headers = {
     ...config.headers,
@@ -460,13 +724,12 @@ client.addRequestInterceptor(async (config) => {
   return config;
 });
 
-// Response interceptor
+// Response interceptor — run after the response is received
 client.addResponseInterceptor(async (response) => {
-  // Transform or validate the response
   return response;
 });
 
-// Remove interceptors
+// Remove by ID
 const id = client.addRequestInterceptor(myInterceptor);
 client.removeRequestInterceptor(id);
 ```
@@ -475,7 +738,7 @@ client.removeRequestInterceptor(id);
 
 ## Auth Token Refresh
 
-reixo's auth interceptor handles concurrent 401 responses correctly. When multiple requests fail with 401 simultaneously, only one token refresh is triggered — the rest queue and retry with the new token.
+reixo handles concurrent 401 responses correctly. When multiple requests fail with 401 simultaneously, only one token refresh is triggered — the rest queue and retry with the new token.
 
 ```ts
 import { createAuthInterceptor } from 'reixo';
@@ -500,20 +763,19 @@ client.addRequestInterceptor(authInterceptor);
 
 ---
 
-## Request Queue & Offline Support
+## Offline Queue
 
-reixo includes a priority task queue for controlling concurrency and persisting requests across connectivity gaps.
+Requests made while offline are persisted and replayed automatically when connectivity returns.
 
 ```ts
 const client = new HTTPBuilder()
-  .withQueue({
-    concurrency: 3,
+  .withOfflineQueue({
     storage: 'localStorage', // persist across page reloads
+    maxSize: 100,
   })
-  .withOfflineSupport({ syncWithNetwork: true })
   .build();
 
-// Requests made while offline are queued and replayed when the network returns
+// Works transparently — queue fills while offline, drains on reconnect
 await client.post('/events', { type: 'click', timestamp: Date.now() });
 
 client.on('queue:drain', () => console.log('All queued requests complete'));
@@ -529,16 +791,14 @@ client.on('queue:restored', (tasks) => {
 ```ts
 import { poll } from 'reixo';
 
-// Poll until a job is complete
 const { promise, cancel } = poll(() => client.get<Job>('/jobs/42'), {
   interval: 2_000,
   timeout: 60_000,
   until: (res) => res.data.status === 'completed',
-  // Adaptive interval: poll slowly at first, speed up near completion
   adaptiveInterval: (res) => (res.data.progress > 80 ? 500 : 3_000),
   onError: (err, attempts) => {
     console.warn(`Poll error (attempt ${attempts}):`, err);
-    return attempts < 10; // stop after 10 errors
+    return attempts < 10; // continue polling
   },
 });
 
@@ -565,12 +825,10 @@ ws.on('open', () => console.log('Connected'));
 ws.on('message', (data) => console.log('Message:', data));
 ws.on('reconnect', ({ attempt }) => console.log(`Reconnect attempt ${attempt}`));
 ws.on('close', () => console.log('Disconnected'));
-ws.on('error', (err) => console.error(err));
 
 await ws.connect();
 ws.send(JSON.stringify({ type: 'subscribe', channel: 'prices' }));
 
-// Clean up
 ws.disconnect();
 ```
 
@@ -623,19 +881,17 @@ const { data: created } = await gql.mutate<{ createUser: User }>({
 
 ## Logging
 
-`ConsoleLogger` is a drop-in implementation of the `Logger` interface. Pass any object with `{ info, warn, error }` to use your own logger (winston, pino, etc.).
-
 ```ts
 import { ConsoleLogger, LogLevel } from 'reixo';
 
-// Text format — for development
+// Plain text — for development
 const devLogger = new ConsoleLogger({
   level: LogLevel.DEBUG,
   prefix: '[MyApp:HTTP]',
   redactHeaders: ['Authorization', 'Cookie'],
 });
 
-// JSON format — for log aggregators (Datadog, Splunk, Loki)
+// JSON — for log aggregators (Datadog, Splunk, Loki)
 const prodLogger = new ConsoleLogger({
   level: LogLevel.WARN,
   format: 'json',
@@ -656,7 +912,7 @@ JSON output example:
 }
 ```
 
-### Custom logger
+### Custom logger (pino, winston, etc.)
 
 ```ts
 import pino from 'pino';
@@ -676,10 +932,10 @@ const client = new HTTPBuilder()
 
 ## Mock Adapter
 
-`MockAdapter` intercepts requests at the transport layer. It is designed for unit tests — no real HTTP traffic is produced.
+`MockAdapter` intercepts requests at the transport layer — no real HTTP traffic produced.
 
 ```ts
-import { MockAdapter, HTTPClient, NetworkError, TimeoutError } from 'reixo';
+import { MockAdapter, HTTPClient, NetworkError } from 'reixo';
 
 const mock = new MockAdapter();
 const client = new HTTPClient({ transport: mock.transport });
@@ -694,20 +950,15 @@ mock.onPost('/users').reply((url, options) => {
   return [201, { id: 2, ...body }];
 });
 
-// One-off response (auto-removed after first match)
+// One-off (auto-removed after first match)
 mock.onGet('/promo').replyOnce(200, { code: 'SUMMER10' });
 
 // Simulate failures
 mock.onGet('/flaky').networkError();
 mock.onGet('/slow').timeout();
 
-// HEAD and OPTIONS
-mock.onHead('/resource').reply(200);
-mock.onOptions('/resource').reply(200, null, { Allow: 'GET,POST' });
-
 // Inspect request history
-const history = mock.getHistory();
-console.log(`${history.length} requests intercepted`);
+console.log(`${mock.getHistory().length} requests intercepted`);
 
 // Reset all handlers
 mock.reset();
@@ -717,11 +968,9 @@ mock.reset();
 
 ## Testing
 
-reixo ships with everything needed for unit testing HTTP-dependent code. No network, no nock, no MSW required (though all of those integrate cleanly too).
-
 ```ts
-import { describe, it, expect, beforeEach } from 'vitest'; // or jest
-import { MockAdapter, HTTPClient, HTTPError } from 'reixo';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { MockAdapter, HTTPClient, HTTPError, NetworkError } from 'reixo';
 
 let mock: MockAdapter;
 let client: HTTPClient;
@@ -733,25 +982,144 @@ beforeEach(() => {
 
 it('fetches users', async () => {
   mock.onGet('/users').reply(200, [{ id: 1, name: 'Alice' }]);
-
   const res = await client.get<User[]>('/users');
-
   expect(res.status).toBe(200);
   expect(res.data).toHaveLength(1);
 });
 
 it('throws HTTPError on 404', async () => {
   mock.onGet('/users/999').reply(404, { error: 'Not found' });
-
   await expect(client.get('/users/999')).rejects.toThrow(HTTPError);
+});
+
+it('returns Err on 404 (Result style)', async () => {
+  mock.onGet('/users/999').reply(404, { error: 'Not found' });
+  const result = await client.tryGet('/users/999');
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error.status).toBe(404);
 });
 
 it('throws NetworkError on connectivity failure', async () => {
   mock.onGet('/data').networkError();
-
   await expect(client.get('/data')).rejects.toBeInstanceOf(NetworkError);
 });
 ```
+
+---
+
+## API Reference
+
+### `HTTPBuilder` — Fluent Builder
+
+| Method                                     | Description                                          |
+| ------------------------------------------ | ---------------------------------------------------- |
+| `.withBaseURL(url)`                        | Base URL prepended to every request path             |
+| `.withTimeout(ms)`                         | Request timeout in milliseconds (default: 30 000)    |
+| `.withHeader(name, value)`                 | Set a single default header                          |
+| `.withHeaders(record)`                     | Set multiple default headers                         |
+| `.withRetry(options \| boolean)`           | Retry policy for all requests                        |
+| `.withCircuitBreaker(options \| instance)` | Circuit breaker configuration                        |
+| `.withRateLimit({ requests, interval })`   | Token-bucket rate limiter                            |
+| `.withCache(options \| boolean)`           | Response caching                                     |
+| `.withDeduplication(enabled?)`             | Collapse concurrent identical GET/HEAD/OPTIONS       |
+| `.withOpenTelemetry(config?)`              | W3C traceparent/tracestate/baggage injection         |
+| `.withOfflineQueue(options \| boolean)`    | Persist requests while offline                       |
+| `.withRevalidation(options)`               | Revalidate on focus/reconnect                        |
+| `.withLogger(logger)`                      | Attach a logger implementing `{ info, warn, error }` |
+| `.withCircuitBreaker(options \| instance)` | Circuit breaker                                      |
+| `.withConnectionPool(options)`             | HTTP connection pool settings                        |
+| `.withRetryPolicies(policies)`             | Per-URL-pattern retry overrides                      |
+| `.withVersioning(version, strategy)`       | API versioning (header or URL path)                  |
+| `.addRequestInterceptor(fn)`               | Add a request interceptor                            |
+| `.addResponseInterceptor(fn)`              | Add a response interceptor                           |
+| `.build()`                                 | Returns the configured `HTTPClient`                  |
+
+### `HTTPClient` — Request Methods
+
+| Method                               | Returns                                       | Description                              |
+| ------------------------------------ | --------------------------------------------- | ---------------------------------------- |
+| `.get<T>(url, options?)`             | `Promise<HTTPResponse<T>>`                    | GET request                              |
+| `.post<T>(url, data?, options?)`     | `Promise<HTTPResponse<T>>`                    | POST request                             |
+| `.put<T>(url, data?, options?)`      | `Promise<HTTPResponse<T>>`                    | PUT request                              |
+| `.patch<T>(url, data?, options?)`    | `Promise<HTTPResponse<T>>`                    | PATCH request                            |
+| `.delete<T>(url, options?)`          | `Promise<HTTPResponse<T>>`                    | DELETE request                           |
+| `.head(url, options?)`               | `Promise<HTTPResponse<T>>`                    | HEAD request                             |
+| `.options(url, options?)`            | `Promise<HTTPResponse<T>>`                    | OPTIONS request                          |
+| `.request<T>(url, options)`          | `Promise<HTTPResponse<T>>`                    | Generic request                          |
+| `.tryGet<T>(url, options?)`          | `Promise<Result<HTTPResponse<T>, HTTPError>>` | GET — never throws                       |
+| `.tryPost<T>(url, data?, options?)`  | `Promise<Result<HTTPResponse<T>, HTTPError>>` | POST — never throws                      |
+| `.tryPut<T>(url, data?, options?)`   | `Promise<Result<HTTPResponse<T>, HTTPError>>` | PUT — never throws                       |
+| `.tryPatch<T>(url, data?, options?)` | `Promise<Result<HTTPResponse<T>, HTTPError>>` | PATCH — never throws                     |
+| `.tryDelete<T>(url, options?)`       | `Promise<Result<HTTPResponse<T>, HTTPError>>` | DELETE — never throws                    |
+| `.tryRequest<T>(url, options?)`      | `Promise<Result<HTTPResponse<T>, HTTPError>>` | Generic — never throws                   |
+| `.cancel(requestId)`                 | `boolean`                                     | Abort a specific in-flight request       |
+| `.cancelAll()`                       | `void`                                        | Abort all in-flight requests             |
+| `.requestWithId<T>(url, options?)`   | `{ requestId, promise }`                      | Named cancellable request                |
+| `.prefetch(url, options?)`           | `{ cancel(), completed }`                     | Background prefetch                      |
+| `.mutate<T>(url, data, optimistic?)` | `Promise<HTTPResponse<T>>`                    | Optimistic update with cache write       |
+| `.invalidate(url)`                   | `Promise<void>`                               | Invalidate cached responses              |
+| `.getQueryData<T>(url, params?)`     | `T \| null`                                   | Read from cache without a network call   |
+| `.generateCurl(url, options?)`       | `string`                                      | Generate cURL command string             |
+| `.dispose()`                         | `void`                                        | Abort all requests and release resources |
+
+### Error Classes
+
+| Class              | When thrown                                                                     |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `HTTPError`        | Response status ≥ 400. Has `.status`, `.statusText`, `.config`, `.response`.    |
+| `NetworkError`     | `fetch()` rejected (no connectivity, DNS failure, CORS). Has `.cause`.          |
+| `TimeoutError`     | Request exceeded `timeoutMs`. Has `.timeoutMs`.                                 |
+| `AbortError`       | Request was cancelled (via `AbortController` or `client.cancel()`).             |
+| `CircuitOpenError` | Circuit breaker is OPEN.                                                        |
+| `RetryError`       | `withRetry()` exhausted all attempts. Has `.attempts`, `.durationMs`, `.cause`. |
+| `ValidationError`  | Response failed schema validation.                                              |
+
+### Result Utilities
+
+| Export                       | Description                                        |
+| ---------------------------- | -------------------------------------------------- |
+| `ok(data)`                   | Construct an `Ok<T>` result                        |
+| `err(error)`                 | Construct an `Err<E>` result                       |
+| `toResult(promise)`          | Wrap any Promise into `Result<T, E>`               |
+| `mapResult(result, fn)`      | Transform `data` inside an `Ok` without unwrapping |
+| `unwrap(result)`             | Return `data` or throw the error                   |
+| `unwrapOr(result, fallback)` | Return `data` or a fallback value (never throws)   |
+
+### OTel Utilities
+
+| Export                           | Description                                                 |
+| -------------------------------- | ----------------------------------------------------------- |
+| `createOTelInterceptor(config?)` | Request interceptor that injects W3C trace headers          |
+| `parseTraceparent(value)`        | Parse a `traceparent` header string → `SpanContext \| null` |
+| `formatTraceparent(ctx)`         | Serialise a `SpanContext` → `traceparent` header string     |
+
+### Network Error Utilities
+
+| Export                           | Description                                               |
+| -------------------------------- | --------------------------------------------------------- |
+| `isTransientNetworkError(error)` | `true` for ETIMEDOUT, ECONNRESET, 'Failed to fetch', etc. |
+| `isTimeoutError(error)`          | `true` for timeout-specific errors                        |
+| `isDnsError(error)`              | `true` for ENOTFOUND, EAI_AGAIN                           |
+| `classifyNetworkError(error)`    | Returns `NetworkErrorClass` string for logging            |
+| `TRANSIENT_NETWORK_CODES`        | `ReadonlySet<string>` of recognised transient error codes |
+
+### Deduplication Utilities
+
+| Export                              | Description                                     |
+| ----------------------------------- | ----------------------------------------------- |
+| `RequestDeduplicator`               | Class — deduplicates any async operation by key |
+| `buildDedupKey(method, url, body?)` | Build a stable deduplication key                |
+| `DEDUP_SAFE_METHODS`                | `Set<'GET' \| 'HEAD' \| 'OPTIONS'>`             |
+
+### Runtime Utilities
+
+| Export                     | Description                                |
+| -------------------------- | ------------------------------------------ |
+| `detectRuntime()`          | Returns `RuntimeName` string               |
+| `getRuntimeCapabilities()` | Returns `RuntimeCapabilities` object       |
+| `isNode()`                 | `true` in Node.js or Bun                   |
+| `isBrowser()`              | `true` in browser context                  |
+| `isEdgeRuntime()`          | `true` in Vercel Edge / Cloudflare Workers |
 
 ---
 
@@ -785,12 +1153,12 @@ const res = await api.get('/users', { params: { page: 1 } });
 console.log(res.data); // same shape
 ```
 
-Key differences to be aware of:
+Key differences:
 
-- reixo throws on 4xx/5xx by default (same as axios) — no change needed.
 - Error properties use `err.status` (not `err.response.status`) for HTTP errors.
 - Interceptors use `addRequestInterceptor` / `addResponseInterceptor` instead of `interceptors.request.use`.
 - Cancel tokens are replaced by `client.cancel(requestId)` or a standard `AbortController`.
+- `tryGet` / `tryPost` etc. offer a no-throw alternative if you prefer `Result<T, E>`.
 
 ---
 
@@ -810,111 +1178,32 @@ const data = await res.json();
 
 // After (reixo)
 const res = await client.post<User>('/users', { name: 'Alice' });
-// data is parsed, errors throw automatically, timeout is configured at client level
+// data is parsed, errors throw automatically, timeout is at client level
 const data = res.data;
 ```
 
 ---
 
-## API Reference
+## Runtime Support
 
-### `HTTPBuilder`
+| Environment         | Minimum version |
+| ------------------- | --------------- |
+| Node.js             | 18              |
+| Bun                 | 1.0             |
+| Deno                | 1.28            |
+| Cloudflare Workers  | All             |
+| Vercel Edge Runtime | All             |
+| Chrome              | 80              |
+| Firefox             | 75              |
+| Safari              | 14              |
+| Edge                | 80              |
 
-Fluent builder that produces an `HTTPClient` instance.
+reixo uses native `fetch`, `AbortController`, `ReadableStream`, and `crypto.getRandomValues()`. These are available natively in all supported environments without polyfills.
 
-| Method                                   | Description                                          |
-| ---------------------------------------- | ---------------------------------------------------- |
-| `.withBaseURL(url)`                      | Base URL prepended to every request path             |
-| `.withTimeout(ms)`                       | Request timeout in milliseconds (default: 30000)     |
-| `.withHeader(name, value)`               | Set a single default header                          |
-| `.withHeaders(record)`                   | Set multiple default headers                         |
-| `.withRetry(options)`                    | Retry policy applied to all requests                 |
-| `.withCircuitBreaker(options\|instance)` | Circuit breaker configuration                        |
-| `.withRateLimit(options)`                | Token-bucket rate limiter                            |
-| `.withCache(options)`                    | Response caching configuration                       |
-| `.withLogger(logger)`                    | Attach a logger implementing `{ info, warn, error }` |
-| `.withConnectionPool(options)`           | HTTP connection pool settings                        |
-| `.withQueue(options)`                    | Request queue settings                               |
-| `.withRetryPolicies(policies)`           | Per-URL-pattern retry overrides                      |
-| `.withVersioning(version, strategy)`     | API versioning (header or URL path)                  |
-| `.addRequestInterceptor(fn)`             | Add a request interceptor                            |
-| `.addResponseInterceptor(fn)`            | Add a response interceptor                           |
-| `.build()`                               | Returns the configured `HTTPClient`                  |
-
-### `HTTPClient`
-
-| Method                               | Description                                            |
-| ------------------------------------ | ------------------------------------------------------ |
-| `.get<T>(url, options?)`             | GET request                                            |
-| `.post<T>(url, data?, options?)`     | POST request                                           |
-| `.put<T>(url, data?, options?)`      | PUT request                                            |
-| `.patch<T>(url, data?, options?)`    | PATCH request                                          |
-| `.delete<T>(url, options?)`          | DELETE request                                         |
-| `.head(url, options?)`               | HEAD request                                           |
-| `.options(url, options?)`            | OPTIONS request                                        |
-| `.request<T>(url, options)`          | Generic request method                                 |
-| `.cancel(requestId)`                 | Abort a specific in-flight request                     |
-| `.cancelAll()`                       | Abort all in-flight requests                           |
-| `.requestWithId<T>(url, options?)`   | Returns `{ requestId, promise }`                       |
-| `.prefetch(url, options?)`           | Background prefetch; returns `{ cancel(), completed }` |
-| `.mutate<T>(url, data, optimistic?)` | Optimistic update with cache write                     |
-| `.invalidate(url)`                   | Invalidate cached responses for a URL                  |
-| `.getQueryData<T>(url, params?)`     | Read from cache without a network call                 |
-| `.dispose()`                         | Abort all requests and release resources               |
-
-### Error Classes
-
-| Class              | When thrown                                                                     |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `HTTPError`        | Response status ≥ 400. Has `.status`, `.statusText`, `.config`, `.response`.    |
-| `NetworkError`     | `fetch()` rejected (no connectivity, DNS failure, CORS). Has `.cause`.          |
-| `TimeoutError`     | Request exceeded `timeoutMs`. Has `.timeoutMs`.                                 |
-| `AbortError`       | Request was cancelled (via `AbortController` or `client.cancel()`).             |
-| `CircuitOpenError` | Circuit breaker is OPEN.                                                        |
-| `RetryError`       | `withRetry()` exhausted all attempts. Has `.attempts`, `.durationMs`, `.cause`. |
-| `ValidationError`  | Response failed schema validation.                                              |
-
-All classes are exported from the package root.
-
----
-
-## Browser & Node.js Support
-
-| Environment | Minimum version |
-| ----------- | --------------- |
-| Node.js     | 18              |
-| Chrome      | 80              |
-| Firefox     | 75              |
-| Safari      | 14              |
-| Edge        | 80              |
-
-reixo uses native `fetch`, `AbortController`, `ReadableStream`, and `crypto.randomUUID()`. These are available natively in all supported environments without polyfills.
-
-For older browsers, you can swap in a custom transport:
+For older browsers, swap in a custom transport:
 
 ```ts
 const client = new HTTPClient({ transport: myPolyfillTransport });
-```
-
----
-
-## Interactive Playground
-
-An interactive playground is hosted on GitHub Pages at:
-
-**[https://webcoderspeed.github.io/reixo/](https://webcoderspeed.github.io/reixo/)**
-
-It runs fully in the browser against [JSONPlaceholder](https://jsonplaceholder.typicode.com) — no installation required. You can explore every major feature live: HTTP requests, error handling, retries, circuit breakers, caching, cancellation, polling, MockAdapter, logging, and metrics.
-
-To run the playground locally:
-
-```sh
-# Build the browser bundle
-npm run build:playground
-
-# Serve the playground directory
-npx serve playground
-# → open http://localhost:3000
 ```
 
 ---
@@ -925,7 +1214,7 @@ Runnable TypeScript examples are in the [`examples/`](examples/) directory:
 
 | File                          | Topic                                             |
 | ----------------------------- | ------------------------------------------------- |
-| `01-basic-requests.ts`        | GET, POST, PUT, PATCH, DELETE, HEAD               |
+| `01-basic-requests.ts`        | GET, POST, PUT, PATCH, DELETE, HEAD, query params |
 | `02-error-handling.ts`        | HTTPError, NetworkError, TimeoutError, AbortError |
 | `03-retry-circuit-breaker.ts` | withRetry, RetryError, shared circuit breakers    |
 | `04-caching.ts`               | cache-first, SWR, cacheMetadata, invalidation     |
@@ -936,15 +1225,19 @@ Runnable TypeScript examples are in the [`examples/`](examples/) directory:
 | `09-logging.ts`               | ConsoleLogger levels, JSON format, redactHeaders  |
 | `10-websocket.ts`             | WebSocketClient, heartbeat, reconnect             |
 | `11-sse.ts`                   | SSEClient, named events, reconnect                |
-| `12-graphql.ts`               | GraphQLClient queries, mutations, APQ             |
+| `12-graphql.ts`               | GraphQLClient queries, mutations                  |
 | `13-offline-queue.ts`         | Offline queue, network recovery                   |
 | `14-metrics.ts`               | MetricsCollector, p95 latency, NetworkRecorder    |
+| `15-result-api.ts`            | tryGet/tryPost, ok/err, mapResult, unwrap         |
+| `16-opentelemetry.ts`         | withOpenTelemetry, traceparent, baggage, hooks    |
+| `17-deduplication.ts`         | withDeduplication, RequestDeduplicator, stats     |
 
-Run any example directly:
+Run any example:
 
 ```sh
-npx tsx examples/01-basic-requests.ts
-npx tsx examples/07-polling.ts
+npx tsx examples/15-result-api.ts
+npx tsx examples/16-opentelemetry.ts
+npx tsx examples/17-deduplication.ts
 ```
 
 ---
@@ -958,10 +1251,7 @@ npm install
 # Build (ESM + CJS + type declarations)
 npm run build
 
-# Build browser bundle for playground
-npm run build:playground
-
-# Run the test suite
+# Run the full test suite (323 tests)
 npm test
 
 # Type-check without emitting
@@ -975,7 +1265,7 @@ npm run lint
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome. Please open an issue first if you are planning a larger change so we can discuss approach.
+Bug reports, feature requests, and pull requests are welcome. Please open an issue first if you are planning a larger change so we can discuss the approach.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and commit conventions.
 

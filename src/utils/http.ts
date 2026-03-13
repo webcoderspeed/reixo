@@ -1,5 +1,6 @@
 import { RetryOptions } from '../types';
 import { withRetry, RetryError } from './retry';
+import { isTransientNetworkError } from './network-errors';
 import { CacheOptions } from './cache';
 import type { HeadersWithSuggestions } from '../types/http-well-known';
 
@@ -180,6 +181,21 @@ export interface HTTPOptions extends Omit<RequestInit, 'method' | 'headers'> {
    * @default 0
    */
   taskPriority?: number;
+
+  /**
+   * When `true` (the default), identical in-flight GET/HEAD/OPTIONS requests
+   * are collapsed — the same Promise is shared among all callers until the
+   * first response settles, preventing thundering-herd duplicates.
+   *
+   * Set to `false` to bypass deduplication for this specific request (e.g.
+   * when you intentionally need a fresh uncached result).
+   *
+   * Deduplication is only applied to safe, idempotent methods (GET, HEAD,
+   * OPTIONS). POST/PUT/PATCH/DELETE are never deduplicated.
+   *
+   * @default true
+   */
+  deduplicate?: boolean;
 }
 
 export interface Interceptors {
@@ -690,22 +706,25 @@ export async function http<T = unknown>(
     const result = await withRetry(executeRequest, {
       ...retryOptions,
       retryCondition: (error: unknown, _attempt) => {
-        // Default retry condition: retry on network errors or 5xx status codes
-        if (error instanceof Error && error.name === 'AbortError') {
-          return false; // Don't retry timeouts
+        // Never retry intentional cancellations
+        if (error instanceof Error && error.name === 'AbortError') return false;
+
+        // Never retry client auth errors — token refresh handles those separately
+        if (error instanceof HTTPError && (error.status === 401 || error.status === 403)) {
+          return false;
         }
 
+        // Retry HTTP errors: 5xx server errors, 429 (rate-limited), 408 (request timeout)
         if (error instanceof HTTPError && error.status !== undefined) {
-          // Retry on server errors (5xx) and some client errors (429, 408)
-          return (
-            error.status >= 500 ||
-            error.status === 429 || // Too Many Requests
-            error.status === 408
-          ); // Request Timeout
+          return error.status >= 500 || error.status === 429 || error.status === 408;
         }
 
-        // Retry on network errors
-        return true;
+        // Reixo's own NetworkError always represents a transport-level failure — retry it
+        if (error instanceof NetworkError) return true;
+
+        // Retry transient network-level failures (ETIMEDOUT, ECONNRESET, DNS, etc.)
+        // Works across Node.js, Bun, Deno, Cloudflare Workers, and browsers
+        return isTransientNetworkError(error);
       },
     });
 

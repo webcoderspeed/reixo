@@ -1,4 +1,7 @@
 import { RetryOptions, RetryResult } from '../types';
+import { isTransientNetworkError } from './network-errors';
+
+export { isTransientNetworkError };
 
 /**
  * Thrown by {@link withRetry} when all retry attempts are exhausted or

@@ -35,6 +35,25 @@ export { MetricsCollector } from './utils/metrics';
 export { NetworkRecorder } from './utils/recorder';
 export { Pipeline, AsyncPipeline } from './utils/pipeline';
 export { createTraceInterceptor } from './utils/tracing';
+// New next-gen utilities
+export { createOTelInterceptor, parseTraceparent, formatTraceparent } from './utils/otel';
+export { RequestDeduplicator, buildDedupKey, DEDUP_SAFE_METHODS } from './utils/dedup';
+export {
+  isTransientNetworkError,
+  isDnsError,
+  isTimeoutError,
+  classifyNetworkError,
+  TRANSIENT_NETWORK_CODES,
+} from './utils/network-errors';
+export {
+  detectRuntime,
+  getRuntimeCapabilities,
+  isBrowser,
+  isNode,
+  isEdgeRuntime,
+} from './utils/runtime';
+export { ok, err, toResult, mapResult, unwrap, unwrapOr } from './types/result';
+export { ResumableUploader } from './utils/upload';
 
 // Reixo namespace for public API
 import { HTTPBuilder as _HTTPBuilder, HTTPClient as _HTTPClient } from './core/http-client';
@@ -90,6 +109,7 @@ export type {
   JsonValue,
   BodyData,
   LogMeta,
+  // Re-export Result from http-client (used by tryGet/tryPost/etc. return types)
 } from './core/http-client';
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
@@ -106,6 +126,12 @@ export type { RecordedRequest } from './utils/recorder';
 export type { TransformFn } from './utils/pipeline';
 export type { TracingConfig } from './utils/tracing';
 export type { MockResponseData } from './utils/mock-adapter';
+// New next-gen types
+export type { Result, Ok, Err } from './types/result';
+export type { OTelConfig, SpanContext, OTelSpanHooks } from './utils/otel';
+export type { DedupStats } from './utils/dedup';
+export type { NetworkErrorClass } from './utils/network-errors';
+export type { RuntimeName, RuntimeCapabilities } from './utils/runtime';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {
   KnownRequestHeader,

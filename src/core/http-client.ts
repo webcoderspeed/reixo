@@ -22,6 +22,8 @@ import { generateKey } from '../utils/keys';
 import { objectToFormData } from '../utils/form-data';
 import { InfiniteQuery, InfiniteQueryOptions } from '../utils/infinite-query';
 import { CircuitBreaker, CircuitBreakerOptions } from '../utils/circuit-breaker';
+import { createOTelInterceptor, type OTelConfig } from '../utils/otel';
+import { Result, ok, err } from '../types/result';
 
 // ---------------------------------------------------------------------------
 // Strict body-data type — replaces loose `unknown` on post/put/patch
@@ -1024,9 +1026,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         typeof policy.pattern === 'string' ? url.includes(policy.pattern) : policy.pattern.test(url)
       )?.retry ?? this.config.retry;
 
-    // Deduplication check
-    const shouldDeduplicate =
-      this.config.enableDeduplication && (options.method || 'GET').toUpperCase() === 'GET';
+    // Deduplication check — safe idempotent methods only, per-request opt-out via deduplicate:false
+    const method = (options.method ?? 'GET').toUpperCase();
+    const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    const dedupeEnabled =
+      this.config.enableDeduplication && isSafeMethod && options.deduplicate !== false;
+    const shouldDeduplicate = dedupeEnabled;
 
     const dedupeKey = shouldDeduplicate ? generateKey(url, options.params) : null;
 
@@ -1436,6 +1441,84 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     const { body, headers } = this._serializeBody(data, options);
     return this.request<T>(url, { ...options, method: 'PATCH', body, headers });
   }
+
+  // ---------------------------------------------------------------------------
+  // Result-style API — never throws, always returns Result<T, HTTPError>
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Like {@link request} but wraps the response in a {@link Result} discriminated
+   * union instead of throwing. Ideal for error-handling without try/catch.
+   *
+   * @example
+   * const result = await client.tryRequest<User>('/me');
+   * if (!result.ok) {
+   *   console.error(result.error.status); // fully typed
+   *   return;
+   * }
+   * console.log(result.data.name);
+   */
+  public async tryRequest<T>(
+    url: string,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    try {
+      return ok(await this.request<T>(url, options));
+    } catch (e) {
+      if (e instanceof HTTPError) return err(e);
+      // Wrap non-HTTPError throws (network errors, timeouts) into an HTTPError
+      const wrapped = new HTTPError(e instanceof Error ? e.message : String(e), {
+        config: options,
+      });
+      return err(wrapped);
+    }
+  }
+
+  /** Like {@link get} but returns a {@link Result} instead of throwing. */
+  public tryGet<T>(
+    url: string,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    return this.tryRequest<T>(url, { ...options, method: 'GET' });
+  }
+
+  /** Like {@link post} but returns a {@link Result} instead of throwing. */
+  public tryPost<T>(
+    url: string,
+    data?: BodyData,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    const { body, headers } = this._serializeBody(data, options);
+    return this.tryRequest<T>(url, { ...options, method: 'POST', body, headers });
+  }
+
+  /** Like {@link put} but returns a {@link Result} instead of throwing. */
+  public tryPut<T>(
+    url: string,
+    data?: BodyData,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    const { body, headers } = this._serializeBody(data, options);
+    return this.tryRequest<T>(url, { ...options, method: 'PUT', body, headers });
+  }
+
+  /** Like {@link delete} but returns a {@link Result} instead of throwing. */
+  public tryDelete<T>(
+    url: string,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    return this.tryRequest<T>(url, { ...options, method: 'DELETE' });
+  }
+
+  /** Like {@link patch} but returns a {@link Result} instead of throwing. */
+  public tryPatch<T>(
+    url: string,
+    data?: BodyData,
+    options?: HTTPOptions
+  ): Promise<Result<HTTPResponse<T>, HTTPError>> {
+    const { body, headers } = this._serializeBody(data, options);
+    return this.tryRequest<T>(url, { ...options, method: 'PATCH', body, headers });
+  }
 }
 
 /**
@@ -1551,6 +1634,29 @@ export class HTTPBuilder {
 
   public withDeduplication(enabled: boolean = true): this {
     this.config.enableDeduplication = enabled;
+    return this;
+  }
+
+  /**
+   * Inject W3C Trace Context headers (`traceparent`, `tracestate`, `baggage`)
+   * into every outgoing request — zero external dependencies, works with any
+   * OpenTelemetry-compatible backend (Jaeger, Zipkin, Datadog, Honeycomb, etc.).
+   *
+   * @example
+   * // Auto-generates trace IDs per request
+   * builder.withOpenTelemetry()
+   *
+   * // With service name in baggage
+   * builder.withOpenTelemetry({
+   *   serviceName: 'checkout-service',
+   *   baggage: { 'user.tier': 'premium' },
+   * })
+   *
+   * // Continue an upstream trace from an Express request
+   * builder.withOpenTelemetry({ parentContext: extractTraceContext(req) })
+   */
+  public withOpenTelemetry(config: OTelConfig = {}): this {
+    this.requestInterceptors.push(createOTelInterceptor(config));
     return this;
   }
 
