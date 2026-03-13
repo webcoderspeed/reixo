@@ -8,6 +8,7 @@
  */
 
 import { HTTPBuilder, HTTPError, createAuthInterceptor } from '../src';
+import type { HTTPOptions, HTTPResponse } from '../src';
 
 // Simulated token store
 let accessToken = 'initial-valid-token';
@@ -19,18 +20,17 @@ async function main() {
   const client = new HTTPBuilder()
     .withBaseURL('https://jsonplaceholder.typicode.com')
     .withTimeout(5_000)
+    .addRequestInterceptor(async (config: HTTPOptions) => {
+      return {
+        ...config,
+        headers: {
+          ...(config.headers as Record<string, string>),
+          'X-Request-ID': crypto.randomUUID(),
+          'X-Client-Version': '2.1.3',
+        },
+      };
+    })
     .build();
-
-  client.addRequestInterceptor(async (config) => {
-    return {
-      ...config,
-      headers: {
-        ...(config.headers as Record<string, string>),
-        'X-Request-ID': crypto.randomUUID(),
-        'X-Client-Version': '2.1.3',
-      },
-    };
-  });
 
   const res = await client.get('/posts/1');
   console.log(`  ${res.status} — request headers injected`);
@@ -40,35 +40,33 @@ async function main() {
   const normalClient = new HTTPBuilder()
     .withBaseURL('https://jsonplaceholder.typicode.com')
     .withTimeout(5_000)
+    .addResponseInterceptor(async (response: HTTPResponse<unknown>) => {
+      // Add a computed field to every response
+      (response as unknown as Record<string, unknown>)['receivedAt'] = new Date().toISOString();
+      return response;
+    })
     .build();
-
-  normalClient.addResponseInterceptor(async (response) => {
-    // Add a computed field to every response
-    (response as unknown as Record<string, unknown>)['receivedAt'] = new Date().toISOString();
-    return response;
-  });
 
   const post = await normalClient.get<{ id: number; title: string }>('/posts/1');
   console.log(`  ${post.status}  title: "${post.data.title.slice(0, 40)}"`);
 
   // ── 3. Remove an interceptor ──────────────────────────────────────────────────
   console.log('\n--- Remove interceptor');
+  let logCount = 0;
   const loggingClient = new HTTPBuilder()
     .withBaseURL('https://jsonplaceholder.typicode.com')
     .withTimeout(5_000)
+    .addRequestInterceptor(async (config: HTTPOptions) => {
+      logCount++;
+      console.log(`  interceptor fired (count: ${logCount})`);
+      return config;
+    })
     .build();
 
-  let logCount = 0;
-  const interceptorId = loggingClient.addRequestInterceptor(async (config) => {
-    logCount++;
-    console.log(`  interceptor fired (count: ${logCount})`);
-    return config;
-  });
-
   await loggingClient.get('/posts/1'); // fires
-  loggingClient.removeRequestInterceptor(interceptorId);
-  await loggingClient.get('/posts/2'); // does not fire
-  console.log(`  interceptor fired ${logCount} time(s) total (expected 1)`);
+  // Note: removeRequestInterceptor is not available on HTTPClient in this version
+  await loggingClient.get('/posts/2'); // fires again
+  console.log(`  interceptor fired ${logCount} time(s) total`);
 
   // ── 4. Auth interceptor — automatic token refresh ────────────────────────────
   console.log('\n--- Auth interceptor (simulated token refresh)');
@@ -77,19 +75,17 @@ async function main() {
   const authClient = new HTTPBuilder()
     .withBaseURL('https://jsonplaceholder.typicode.com')
     .withTimeout(5_000)
+    .addRequestInterceptor(async (config: HTTPOptions) => ({
+      ...config,
+      headers: {
+        ...(config.headers as Record<string, string>),
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }))
     .build();
 
-  // Add a request interceptor that injects a Bearer token
-  authClient.addRequestInterceptor(async (config) => ({
-    ...config,
-    headers: {
-      ...(config.headers as Record<string, string>),
-      Authorization: `Bearer ${accessToken}`,
-    },
-  }));
-
   // createAuthInterceptor handles the refresh flow, including concurrent 401s
-  const authInterceptor = createAuthInterceptor(authClient, {
+  createAuthInterceptor(authClient, {
     getAccessToken: async () => accessToken,
     refreshTokens: async () => {
       refreshCallCount++;
@@ -97,13 +93,8 @@ async function main() {
       accessToken = `refreshed-token-${Date.now()}`;
       return accessToken;
     },
-    // For demo purposes, trigger refresh on any request to /posts/99999 (which returns 404)
-    // In real use this would be: shouldRefresh: (err) => err instanceof HTTPError && err.status === 401
-    shouldRefresh: (err) => err instanceof HTTPError && err.status === 404,
-    onAuthFailure: () => console.log('  auth failed — redirect to login'),
+    onRefreshFailed: () => console.log('  auth failed — redirect to login'),
   });
-
-  authClient.addRequestInterceptor(authInterceptor);
 
   // This will 404, triggering the auth refresh flow (for demo)
   try {

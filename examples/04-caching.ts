@@ -83,9 +83,10 @@ async function main() {
   const cached2 = await postClient.get('/posts/1');
   console.log(`  before invalidation — cached: ${cached2.cacheMetadata?.hit}`);
 
-  await postClient.invalidate('/posts/1');
+  // Note: invalidate is not available on HTTPClient, this is a conceptual example
+  // The actual cache management would happen through the HTTPBuilder configuration
   const fresh = await postClient.get('/posts/1');
-  console.log(`  after invalidation — cached: ${fresh.cacheMetadata?.hit}`);
+  console.log(`  after fetch — cached: ${fresh.cacheMetadata?.hit}`);
 
   // ── 5. getQueryData (read cache without a network call) ─────────────────────
   console.log('\n--- getQueryData (read-only cache access)');

@@ -39,7 +39,7 @@ async function demo_echoRoundTrip(): Promise<void> {
       ws.close();
     });
 
-    ws.on('close', () => {
+    ws.on('close', (_event: CloseEvent) => {
       console.log('  Connection closed');
       resolve();
     });
@@ -95,7 +95,7 @@ async function demo_sendJson(): Promise<void> {
       }
     });
 
-    ws.on('close', resolve);
+    ws.on('close', (_event: CloseEvent) => resolve());
     setTimeout(resolve, 5000);
   });
 }
@@ -124,7 +124,7 @@ async function demo_heartbeat(): Promise<void> {
   });
 
   await new Promise<void>((resolve) => {
-    ws.on('close', resolve);
+    ws.on('close', (_event: CloseEvent) => resolve());
     setTimeout(resolve, 3000);
   });
 }
@@ -162,7 +162,7 @@ async function demo_reconnect(): Promise<void> {
   });
 
   await new Promise<void>((resolve) => {
-    ws.on('close', resolve);
+    ws.on('close', (_event: CloseEvent) => resolve());
     setTimeout(resolve, 3000);
   });
 }
@@ -191,7 +191,7 @@ async function demo_deferredConnect(): Promise<void> {
       console.log('  Connected on demand');
       ws.close();
     });
-    ws.on('close', resolve);
+    ws.on('close', (_event: CloseEvent) => resolve());
     setTimeout(resolve, 5000);
   });
 }

@@ -47,7 +47,7 @@ async function main() {
     .withRetry({
       maxRetries: 2,
       retryCondition: (err) => {
-        if (err instanceof HTTPError) return err.status >= 500 || err.status === 429;
+        if (err instanceof HTTPError) return (err.status ?? 0) >= 500 || (err.status ?? 0) === 429;
         if (err instanceof NetworkError) return true;
         return false;
       },
@@ -108,7 +108,7 @@ async function main() {
     .withCircuitBreaker({
       failureThreshold: 2,
       resetTimeoutMs: 5_000,
-      onStateChange: (prev, next) => console.log(`  circuit: ${prev} → ${next}`),
+      onStateChange: (state) => console.log(`  circuit: state change to ${state}`),
     })
     .build();
 

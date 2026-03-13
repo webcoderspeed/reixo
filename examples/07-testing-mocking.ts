@@ -1,4 +1,4 @@
-import { Reixo } from '../src';
+import { HTTPBuilder, MockAdapter } from '../src';
 
 /**
  * Example 7: Testing & Mocking
@@ -9,12 +9,10 @@ async function runMockingDemo() {
   console.log('🚀 Running Mocking Demo\n');
 
   // 1. Create Mock Adapter
-  const mock = new Reixo.MockAdapter();
+  const mock = new MockAdapter();
 
   // 2. Create a Client with Mock Transport
-  const client = new Reixo.HTTPBuilder('https://api.example.com')
-    .withTransport(mock.transport)
-    .build();
+  const client = new HTTPBuilder('https://api.example.com').withTransport(mock.transport).build();
 
   // 3. Define Mocks
   console.log('--- Setting up Mocks ---');

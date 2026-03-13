@@ -12,6 +12,7 @@
  */
 
 import { HTTPBuilder, MockAdapter } from '../src';
+import type { MockResponseData } from '../src';
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Basic offline queue setup
@@ -45,7 +46,7 @@ async function demo_queuedWithMock(): Promise<void> {
   let requestCount = 0;
 
   // First 2 requests fail (simulate offline), then succeed
-  mock.onGet('/posts/1').reply(() => {
+  mock.onGet('/posts/1').reply((): [number, MockResponseData] => {
     requestCount++;
     if (requestCount <= 2) {
       return [0, null]; // Simulate network error
@@ -56,7 +57,7 @@ async function demo_queuedWithMock(): Promise<void> {
   const client = new HTTPBuilder('https://api.example.com')
     .withTransport(mock.transport)
     .withRetry({
-      maxAttempts: 5,
+      maxRetries: 5,
       initialDelayMs: 100,
       backoffFactor: 1.5,
     })
@@ -82,7 +83,6 @@ async function demo_persistentQueue(): Promise<void> {
   const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
     .withOfflineQueue({
       syncWithNetwork: true, // Replay queue when "online" event fires
-      maxSize: 50, // Maximum buffered requests
     })
     .build();
 
@@ -138,7 +138,7 @@ async function demo_combinedResilience(): Promise<void> {
   const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
     .withOfflineQueue(true)
     .withCircuitBreaker({ failureThreshold: 5, resetTimeoutMs: 30_000 })
-    .withRetry({ maxAttempts: 3, initialDelayMs: 200 })
+    .withRetry({ maxRetries: 3, initialDelayMs: 200 })
     .build();
 
   const [users, todos] = await Promise.all([

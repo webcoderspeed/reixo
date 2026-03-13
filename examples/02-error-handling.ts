@@ -68,10 +68,10 @@ async function main() {
 
   // ── Cancel by request ID ────────────────────────────────────────────────────
   console.log('\n--- Cancel via requestWithId()');
-  const { requestId, promise } = client.requestWithId<unknown>('/posts');
+  const { requestId, response } = client.requestWithId<unknown>('/posts');
   client.cancel(requestId);
   try {
-    await promise;
+    await response;
   } catch (err) {
     console.log(' ', classify(err));
   }

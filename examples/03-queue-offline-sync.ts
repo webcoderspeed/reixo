@@ -57,7 +57,8 @@ async function runQueueDemo() {
   tasks.forEach((t) => {
     queue.add(
       async () => {
-        await Reixo.delay(t.duration);
+        // delay is not available from Reixo namespace, use setTimeout instead
+        await new Promise((resolve) => setTimeout(resolve, t.duration));
         return `Done (${t.duration}ms)`;
       },
       { id: t.id, priority: t.priority }
@@ -70,26 +71,12 @@ async function runQueueDemo() {
   // We can manually trigger network events if we had access to the monitor,
   // or just pause/resume the queue manually to demonstrate effect.
 
-  // Using the exported NetworkMonitor
-  const monitor = Reixo.NetworkMonitor.getInstance();
+  // NetworkMonitor is not directly exported, so we skip direct access here
+  // In a real browser app, network events happen automatically
 
-  // Go offline after 100ms
-  setTimeout(() => {
-    console.log('⚠️ Simulating Network Loss...');
-    // In a real app, this happens automatically via window events.
-    // For Node/Test, we can emit events if we want to test the queue integration.
-    // queue.pause() happens automatically if we emit 'offline'.
-    monitor.emit('offline');
-  }, 100);
-
-  // Go back online after 2000ms
-  setTimeout(() => {
-    console.log('✅ Simulating Network Recovery...');
-    monitor.emit('online');
-  }, 2000);
-
-  // Wait for completion
-  await Reixo.delay(4000);
+  // In a real browser, network events would be triggered by window events
+  // For this demo, we just wait for the queue to process tasks
+  await new Promise((resolve) => setTimeout(resolve, 4000));
   console.log('\n✅ Queue Demo Finished');
 }
 

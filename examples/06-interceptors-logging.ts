@@ -1,5 +1,6 @@
 import { Reixo } from '../src';
 import { ConsoleLogger, LogLevel } from '../src/utils/logger';
+import type { HTTPOptions, HTTPResponse } from '../src';
 
 /**
  * Example 6: Interceptors & Logging
@@ -16,23 +17,22 @@ async function runInterceptorsDemo() {
   const client = new Reixo.HTTPBuilder('https://jsonplaceholder.typicode.com')
     // Add Request Interceptor (e.g., Auth Token)
     .addRequestInterceptor(
-      (config) => {
+      (config: HTTPOptions) => {
         logger.info(`[Interceptor] Adding Authorization header to ${config.method} ${config.url}`);
-        // config.headers = config.headers || {};
-        // config.headers['Authorization'] = 'Bearer secret-token';
-        // Note: Headers should be cloned if modifying, but here we just add to existing object if present
-        // or create new.
-        const headers = { ...config.headers, Authorization: 'Bearer secret-token' };
+        const headers = {
+          ...(config.headers as Record<string, string>),
+          Authorization: 'Bearer secret-token',
+        };
         return { ...config, headers };
       },
-      (error) => {
-        logger.error('[Interceptor] Request Error', error);
+      (error: unknown) => {
+        logger.error('[Interceptor] Request Error', error instanceof Error ? error : undefined);
         return Promise.reject(error);
       }
     )
     // Add Response Interceptor (e.g., Transform Data)
     .addResponseInterceptor(
-      (response) => {
+      (response: HTTPResponse<unknown>) => {
         logger.info(`[Interceptor] Received Status: ${response.status}`);
         // Example: Add a timestamp to the response data
         if (response.data && typeof response.data === 'object') {
@@ -40,8 +40,8 @@ async function runInterceptorsDemo() {
         }
         return response;
       },
-      (error) => {
-        logger.warn('[Interceptor] Response Error', error);
+      (error: unknown) => {
+        logger.warn('[Interceptor] Response Error', error instanceof Error ? error : undefined);
         return Promise.reject(error);
       }
     )

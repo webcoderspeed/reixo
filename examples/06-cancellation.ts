@@ -21,7 +21,7 @@ async function main() {
 
   // ── 1. Cancel a specific request by ID ───────────────────────────────────────
   console.log('--- cancel(requestId)');
-  const { requestId, promise: p1 } = client.requestWithId<unknown>('/posts');
+  const { requestId, response: p1 } = client.requestWithId<unknown>('/posts');
   // Schedule cancellation for 5ms from now
   setTimeout(() => client.cancel(requestId), 5);
   try {

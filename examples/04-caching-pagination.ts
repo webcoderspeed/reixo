@@ -1,4 +1,4 @@
-import { Reixo } from '../src';
+import { HTTPBuilder, paginate } from '../src';
 
 /**
  * Example 4: Caching & Pagination
@@ -12,7 +12,7 @@ async function runCachingDemo() {
   console.log('--- 1. Caching Demo ---');
 
   // Create client with caching enabled
-  const client = new Reixo.HTTPBuilder('https://jsonplaceholder.typicode.com')
+  const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
     .withTimeout(10000)
     // Enable simple in-memory cache (TTL 5 seconds)
     .withCache({
@@ -33,7 +33,7 @@ async function runCachingDemo() {
 
   // Wait for TTL expiry
   console.log('Waiting 6s for cache expiry...');
-  await Reixo.delay(6000);
+  await new Promise((resolve) => setTimeout(resolve, 6000));
 
   console.log('Fetching Post 1 Again (Network Request)...');
   const start3 = Date.now();
@@ -50,7 +50,7 @@ async function runCachingDemo() {
   // Note: JSONPlaceholder might not support standard pagination meta.
   // We will iterate until empty array.
 
-  const iterator = Reixo.paginate<{ id: number; name: string }>(client, '/comments', {
+  const iterator = paginate<{ id: number; name: string }>(client, '/comments', {
     pageParam: '_page',
     limitParam: '_limit',
     limit: 5,

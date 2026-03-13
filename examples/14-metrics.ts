@@ -11,6 +11,7 @@
  */
 
 import { HTTPBuilder, MockAdapter, MetricsCollector, NetworkRecorder } from '../src';
+import type { HTTPResponse, HeadersRecord, JsonValue, MockResponseData } from '../src';
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Enable built-in metrics via withMetrics()
@@ -20,8 +21,8 @@ async function demo_builtInMetrics(): Promise<void> {
   console.log('\n--- 1. Built-in metrics collector ---');
 
   const mock = new MockAdapter();
-  mock.onGet('/api/users').reply(200, [{ id: 1, name: 'Alice' }], { delayMs: 20 });
-  mock.onGet('/api/posts').reply(200, [{ id: 1, title: 'Hello' }], { delayMs: 40 });
+  mock.onGet('/api/users').reply(200, [{ id: 1, name: 'Alice' }], {}, { delayMs: 20 });
+  mock.onGet('/api/posts').reply(200, [{ id: 1, title: 'Hello' }], {}, { delayMs: 40 });
   mock.onGet('/api/missing').reply(404, { error: 'Not Found' });
 
   const client = new HTTPBuilder('https://api.example.com')
@@ -59,7 +60,7 @@ async function demo_realtimeCallback(): Promise<void> {
   console.log('\n--- 2. Real-time metrics update callback ---');
 
   const mock = new MockAdapter();
-  mock.onGet('/data').reply(200, { ok: true }, { delayMs: 15 });
+  mock.onGet('/data').reply(200, { ok: true }, {}, { delayMs: 15 });
 
   const client = new HTTPBuilder('https://api.example.com')
     .withTransport(mock.transport)
@@ -137,13 +138,16 @@ async function demo_networkRecorder(): Promise<void> {
 
   const client = new HTTPBuilder('https://api.example.com')
     .withTransport(mock.transport)
-    .addResponseInterceptor((response) => {
+    .addResponseInterceptor((response: HTTPResponse<unknown>) => {
       // Record each response as it arrives
       recorder.record({
         url: response.config.url ?? '',
         method: (response.config.method ?? 'GET').toUpperCase(),
         status: response.status,
-        timestamp: Date.now(),
+        responseHeaders: {},
+        responseBody: response.data as JsonValue,
+        requestHeaders: (response.config.headers as HeadersRecord | undefined) ?? {},
+        requestBody: (response.config.body as JsonValue | null) ?? null,
         duration: 0, // Would come from timing in a real interceptor
       });
       return response;
@@ -171,9 +175,9 @@ async function demo_percentileLatency(): Promise<void> {
   const mock = new MockAdapter();
   // Simulate varied response times
   let callCount = 0;
-  mock.onGet('/api/data').reply(() => {
+  mock.onGet('/api/data').reply((): [number, MockResponseData] => {
     callCount++;
-    return [200, { n: callCount }, { delayMs: Math.floor(Math.random() * 100 + 10) }];
+    return [200, { n: callCount }];
   });
 
   const client = new HTTPBuilder('https://api.example.com')

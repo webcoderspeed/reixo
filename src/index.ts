@@ -29,6 +29,7 @@ export type { ConsoleLoggerOptions } from './utils/logger';
 export { NetworkMonitor } from './utils/network';
 export { createBatchTransport } from './utils/batch-transport';
 export { paginate } from './utils/pagination';
+export type { PaginationOptions } from './utils/pagination';
 export { CacheManager, MemoryAdapter, WebStorageAdapter } from './utils/cache';
 export { RateLimiter } from './utils/rate-limiter';
 export { MetricsCollector } from './utils/metrics';

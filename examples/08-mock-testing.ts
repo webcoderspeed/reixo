@@ -9,6 +9,7 @@
  */
 
 import { HTTPBuilder, MockAdapter, HTTPError, NetworkError, TimeoutError } from '../src';
+import type { HTTPOptions, MockResponseData } from '../src';
 
 // ---------------------------------------------------------------------------
 // Service under test
@@ -72,8 +73,11 @@ async function demo_callbackHandler(): Promise<void> {
   const client = new HTTPBuilder('https://api.example.com').withTransport(mock.transport).build();
 
   // Return 403 if the request body contains "admin"
-  mock.onPost('/users').reply((config) => {
-    const body = typeof config.body === 'string' ? JSON.parse(config.body) : config.body;
+  mock.onPost('/users').reply((_url: string, options: HTTPOptions): [number, MockResponseData] => {
+    const body =
+      typeof options.body === 'string'
+        ? (JSON.parse(options.body) as Record<string, unknown>)
+        : (options.body as unknown as Record<string, unknown>);
     if (body?.role === 'admin') {
       return [403, { error: 'Forbidden: admin role not allowed' }];
     }
@@ -84,7 +88,8 @@ async function demo_callbackHandler(): Promise<void> {
     await client.post('/users', { name: 'Eve', role: 'admin' });
   } catch (err) {
     if (err instanceof HTTPError) {
-      console.log('  Blocked admin:', err.status, (err.data as { error: string }).error);
+      const errorData = (await err.response?.json()) as { error: string } | undefined;
+      console.log('  Blocked admin:', err.status, errorData?.error);
     }
   }
 
@@ -156,7 +161,7 @@ async function demo_delay(): Promise<void> {
   const mock = new MockAdapter();
   const client = new HTTPBuilder('https://api.example.com').withTransport(mock.transport).build();
 
-  mock.onGet('/slow-data').reply(200, { loaded: true }, { delayMs: 150 });
+  mock.onGet('/slow-data').reply(200, { loaded: true }, {}, { delayMs: 150 });
 
   const start = Date.now();
   const res = await client.get<{ loaded: boolean }>('/slow-data');
@@ -189,7 +194,7 @@ async function demo_history(): Promise<void> {
     console.log(`    ${req.method} ${req.url}`);
   }
 
-  mock.clearHistory();
+  mock.reset();
   console.log('  History cleared, length:', mock.getHistory().length);
 }
 
