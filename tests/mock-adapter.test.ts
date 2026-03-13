@@ -38,7 +38,7 @@ describe('MockAdapter', () => {
   it('should mock timeouts', async () => {
     mock.onGet('/timeout').timeout();
 
-    await expect(client.get('/timeout')).rejects.toThrow('Timeout');
+    await expect(client.get('/timeout')).rejects.toThrow('timed out');
   });
 
   it('should support replyOnce', async () => {

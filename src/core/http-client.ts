@@ -6,6 +6,9 @@ import {
   HTTPError,
   ValidationError,
   IHTTPClient,
+  AbortError,
+  ParamsValue,
+  CacheMetadata,
 } from '../utils/http';
 import type { HeadersWithSuggestions } from '../types/http-well-known';
 import { debounce, throttle, delay } from '../utils/timing';
@@ -18,6 +21,7 @@ import { TaskQueue, PersistentQueueOptions } from '../utils/queue';
 import { generateKey } from '../utils/keys';
 import { objectToFormData } from '../utils/form-data';
 import { InfiniteQuery, InfiniteQueryOptions } from '../utils/infinite-query';
+import { CircuitBreaker, CircuitBreakerOptions } from '../utils/circuit-breaker';
 
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
@@ -257,6 +261,26 @@ export interface HTTPClientConfig {
    * @default false
    */
   revalidateOnReconnect?: boolean;
+
+  /**
+   * Attach a circuit breaker to all requests made by this client.
+   * When the failure threshold is exceeded the circuit opens and subsequent
+   * requests are rejected immediately with a {@link CircuitOpenError} — no
+   * network round-trip is made until the reset timeout elapses.
+   *
+   * Pass `CircuitBreakerOptions` to create a new breaker automatically, or
+   * pass an existing `CircuitBreaker` instance to share state across clients.
+   *
+   * @example
+   * // Auto-create with options
+   * circuitBreaker: { failureThreshold: 5, resetTimeoutMs: 30_000 }
+   *
+   * @example
+   * // Shared instance
+   * const breaker = new CircuitBreaker({ failureThreshold: 3 });
+   * const client = new HTTPClient({ circuitBreaker: breaker });
+   */
+  circuitBreaker?: CircuitBreakerOptions | CircuitBreaker;
 }
 
 export type HTTPEvents = {
@@ -297,6 +321,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   private connectionPool?: ConnectionPool;
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
+  private circuitBreaker?: CircuitBreaker;
   private inFlightRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
   /** Dedicated promise store for the Suspense read() method — prevents infinite re-fetch loops */
   private suspenseRequests = new Map<string, Promise<HTTPResponse<unknown>>>();
@@ -336,6 +361,13 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       this.metrics = new MetricsCollector(100, config.onMetricsUpdate);
     }
 
+    if (config.circuitBreaker) {
+      this.circuitBreaker =
+        config.circuitBreaker instanceof CircuitBreaker
+          ? config.circuitBreaker
+          : new CircuitBreaker(config.circuitBreaker);
+    }
+
     // Setup automatic cleanup on instance destruction
     this.setupAutomaticCleanup();
 
@@ -346,6 +378,68 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   /**
    * Clean up all resources and prevent memory leaks
    */
+  /**
+   * Cancel a specific in-flight request by its ID.
+   *
+   * The request ID is exposed in the `'request:start'` event payload and via
+   * `requestWithId()`. The cancelled request rejects with an {@link AbortError}.
+   *
+   * @param requestId The UUID of the request to cancel.
+   * @returns `true` if the request was found and cancelled, `false` otherwise.
+   *
+   * @example
+   * const { requestId, response } = client.requestWithId('/api/data');
+   * // user navigates away
+   * client.cancel(requestId);
+   */
+  public cancel(requestId: string): boolean {
+    const controller = this.abortControllers.get(requestId);
+    if (controller) {
+      controller.abort(new AbortError(`Request ${requestId} was cancelled`));
+      this.abortControllers.delete(requestId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Cancel ALL in-flight requests managed by this client.
+   * Each request rejects with an {@link AbortError}.
+   *
+   * @example
+   * // Component unmount cleanup
+   * useEffect(() => () => client.cancelAll(), []);
+   */
+  public cancelAll(): void {
+    for (const [id, controller] of this.abortControllers) {
+      controller.abort(new AbortError(`Request ${id} was cancelled`));
+    }
+    this.abortControllers.clear();
+  }
+
+  /**
+   * Like `request()` but also returns the `requestId` so you can cancel this
+   * specific request later via `client.cancel(requestId)`.
+   *
+   * @example
+   * const { requestId, response } = client.requestWithId('/api/data');
+   * // Cancel if the component unmounts before the response arrives
+   * client.cancel(requestId);
+   * const data = (await response).data;
+   */
+  public requestWithId<T = unknown>(
+    url: string,
+    options: HTTPOptions = {}
+  ): { requestId: string; response: Promise<HTTPResponse<T>> } {
+    const requestId = crypto.randomUUID();
+    const controller = new AbortController();
+    this.abortControllers.set(requestId, controller);
+    const response = this.request<T>(url, { ...options, signal: controller.signal }).finally(() => {
+      this.abortControllers.delete(requestId);
+    });
+    return { requestId, response };
+  }
+
   public dispose(): void {
     // Cleanup all in-flight and suspense requests
     this.inFlightRequests.clear();
@@ -457,12 +551,14 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           this.emit('focus');
           this.revalidateActiveQueries();
         };
-        window.addEventListener('focus', onFocus);
-        window.addEventListener('visibilitychange', () => {
+        const onVisibility = () => {
           if (document.visibilityState === 'visible') onFocus();
-        });
+        };
+        window.addEventListener('focus', onFocus);
+        window.addEventListener('visibilitychange', onVisibility);
         this.onCleanup(() => {
           window.removeEventListener('focus', onFocus);
+          window.removeEventListener('visibilitychange', onVisibility);
         });
       }
 
@@ -640,10 +736,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   /**
    * Get data from cache synchronously.
    */
-  public getQueryData<T>(
-    url: string,
-    params?: Record<string, string | number | boolean | Array<string | number | boolean>>
-  ): T | null {
+  public getQueryData<T>(url: string, params?: ParamsValue): T | null {
     if (!this.cacheManager) return null;
     const key = this.cacheManager.generateKey(url, params);
     return this.cacheManager.get<T>(key);
@@ -759,23 +852,45 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
                 this.config.logger?.warn(`Background revalidation failed for ${url}`, err);
               });
 
+            const nowMs = Date.now();
+            const ageSec = Math.floor((nowMs - cachedEntry.createdAt) / 1000);
+            const ttlSec = Math.max(0, Math.floor((cachedEntry.expiry - nowMs) / 1000));
+            const cacheMetadata: CacheMetadata = {
+              hit: true,
+              age: ageSec,
+              ttl: ttlSec,
+              strategy: 'stale-while-revalidate',
+            };
+
             return {
               data: cachedEntry.data,
               status: 200,
               statusText: 'OK (Cached)',
               headers: new Headers(),
               config: { ...this.config, ...options, url },
+              cacheMetadata,
             };
           }
         } else if (strategy === 'cache-first') {
-          const cachedData = this.cacheManager.get<T>(cacheKey);
-          if (cachedData) {
+          const cachedEntry = this.cacheManager.getEntry<T>(cacheKey);
+          if (cachedEntry) {
+            const nowMs = Date.now();
+            const ageSec = Math.floor((nowMs - cachedEntry.createdAt) / 1000);
+            const ttlSec = Math.max(0, Math.floor((cachedEntry.expiry - nowMs) / 1000));
+            const cacheMetadata: CacheMetadata = {
+              hit: true,
+              age: ageSec,
+              ttl: ttlSec,
+              strategy: 'cache-first',
+            };
+
             return {
-              data: cachedData,
+              data: cachedEntry.data,
               status: 200,
               statusText: 'OK (Cached)',
               headers: new Headers(),
               config: { ...this.config, ...options, url },
+              cacheMetadata,
             };
           }
         }
@@ -786,16 +901,55 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
-   * Prefetch a URL and cache the result.
+   * Prefetch a URL and cache the result for faster subsequent reads.
+   *
+   * Returns a handle with a `cancel()` method so you can abort the background
+   * fetch if the user navigates away before it completes (e.g. on hover-intent
+   * patterns where the user leaves before the link loads).
+   *
+   * @example
+   * ```ts
+   * const handle = client.prefetch('/api/dashboard');
+   *
+   * // If the user moves away before hover completes:
+   * handle.cancel();
+   *
+   * // Check whether the fetch already completed:
+   * if (handle.completed) {
+   *   console.log('Already cached!');
+   * }
+   * ```
    */
-  public prefetch(url: string, options: HTTPOptions = {}): void {
+  public prefetch(
+    url: string,
+    options: HTTPOptions = {}
+  ): { cancel: () => void; readonly completed: boolean } {
+    const controller = new AbortController();
+    let completed = false;
+
     this.request(url, {
       ...options,
+      signal: controller.signal,
       cacheConfig: {
         ...(typeof options.cacheConfig === 'object' ? options.cacheConfig : {}),
         strategy: 'network-only',
       },
-    }).catch(() => {});
+    })
+      .then(() => {
+        completed = true;
+      })
+      .catch((err: unknown) => {
+        // Silently ignore cancellations — they are intentional
+        if (err instanceof AbortError) return;
+        this.config.logger?.warn(`[Reixo] Prefetch failed for ${url}`, err);
+      });
+
+    return {
+      cancel: () => controller.abort(),
+      get completed() {
+        return completed;
+      },
+    };
   }
 
   private async _executeRequest<T>(url: string, options: HTTPOptions): Promise<HTTPResponse<T>> {
@@ -918,7 +1072,10 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
 
       try {
         const transport = this.config.transport || http;
-        const initialResponse = await transport<T>(url, mergedOptions);
+        // Wrap transport through circuit breaker when configured
+        const initialResponse = this.circuitBreaker
+          ? await this.circuitBreaker.execute(() => transport<T>(url, mergedOptions))
+          : await transport<T>(url, mergedOptions);
 
         // Run response interceptors using reduce
         const response = await this.interceptors.response.reduce(async (promise, interceptor) => {
@@ -1032,8 +1189,24 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   // ... rest of methods (get, post, put, delete, patch) remain unchanged as they delegate to request
 
   /**
-   * Generates a cURL command for the given request configuration.
-   * Note: This does not execute the request or run interceptors.
+   * Generates a cURL command equivalent for the given request.
+   * Useful for debugging and sharing reproducible request examples.
+   *
+   * **Note:** Interceptors are NOT applied — the output reflects the raw
+   * configuration passed in, not what would actually be sent over the wire.
+   *
+   * @param url    The request URL (relative URLs are resolved against `baseURL`).
+   * @param options Optional per-request overrides (headers, body, method, …).
+   * @returns A ready-to-paste cURL command string.
+   *
+   * @example
+   * ```ts
+   * const curl = client.generateCurl('/users/1', {
+   *   method: 'GET',
+   *   headers: { Authorization: 'Bearer tok' },
+   * });
+   * // → curl -X GET -H 'Authorization: Bearer tok' 'https://api.example.com/users/1'
+   * ```
    */
   public generateCurl(url: string, options: HTTPOptions = {}): string {
     const baseUrl = this.config.baseURL || '';
@@ -1095,28 +1268,52 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
-   * GET request
+   * Send a GET request.
+   * @param url     Request URL (relative URLs are resolved against `baseURL`).
+   * @param options Optional per-request overrides.
+   * @returns Promise that resolves to an {@link HTTPResponse} with the parsed body as `T`.
+   *
+   * @example
+   * ```ts
+   * const { data } = await client.get<User[]>('/users');
+   * ```
    */
   public get<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     return this.request<T>(url, { ...options, method: 'GET' });
   }
 
   /**
-   * HEAD request — useful for checking resource existence or reading headers without a body.
+   * Send a HEAD request. Response has no body; useful for checking whether a
+   * resource exists or reading its headers (e.g. `Content-Length`, `ETag`).
+   * @param url     Request URL.
+   * @param options Optional per-request overrides.
    */
   public head<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     return this.request<T>(url, { ...options, method: 'HEAD' });
   }
 
   /**
-   * OPTIONS request — useful for CORS preflight checks and API capability discovery.
+   * Send an OPTIONS request. Useful for manual CORS preflight checks and API
+   * capability discovery via the `Allow` response header.
+   * @param url     Request URL.
+   * @param options Optional per-request overrides.
    */
   public options<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     return this.request<T>(url, { ...options, method: 'OPTIONS' });
   }
 
   /**
-   * POST request
+   * Send a POST request. Plain objects are automatically serialised to JSON
+   * and `Content-Type: application/json` is set unless already provided.
+   * Pass `options.useFormData: true` to send as `multipart/form-data` instead.
+   * @param url     Request URL.
+   * @param data    Request body — any JSON-serialisable value or `FormData`.
+   * @param options Optional per-request overrides.
+   *
+   * @example
+   * ```ts
+   * const { data } = await client.post<User>('/users', { name: 'Alice' });
+   * ```
    */
   public post<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
@@ -1124,7 +1321,16 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
-   * PUT request
+   * Send a PUT request. Replaces the target resource entirely.
+   * Body serialisation follows the same rules as {@link post}.
+   * @param url     Request URL.
+   * @param data    Replacement body.
+   * @param options Optional per-request overrides.
+   *
+   * @example
+   * ```ts
+   * await client.put('/users/1', { name: 'Bob', email: 'bob@example.com' });
+   * ```
    */
   public put<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
@@ -1132,14 +1338,30 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   }
 
   /**
-   * DELETE request
+   * Send a DELETE request.
+   * @param url     Request URL.
+   * @param options Optional per-request overrides (e.g. a body for bulk deletes).
+   *
+   * @example
+   * ```ts
+   * await client.delete('/users/1');
+   * ```
    */
   public delete<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     return this.request<T>(url, { ...options, method: 'DELETE' });
   }
 
   /**
-   * PATCH request
+   * Send a PATCH request. Applies a partial update to the target resource.
+   * Body serialisation follows the same rules as {@link post}.
+   * @param url     Request URL.
+   * @param data    Partial update payload.
+   * @param options Optional per-request overrides.
+   *
+   * @example
+   * ```ts
+   * await client.patch('/users/1', { email: 'new@example.com' });
+   * ```
    */
   public patch<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
@@ -1267,6 +1489,81 @@ export class HTTPBuilder {
   public withRevalidation(options: { focus?: boolean; reconnect?: boolean }): this {
     if (options.focus !== undefined) this.config.revalidateOnFocus = options.focus;
     if (options.reconnect !== undefined) this.config.revalidateOnReconnect = options.reconnect;
+    return this;
+  }
+
+  /**
+   * Attach a custom logger to route request/response/error output to your
+   * preferred sink (Winston, Pino, Datadog, etc.).
+   *
+   * @example
+   * import { ConsoleLogger, LogLevel } from 'reixo';
+   * builder.withLogger(new ConsoleLogger(LogLevel.WARN))
+   */
+  public withLogger(logger: Logger): this {
+    this.config.logger = logger;
+    return this;
+  }
+
+  /**
+   * Enable a circuit breaker for all requests. Once the failure threshold is
+   * exceeded the circuit opens and requests are rejected immediately with a
+   * {@link CircuitOpenError} until the reset timeout elapses.
+   *
+   * @example
+   * builder.withCircuitBreaker({ failureThreshold: 5, resetTimeoutMs: 30_000 })
+   */
+  public withCircuitBreaker(options: CircuitBreakerOptions | CircuitBreaker): this {
+    this.config.circuitBreaker = options;
+    return this;
+  }
+
+  /**
+   * Configure a Node.js HTTP/HTTPS connection pool (keep-alive, max sockets).
+   * Has no effect in browser environments.
+   *
+   * @example
+   * builder.withConnectionPool({ maxSockets: 50, keepAlive: true })
+   */
+  public withConnectionPool(options: ConnectionPoolOptions): this {
+    this.config.pool = options;
+    return this;
+  }
+
+  /**
+   * Define per-URL-pattern retry overrides. The first matching pattern wins,
+   * allowing you to disable retries on auth endpoints while keeping the global
+   * retry policy for everything else.
+   *
+   * @example
+   * builder.withRetryPolicies([
+   *   { pattern: /\/auth\//, retry: false },
+   *   { pattern: '/api/upload', retry: { maxRetries: 1 } },
+   * ])
+   */
+  public withRetryPolicies(
+    policies: Array<{ pattern: string | RegExp; retry: RetryOptions | boolean }>
+  ): this {
+    this.config.retryPolicies = policies;
+    return this;
+  }
+
+  /**
+   * Configure API versioning. Version can be prepended as a URL segment
+   * (`/v2/users`) or injected as a header.
+   *
+   * @example
+   * builder.withVersioning('v2', 'url')
+   * builder.withVersioning('2026-01-01', 'header', 'API-Version')
+   */
+  public withVersioning(
+    version: string,
+    strategy: 'url' | 'header' = 'url',
+    headerName?: string
+  ): this {
+    this.config.apiVersion = version;
+    this.config.versioningStrategy = strategy;
+    if (headerName) this.config.versionHeader = headerName;
     return this;
   }
 

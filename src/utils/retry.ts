@@ -1,6 +1,32 @@
 import { RetryOptions, RetryResult } from '../types';
 
 /**
+ * Thrown by {@link withRetry} when all retry attempts are exhausted or
+ * `retryCondition` returns `false`. Carries structured metadata about the
+ * failed run so callers don't need to cast the caught value.
+ */
+export class RetryError extends Error {
+  /** Total number of attempts made before giving up. */
+  readonly attempts: number;
+  /** Wall-clock time elapsed across all attempts, in milliseconds. */
+  readonly durationMs: number;
+  /** The original error that caused the final failure. */
+  readonly cause: Error;
+
+  constructor(cause: Error, attempts: number, durationMs: number) {
+    super(cause.message);
+    this.name = 'RetryError';
+    this.cause = cause;
+    this.attempts = attempts;
+    this.durationMs = durationMs;
+    // Preserve the original stack trace when available
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, RetryError);
+    }
+  }
+}
+
+/**
  * Executes a function with automatic retry logic based on configuration.
  *
  * @template T The return type of the function
@@ -42,17 +68,15 @@ export async function withRetry<T>(
 
       if (attempts > maxRetries) {
         const durationMs = Date.now() - startTime;
-        const finalError = error instanceof Error ? error : new Error(String(error));
-        Object.assign(finalError, { attempts, durationMs });
-        throw finalError;
+        const cause = error instanceof Error ? error : new Error(String(error));
+        throw new RetryError(cause, attempts, durationMs);
       }
 
       const shouldRetry = await retryCondition(error, attempts);
       if (!shouldRetry) {
         const durationMs = Date.now() - startTime;
-        const finalError = error instanceof Error ? error : new Error(String(error));
-        Object.assign(finalError, { attempts, durationMs });
-        throw finalError;
+        const cause = error instanceof Error ? error : new Error(String(error));
+        throw new RetryError(cause, attempts, durationMs);
       }
 
       const delay = calculateDelay(attempts, initialDelayMs, maxDelayMs, backoffFactor, jitter);
@@ -79,7 +103,8 @@ function calculateDelay(
   const baseDelay = Math.min(initialDelayMs * Math.pow(backoffFactor, attempt - 1), maxDelayMs);
 
   if (jitter) {
-    const jitterAmount = baseDelay * 0.1;
+    // Apply ±50 % jitter as documented to spread retries across time
+    const jitterAmount = baseDelay * 0.5;
     return baseDelay - jitterAmount + Math.random() * jitterAmount * 2;
   }
 

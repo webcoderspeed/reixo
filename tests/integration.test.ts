@@ -109,7 +109,7 @@ describe('Reixo Integration', () => {
     // Attach expectations immediately to handle rejections that occur during runAllTimersAsync
     const p1 = expect(t1).rejects.toThrow('Fail 1 Retry');
     const p2 = expect(t2).rejects.toThrow('Fail 2 Retry');
-    const p3 = expect(t3).rejects.toThrow('CircuitBreaker: Circuit is OPEN');
+    const p3 = expect(t3).rejects.toThrow('Circuit breaker is OPEN');
 
     // Run timers for retries
     await vi.runAllTimersAsync();

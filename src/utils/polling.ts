@@ -6,26 +6,34 @@ import { delay } from './timing';
  * @template T The resolved type of each poll result.
  *
  * @example
+ * ```ts
+ * // Poll until a job completes, with adaptive intervals
  * const { promise, cancel } = poll(
- *   () => client.get<Order>('/orders/123'),
+ *   () => client.get<Job>('/jobs/123'),
  *   {
  *     interval: 2000,
+ *     until: (res) => res.data.status === 'completed',
+ *     adaptiveInterval: (res) =>
+ *       res.data.progress < 50 ? 5000 : 1000, // faster near completion
  *     timeout: 60_000,
- *     stopCondition: (order) => order.data.status === 'fulfilled',
- *     backoff: { factor: 1.5, maxInterval: 10_000 },
  *   }
  * );
+ *
+ * const job = await promise;
+ * ```
  */
 export interface PollingOptions<T = unknown> {
   /**
    * Base interval between poll attempts, in milliseconds.
    * When `backoff` is enabled this is the *initial* interval.
+   * When `adaptiveInterval` is provided this value is used as the fallback
+   * for the first attempt only.
    */
   interval: number;
 
   /**
    * Wall-clock deadline for the entire polling session, in milliseconds.
-   * An error is thrown if the deadline is exceeded before `stopCondition` fires.
+   * An error is thrown if the deadline is exceeded before the stop condition fires.
    */
   timeout?: number;
 
@@ -36,10 +44,37 @@ export interface PollingOptions<T = unknown> {
   maxAttempts?: number;
 
   /**
+   * Return `true` to stop polling and resolve the session with the latest result.
+   * Alias for the more verbose `stopCondition` option — use whichever reads more naturally.
+   *
+   * When both `until` and `stopCondition` are provided, **`until` takes precedence**.
+   *
+   * @example
+   * until: (response) => response.data.status === 'completed'
+   */
+  until?: (data: T) => boolean;
+
+  /**
    * Return `true` to stop polling and resolve the session with the latest
    * result. When omitted polling continues until `timeout` or `maxAttempts`.
+   *
+   * @deprecated Prefer {@link PollingOptions.until} for clearer intent. Both are supported.
    */
   stopCondition?: (data: T) => boolean;
+
+  /**
+   * Dynamic interval calculator. Called after every successful poll with the
+   * latest result; the returned value becomes the wait time before the next
+   * attempt. Overrides `interval` and `backoff` when present.
+   *
+   * Useful for polls that should speed up or slow down based on response state
+   * (e.g. poll faster as a job approaches 100% completion).
+   *
+   * @example
+   * adaptiveInterval: (response) =>
+   *   response.data.progress < 50 ? 5000 : 1000 // slow then fast
+   */
+  adaptiveInterval?: (data: T) => number;
 
   /**
    * Called when the polling task throws. Receives the error and the current
@@ -54,6 +89,8 @@ export interface PollingOptions<T = unknown> {
    * - `true` — use defaults: `factor: 1.5`, `maxInterval: 30_000`
    * - `false` / omitted — constant interval
    * - Object — custom multiplier and ceiling
+   *
+   * Ignored when `adaptiveInterval` is provided.
    *
    * @example
    * backoff: { factor: 2, maxInterval: 30_000 }
@@ -87,6 +124,9 @@ export class PollingController<T = unknown> {
     this.attempts = 0;
     const startTime = Date.now();
 
+    // Resolve which stop condition to use — `until` takes precedence over `stopCondition`
+    const shouldStop = this.options.until ?? this.options.stopCondition;
+
     while (this.isRunning) {
       if (this.options.maxAttempts && this.attempts >= this.options.maxAttempts) {
         throw new Error('Max polling attempts reached');
@@ -100,17 +140,25 @@ export class PollingController<T = unknown> {
         const result = await this.task();
         this.attempts++;
 
-        if (this.options.stopCondition && this.options.stopCondition(result)) {
+        if (shouldStop && shouldStop(result)) {
           this.stop();
           return result;
         }
 
         if (!this.isRunning) return;
 
+        // Wait for the current interval, then update it for the NEXT iteration.
+        // Order matters: delay uses the interval established on the previous iteration,
+        // then we recalculate for the following one (preserves backoff timing).
         await delay(this.currentInterval);
 
-        // Calculate next interval
-        if (this.options.backoff) {
+        // Determine next interval:
+        // 1. adaptiveInterval takes highest priority (dynamic, response-based)
+        // 2. backoff applies exponential growth to the current interval
+        // 3. constant interval — no change needed
+        if (this.options.adaptiveInterval) {
+          this.currentInterval = this.options.adaptiveInterval(result);
+        } else if (this.options.backoff) {
           const backoffConfig =
             typeof this.options.backoff === 'object'
               ? this.options.backoff
@@ -152,7 +200,21 @@ export class PollingController<T = unknown> {
 }
 
 /**
- * Helper function for simple polling
+ * Helper function for simple polling.
+ *
+ * @example
+ * ```ts
+ * const { promise, cancel } = poll(
+ *   () => client.get<JobStatus>('/jobs/42'),
+ *   {
+ *     interval: 2000,
+ *     until: (res) => res.data.status === 'done',
+ *     timeout: 120_000,
+ *   }
+ * );
+ *
+ * const result = await promise;
+ * ```
  */
 export function poll<T>(
   task: () => Promise<T>,

@@ -1,4 +1,5 @@
 import { generateKey } from './keys';
+import type { ParamsValue } from './http';
 
 export interface CacheEntry<T> {
   data: T;
@@ -182,10 +183,7 @@ export class CacheManager {
    * Generates a cache key from URL and options.
    * Delegates to the shared utility.
    */
-  public generateKey(
-    url: string,
-    params?: Record<string, string | number | boolean | Array<string | number | boolean>>
-  ): string {
+  public generateKey(url: string, params?: ParamsValue): string {
     return generateKey(url, params);
   }
 

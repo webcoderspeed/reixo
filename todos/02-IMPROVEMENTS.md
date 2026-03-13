@@ -2,6 +2,7 @@
 
 > Suggestions for making Reixo more developer-friendly, powerful, and production-ready.
 > Priority: P1 (High) → P2 (Medium) → P3 (Nice-to-have)
+> Last updated: 2026-03-13 (Sprint 3 completed — IMP-001/002/003/006/007/009/012 done)
 
 ---
 
@@ -9,7 +10,7 @@
 
 ---
 
-### IMP-001 — `CircuitBreaker` should be first-class in `HTTPClientConfig`
+### IMP-001 — `CircuitBreaker` should be first-class in `HTTPClientConfig` ✅ DONE
 
 **Current state:**
 `CircuitBreaker` exists as a standalone utility but cannot be plugged into `HTTPClient` via config. Users must manually wrap every call:
@@ -34,7 +35,7 @@ const client = new HTTPBuilder()
 
 ---
 
-### IMP-002 — Add dedicated `HEAD` and `OPTIONS` methods to `HTTPClient`
+### IMP-002 — Add dedicated `HEAD` and `OPTIONS` methods to `HTTPClient` ✅ DONE
 
 **Current state:**
 `HTTPMethod` type includes `HEAD` and `OPTIONS` but `HTTPClient` only has `get`, `post`, `put`, `delete`, `patch`. Users must use the generic `request()` method.
@@ -50,7 +51,7 @@ These are used in production scenarios: `HEAD` for ETags/existence checks, `OPTI
 
 ---
 
-### IMP-003 — Request cancellation public API
+### IMP-003 — Request cancellation public API ✅ DONE
 
 **Current state:**
 There's no way for users to cancel a specific in-flight request. They'd have to manage their own `AbortController` and pass it via `signal` in options.
@@ -92,7 +93,7 @@ This would dramatically increase adoption in React projects which are the domina
 
 ---
 
-### IMP-005 — Advanced query parameter serialization
+### IMP-005 — Advanced query parameter serialization ✅ DONE
 
 **Current state:**
 Mentioned as pending in `todo.md`. Only supports flat key=value pairs.
@@ -118,7 +119,7 @@ client.get('/api/items', {
 
 ---
 
-### IMP-006 — `HTTPBuilder` is missing several config methods
+### IMP-006 — `HTTPBuilder` is missing several config methods ✅ DONE
 
 **Current state:**
 `HTTPBuilder` doesn't expose all `HTTPClientConfig` options as fluent methods. These are missing:
@@ -135,7 +136,7 @@ Add all missing builder methods so that `HTTPBuilder` fully covers `HTTPClientCo
 
 ---
 
-### IMP-007 — Error type hierarchy (NetworkError, TimeoutError, AbortError)
+### IMP-007 — Error type hierarchy (NetworkError, TimeoutError, AbortError) ✅ DONE
 
 **Current state:**
 Only `HTTPError` (HTTP status errors) and `ValidationError` are available. All other errors (network failures, timeouts, aborts) are raw `Error` objects.
@@ -203,7 +204,7 @@ import { WebSocketClient } from 'reixo/websocket';
 
 ---
 
-### IMP-009 — `MockAdapter` should support response delays and conditional matching
+### IMP-009 — `MockAdapter` should support response delays and conditional matching ✅ DONE
 
 **Current state:**
 `MockAdapter` provides basic request mocking but doesn't support response delays or complex URL pattern matching.
@@ -230,7 +231,7 @@ This would make reixo a great choice for unit testing UI components with realist
 
 ---
 
-### IMP-010 — Stale data TTL indicator in responses
+### IMP-010 — Stale data TTL indicator in responses ✅ DONE
 
 **Current state:**
 When a cached response is returned (`statusText: 'OK (Cached)'`), there's no indication of how stale the data is.
@@ -276,7 +277,7 @@ This auto-generates browsable API docs from the existing JSDoc comments.
 
 ---
 
-### IMP-012 — Export missing utility types from `index.ts`
+### IMP-012 — Export missing utility types from `index.ts` ✅ DONE
 
 **Current state:**
 Several useful types/classes are not exported from the main package entry:
@@ -294,7 +295,7 @@ Export all user-facing APIs properly from `src/index.ts`.
 
 ---
 
-### IMP-013 — `ConsoleLogger` should support log levels and structured output
+### IMP-013 — `ConsoleLogger` should support log levels and structured output ✅ DONE
 
 **Current state:**
 `ConsoleLogger` likely logs everything to console. No level filtering, no structured JSON output for production log aggregators.
@@ -391,7 +392,7 @@ const users = reixoStore('/api/users', { client });
 
 ---
 
-### IMP-018 — `poll()` helper should support smarter stopping conditions
+### IMP-018 — `poll()` helper should support smarter stopping conditions ✅ DONE
 
 **Current state:**
 `poll()` supports a basic stop condition and timeout. No support for polling until a specific value appears or for adaptive intervals based on response content.
@@ -423,7 +424,7 @@ Migrate to `@changesets/cli` or `release-it` with `@release-it/conventional-chan
 
 ---
 
-### IMP-020 — `prefetch()` should return a cancellable handle
+### IMP-020 — `prefetch()` should return a cancellable handle ✅ DONE
 
 **Current state:**
 `prefetch()` returns `void` with no way to cancel the background fetch.

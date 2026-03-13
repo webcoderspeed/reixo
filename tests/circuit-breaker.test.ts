@@ -52,7 +52,7 @@ describe('CircuitBreaker', () => {
     // Force OPEN by failing 3 times
     await failTimes(breaker, 3, new Error('failed'));
 
-    await expect(breaker.execute(fn)).rejects.toThrow('CircuitBreaker: Circuit is OPEN');
+    await expect(breaker.execute(fn)).rejects.toThrow('Circuit breaker is OPEN');
     expect(fn).not.toHaveBeenCalled();
   });
 

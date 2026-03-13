@@ -209,6 +209,11 @@ export class WebSocketClient extends EventEmitter<WebSocketEvents> {
         // Capture timeout value once to avoid repeated optional chaining inside callbacks
         const timeoutMs = heartbeat.timeout;
         if (timeoutMs) {
+          // Clear any previous timeout before creating a new one to avoid
+          // orphaned timers if the interval fires before the previous pong arrived.
+          if (this.heartbeatTimeoutTimer) {
+            clearTimeout(this.heartbeatTimeoutTimer);
+          }
           this.heartbeatTimeoutTimer = setTimeout(() => {
             // No response received in time — close the socket to trigger reconnect
             this.ws?.close();

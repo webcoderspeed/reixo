@@ -2,7 +2,7 @@
 
 > Consolidated priority view of all bugs, improvements, and architectural work.
 > Sorted by: Impact vs Effort
-> Last updated: 2026-03-13
+> Last updated: 2026-03-13 (Sprint 3 completed)
 
 ---
 
@@ -78,49 +78,61 @@
 
 ## Action Plan by Sprint
 
-### Sprint 1 — "Stability" (1 week)
+### Sprint 1 — "Stability" (1 week) ✅ COMPLETED
 
 Fix all 🔴 Critical bugs. These are correctness issues that silently break core features (offline queue, optimistic updates, request cancellation).
 
-- [ ] BUG-001: Fix `destroy()` to call `dispose()`
-- [ ] BUG-002: Fix `mutate()` discarded cache key
-- [ ] BUG-003: Add public `get isQueuePaused()` getter to `TaskQueue`
-- [ ] BUG-004: Fix slash normalization in baseURL + URL
-- [ ] BUG-005: Link AbortController signals in `http.ts`
-- [ ] BUG-008: Fix `read()` suspense infinite loop
-- [ ] BUG-011: Export `ValidationError` from `index.ts`
-- [ ] BUG-016: Fix `@types/node` version
+- [x] BUG-001: Fix `destroy()` to call `dispose()`
+- [x] BUG-002: Fix `mutate()` discarded cache key
+- [x] BUG-003: `isQueuePaused` — confirmed not a bug (public getter already existed)
+- [x] BUG-004: Fix slash normalization in baseURL + URL
+- [x] BUG-005: Link AbortController signals in `http.ts`
+- [x] BUG-008: Fix `read()` suspense infinite loop
+- [x] BUG-011: Export `ValidationError` from `index.ts`
+- [x] BUG-016: Fix `@types/node` version
 
-### Sprint 2 — "Robustness" (1 week)
+### Sprint 2 — "Robustness" (1 week) ✅ COMPLETED
 
 Fix 🟠 High priority issues. These affect correctness in common scenarios.
 
-- [ ] BUG-006: Array param serialization
-- [ ] BUG-007: `WebStorageAdapter` SSR safety
-- [ ] BUG-012: Smart retry condition (skip 4xx by default)
-- [ ] BUG-013: Extract `_serializeBody()` private helper
-- [ ] BUG-009, BUG-014: Migrate to `crypto.randomUUID()`
-- [ ] IMP-006: Complete `HTTPBuilder` with missing fluent methods
-- [ ] IMP-012: Export all missing types
+- [x] BUG-006: Array param serialization
+- [x] BUG-007: `WebStorageAdapter` SSR safety
+- [x] BUG-012: Smart retry condition (skip 4xx by default) — confirmed already correct
+- [x] BUG-013: Extract `_serializeBody()` private helper
+- [x] BUG-009, BUG-014: Migrate to `crypto.randomUUID()`
+- [x] IMP-006: Complete `HTTPBuilder` with missing fluent methods
+- [x] IMP-012: Export all missing types
 
-### Sprint 3 — "Developer Experience" (2 weeks)
+### Sprint 3 — "Developer Experience" (2 weeks) ✅ COMPLETED
 
 Focus on improvements that increase adoption and usability.
 
-- [ ] IMP-001: `CircuitBreaker` as first-class `HTTPClientConfig` option
-- [ ] IMP-002: `HEAD` and `OPTIONS` methods
-- [ ] IMP-003: Request cancellation API
-- [ ] IMP-007: Error type hierarchy
-- [ ] IMP-009: Enhanced `MockAdapter`
-- [ ] BUG-010: LRU eviction in `MemoryAdapter`
-- [ ] IMP-015: Migrate from `standard-version` to `@changesets/cli`
+- [x] IMP-001: `CircuitBreaker` as first-class `HTTPClientConfig` option
+- [x] IMP-002: `HEAD` and `OPTIONS` methods
+- [x] IMP-003: Request cancellation API (`cancel(id)`, `cancelAll()`, `requestWithId()`)
+- [x] IMP-007: Error type hierarchy (`NetworkError`, `TimeoutError`, `AbortError`, `CircuitOpenError`, `RetryError`)
+- [x] IMP-009: Enhanced `MockAdapter` (callback handlers, `replyOnce`, `onHead`, `onOptions`, typed errors, `getHistory()`)
+- [x] BUG-010: LRU eviction in `MemoryAdapter`
+- [x] Additional: Fixed `visibilitychange` listener leak in `setupAutomaticCleanup`
+- [x] Additional: Fixed `prefetch()` silent error swallow → now logs via `logger.warn`
+- [x] Additional: Fixed `emitter.ts` unhandled error reporting
+- [x] Additional: Fixed `queue.ts` async iterator race condition (buffer+waiters pattern)
+- [x] Additional: Fixed `RetryError` typed wrapper with `attempts`, `durationMs`, `cause`
+- [x] Additional: Fixed jitter ±50% aligned with JSDoc
+- [x] Additional: Fixed WebSocket heartbeat timeout overwrite
+- [x] Additional: Exported `NetworkRecorder`, `Pipeline`, `AsyncPipeline`, `createTraceInterceptor`, `RetryError` from index
+- [ ] IMP-015: Migrate from `standard-version` to `@changesets/cli` (deferred — tooling/process change)
 
-### Sprint 4 — "Growth" (1 month+)
+### Sprint 4 — "Growth" (1 month+) — In Progress
 
 Framework integrations and advanced features for wider adoption.
 
+- [x] IMP-005: Advanced param serialization (nested objects, arrays, `paramsSerializer`)
+- [x] IMP-010: Cache metadata in responses (`CacheMetadata` — `hit`, `age`, `ttl`, `strategy`)
+- [x] IMP-013: `ConsoleLogger` enhanced — options object, `format: 'json'`, `prefix`, `redactHeaders`
+- [x] IMP-018: Smart `poll()` — added `until` alias, `adaptiveInterval` callback
+- [x] IMP-020: `prefetch()` now returns `{ cancel(), completed }` handle
 - [ ] IMP-004: `reixo-react` package
-- [ ] IMP-005: Advanced param serialization
 - [ ] IMP-008: Bundle subpath exports
 - [ ] IMP-011: TypeDoc API docs
 

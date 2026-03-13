@@ -26,8 +26,10 @@ export class EventEmitter<Events extends EventMap = Record<string, unknown[]>> {
       try {
         listener(...args);
       } catch (err) {
-        // Isolate listener errors: surface as an unhandled rejection without
-        // interrupting the current emit loop so other listeners still fire.
+        // Isolate listener errors: log immediately so the stack trace is visible
+        // in the console, then re-throw via queueMicrotask so other listeners
+        // still fire in the current turn.
+        console.error('[Reixo] Unhandled error in event listener:', err);
         queueMicrotask(() => {
           throw err;
         });

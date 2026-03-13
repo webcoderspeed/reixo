@@ -230,32 +230,37 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
   }
 
   public async *[Symbol.asyncIterator](): AsyncIterator<unknown> {
-    while (true) {
-      if (this.queue.length === 0 && this.activeCount === 0) {
-        await new Promise<void>((resolve) => {
-          const onAdd = () => {
-            cleanup();
-            resolve();
-          };
-          const cleanup = () => {
-            this.off('task:added', onAdd);
-          };
-          this.on('task:added', onAdd);
-        });
+    // Buffer completed results so we never miss a 'task:completed' event that
+    // fires while the consumer is between `await` points (the race condition in
+    // the naïve once() approach).  The consumer controls termination by
+    // breaking out of the `for await…of` loop; this generator is intentionally
+    // infinite so it works for both "process N tasks" and "drain all" patterns.
+    const buffer: unknown[] = [];
+    const waiters: Array<() => void> = [];
+
+    const onCompleted = (arg: unknown) => {
+      const { result } = arg as { result: unknown };
+      buffer.push(result);
+      // Wake the first suspended consumer if there is one
+      const wake = waiters.shift();
+      if (wake) wake();
+    };
+
+    this.on('task:completed', onCompleted);
+
+    try {
+      while (true) {
+        if (buffer.length > 0) {
+          yield buffer.shift();
+        } else {
+          // No result buffered yet — suspend until the next completion
+          await new Promise<void>((resolve) => {
+            waiters.push(resolve);
+          });
+        }
       }
-
-      // This implementation is a bit naive for a concurrent queue because
-      // we might miss events if we are not listening.
-      // Ideally we should have a buffer of completed results.
-      // But for now let's just wait for the next completion.
-
-      const result = await new Promise((resolve) => {
-        this.once('task:completed', (arg: unknown) => {
-          const { result } = arg as { result: unknown };
-          resolve(result);
-        });
-      });
-      yield result;
+    } finally {
+      this.off('task:completed', onCompleted);
     }
   }
 

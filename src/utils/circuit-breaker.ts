@@ -1,3 +1,5 @@
+import { CircuitOpenError } from './http';
+
 export const CircuitState = {
   CLOSED: 'CLOSED',
   OPEN: 'OPEN',
@@ -53,7 +55,7 @@ export class CircuitBreaker {
         if (this.fallback) {
           return this.fallback() as T;
         }
-        throw new Error('CircuitBreaker: Circuit is OPEN');
+        throw new CircuitOpenError();
       }
     }
 

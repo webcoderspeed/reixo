@@ -1,5 +1,5 @@
 import { RetryOptions } from '../types';
-import { withRetry } from './retry';
+import { withRetry, RetryError } from './retry';
 import { CacheOptions } from './cache';
 import type { HeadersWithSuggestions } from '../types/http-well-known';
 
@@ -8,6 +8,22 @@ import type { HeadersWithSuggestions } from '../types/http-well-known';
  * Overrides `RequestInit['method']` (plain `string`) for strict typing.
  */
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+
+/**
+ * A scalar query-param value (string, number, or boolean).
+ * Arrays of scalars are serialized as repeated keys: `tags=a&tags=b`.
+ * Plain objects are serialized with bracket notation: `filter[status]=active`.
+ */
+export type ParamScalar = string | number | boolean;
+
+/**
+ * Supported shape for `HTTPOptions.params`.
+ * Allows flat scalars, scalar arrays, and one level of nested objects.
+ */
+export type ParamsValue = Record<
+  string,
+  ParamScalar | ParamScalar[] | Record<string, ParamScalar | ParamScalar[]>
+>;
 
 /**
  * Options accepted by every request helper (`client.get()`, `client.post()`, etc.)
@@ -75,12 +91,31 @@ export interface HTTPOptions extends Omit<RequestInit, 'method' | 'headers'> {
 
   /**
    * Query-string parameters appended to the URL.
-   * Arrays produce repeated keys: `{ tags: ['a','b'] }` → `?tags=a&tags=b`
+   *
+   * Supports flat values, arrays (repeated keys), and nested objects (bracket notation):
+   * - `{ page: 2 }` → `?page=2`
+   * - `{ tags: ['a','b'] }` → `?tags=a&tags=b`
+   * - `{ filter: { status: 'active', date: '2026-01-01' } }` → `?filter[status]=active&filter[date]=2026-01-01`
+   *
+   * For custom serialization (e.g. comma-separated arrays), provide a {@link HTTPOptions.paramsSerializer}.
    *
    * @example
-   * params: { page: 2, limit: 20, tags: ['news', 'tech'] }
+   * params: { page: 2, limit: 20, tags: ['news', 'tech'], filter: { active: true } }
    */
-  params?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  params?: ParamsValue;
+
+  /**
+   * Custom query-string serializer. When provided, replaces the built-in serialization
+   * with your own implementation. The function receives the `params` object and must
+   * return a query string **without** the leading `?`.
+   *
+   * @example
+   * // Comma-separated arrays instead of repeated keys
+   * paramsSerializer: (p) => Object.entries(p)
+   *   .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`)
+   *   .join('&')
+   */
+  paramsSerializer?: (params: ParamsValue) => string;
 
   /**
    * Per-request cache configuration. Pass `true` to use the client's default
@@ -199,6 +234,27 @@ export class ValidationError extends Error {
  * const { data, status, headers } = await client.get<User>('/me');
  * if (status === 200) console.log(data.name);
  */
+/**
+ * Cache metadata attached to responses served from the cache layer.
+ * Present only when a cached value was returned; `undefined` for live responses.
+ *
+ * @example
+ * const res = await client.get('/api/users');
+ * if (res.cacheMetadata?.hit) {
+ *   console.log(`Served from cache, ${res.cacheMetadata.age}s old`);
+ * }
+ */
+export interface CacheMetadata {
+  /** `true` when the response was served from cache. Always `true` when present. */
+  hit: boolean;
+  /** Seconds elapsed since the response was cached. */
+  age: number;
+  /** Remaining TTL in seconds (0 if stale or expiry unknown). */
+  ttl: number;
+  /** The caching strategy that was active when this response was stored. */
+  strategy: 'cache-first' | 'stale-while-revalidate' | 'network-first' | 'cache-only' | 'unknown';
+}
+
 export interface HTTPResponse<T> {
   /** Parsed response body. */
   data: T;
@@ -210,11 +266,121 @@ export interface HTTPResponse<T> {
   headers: Headers;
   /** The original request options that produced this response. */
   config: HTTPOptions;
+  /**
+   * Cache metadata. Defined only when the response was served from the in-memory cache.
+   * Useful for debugging cache behavior and displaying staleness indicators in the UI.
+   */
+  cacheMetadata?: CacheMetadata;
 }
 
 /** Minimal interface implemented by `HTTPClient` — useful for testing with mock clients. */
 export interface IHTTPClient {
   get<T>(url: string, options?: HTTPOptions): Promise<HTTPResponse<T>>;
+}
+
+/**
+ * Thrown when the network request itself fails before a response is received —
+ * e.g. no internet connection, DNS failure, or CORS rejection at the network level.
+ *
+ * Distinct from {@link HTTPError} (which requires a response with a status code).
+ *
+ * @example
+ * try {
+ *   await client.get('/api/data');
+ * } catch (err) {
+ *   if (err instanceof NetworkError) {
+ *     showOfflineBanner();
+ *   }
+ * }
+ */
+export class NetworkError extends Error {
+  /** The original `fetch()` rejection reason, if available. */
+  readonly cause?: Error;
+
+  constructor(message: string, cause?: Error) {
+    super(message);
+    this.name = 'NetworkError';
+    this.cause = cause;
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, NetworkError);
+    }
+  }
+}
+
+/**
+ * Thrown when a request exceeds the configured `timeoutMs` before the server
+ * responds. The in-flight fetch is aborted automatically.
+ *
+ * @example
+ * try {
+ *   await client.get('/slow-endpoint', { timeoutMs: 3000 });
+ * } catch (err) {
+ *   if (err instanceof TimeoutError) {
+ *     console.warn(`Request timed out after ${err.timeoutMs}ms`);
+ *   }
+ * }
+ */
+export class TimeoutError extends Error {
+  /** The timeout limit (in ms) that was exceeded. */
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms`);
+    this.name = 'TimeoutError';
+    this.timeoutMs = timeoutMs;
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, TimeoutError);
+    }
+  }
+}
+
+/**
+ * Thrown when a request is cancelled via an `AbortSignal` or by calling
+ * `client.cancel()` / `client.cancelAll()`.
+ *
+ * @example
+ * const controller = new AbortController();
+ * setTimeout(() => controller.abort(), 2000);
+ * try {
+ *   await client.get('/api/data', { signal: controller.signal });
+ * } catch (err) {
+ *   if (err instanceof AbortError) {
+ *     console.log('Request was cancelled');
+ *   }
+ * }
+ */
+export class AbortError extends Error {
+  constructor(message = 'Request was aborted') {
+    super(message);
+    this.name = 'AbortError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, AbortError);
+    }
+  }
+}
+
+/**
+ * Thrown when a request is blocked because the {@link CircuitBreaker} is in the
+ * OPEN state. Catching this lets you serve cached / fallback data immediately
+ * instead of waiting for a guaranteed-to-fail network round-trip.
+ *
+ * @example
+ * try {
+ *   await client.get('/api/data');
+ * } catch (err) {
+ *   if (err instanceof CircuitOpenError) {
+ *     return cachedData; // serve stale data while circuit recovers
+ *   }
+ * }
+ */
+export class CircuitOpenError extends Error {
+  constructor(message = 'Circuit breaker is OPEN — request blocked') {
+    super(message);
+    this.name = 'CircuitOpenError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, CircuitOpenError);
+    }
+  }
 }
 
 /**
@@ -254,28 +420,69 @@ export class HTTPError extends Error {
   }
 }
 
+/**
+ * Default query-string serializer used when no `paramsSerializer` is provided.
+ *
+ * Handles three shapes:
+ * - Scalar value  → `key=value`
+ * - Array         → repeated keys: `key=a&key=b`
+ * - Nested object → bracket notation: `key[subKey]=value`
+ */
+function serializeParams(params: ParamsValue): string {
+  return Object.entries(params)
+    .flatMap(([key, value]) => {
+      const encodedKey = encodeURIComponent(key);
+      if (Array.isArray(value)) {
+        // Scalar array → repeated keys
+        return value.map((v) => `${encodedKey}=${encodeURIComponent(String(v))}`);
+      }
+      if (value !== null && typeof value === 'object') {
+        // Nested object → bracket notation
+        return Object.entries(value).flatMap(([subKey, subValue]) => {
+          const encodedSubKey = `${encodedKey}%5B${encodeURIComponent(subKey)}%5D`;
+          if (Array.isArray(subValue)) {
+            return subValue.map((v) => `${encodedSubKey}=${encodeURIComponent(String(v))}`);
+          }
+          return [`${encodedSubKey}=${encodeURIComponent(String(subValue))}`];
+        });
+      }
+      // Scalar
+      return [`${encodedKey}=${encodeURIComponent(String(value))}`];
+    })
+    .join('&');
+}
+
 export async function http<T = unknown>(
   url: string,
   options: HTTPOptions = {}
 ): Promise<HTTPResponse<T>> {
   options.url = url; // Capture URL in options for interceptors/errors
 
-  const { retry = true, timeoutMs = 30000, baseURL, params, ...requestInit } = options;
+  const {
+    retry = true,
+    timeoutMs = 30000,
+    baseURL,
+    params,
+    paramsSerializer,
+    ...requestInit
+  } = options;
 
   // Normalize slashes: strip trailing slash from baseURL and leading slash from url
   // to prevent "https://api.example.comusers" type bugs when baseURL has no trailing slash
   const baseUrlWithUrl = baseURL ? `${baseURL.replace(/\/$/, '')}/${url.replace(/^\//, '')}` : url;
 
-  // Serialize query params; arrays produce repeated keys: { tags: ['a','b'] } → "tags=a&tags=b"
+  // Serialize query params into a query string.
+  // Supports: flat scalars, arrays (repeated keys), nested objects (bracket notation),
+  // and custom serializers via `paramsSerializer`.
+  //
+  // Examples:
+  //   { page: 2 }                       → "page=2"
+  //   { tags: ['a','b'] }               → "tags=a&tags=b"
+  //   { filter: { status: 'active' } }  → "filter[status]=active"
   const query = params
-    ? Object.entries(params)
-        .flatMap(([key, value]) => {
-          if (Array.isArray(value)) {
-            return value.map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
-          }
-          return [`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`];
-        })
-        .join('&')
+    ? paramsSerializer
+      ? paramsSerializer(params)
+      : serializeParams(params)
     : '';
 
   const separator = baseUrlWithUrl.includes('?') ? '&' : '?';
@@ -283,7 +490,9 @@ export async function http<T = unknown>(
 
   const fetchWithTimeout = async (): Promise<Response> => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(new Error('Request timed out')), timeoutMs);
+    // Use a typed TimeoutError as the abort reason so callers can distinguish
+    // timeouts from explicit cancellations
+    const timeoutId = setTimeout(() => controller.abort(new TimeoutError(timeoutMs)), timeoutMs);
 
     // If an outer AbortSignal was provided (e.g. from HTTPClient.dispose()),
     // link it so aborting the outer signal also aborts this fetch.
@@ -326,7 +535,32 @@ export async function http<T = unknown>(
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      throw error;
+
+      // Re-throw typed errors as-is
+      if (
+        error instanceof HTTPError ||
+        error instanceof TimeoutError ||
+        error instanceof AbortError ||
+        error instanceof NetworkError
+      ) {
+        throw error;
+      }
+
+      // Classify the raw DOMException / Error thrown by fetch()
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Determine whether this was a timeout or a user-initiated abort
+        const reason = controller.signal.reason;
+        if (reason instanceof TimeoutError) {
+          throw reason;
+        }
+        throw new AbortError(error.message || undefined);
+      }
+
+      // Everything else that causes fetch() to reject is a network failure
+      throw new NetworkError(
+        error instanceof Error ? error.message : 'Network request failed',
+        error instanceof Error ? error : undefined
+      );
     }
   };
 
@@ -452,29 +686,39 @@ export async function http<T = unknown>(
 
   const retryOptions = typeof retry === 'boolean' ? {} : retry;
 
-  const result = await withRetry(executeRequest, {
-    ...retryOptions,
-    retryCondition: (error: unknown, _attempt) => {
-      // Default retry condition: retry on network errors or 5xx status codes
-      if (error instanceof Error && error.name === 'AbortError') {
-        return false; // Don't retry timeouts
-      }
+  try {
+    const result = await withRetry(executeRequest, {
+      ...retryOptions,
+      retryCondition: (error: unknown, _attempt) => {
+        // Default retry condition: retry on network errors or 5xx status codes
+        if (error instanceof Error && error.name === 'AbortError') {
+          return false; // Don't retry timeouts
+        }
 
-      if (error instanceof HTTPError && error.status !== undefined) {
-        // Retry on server errors (5xx) and some client errors (429, 408)
-        return (
-          error.status >= 500 ||
-          error.status === 429 || // Too Many Requests
-          error.status === 408
-        ); // Request Timeout
-      }
+        if (error instanceof HTTPError && error.status !== undefined) {
+          // Retry on server errors (5xx) and some client errors (429, 408)
+          return (
+            error.status >= 500 ||
+            error.status === 429 || // Too Many Requests
+            error.status === 408
+          ); // Request Timeout
+        }
 
-      // Retry on network errors
-      return true;
-    },
-  });
+        // Retry on network errors
+        return true;
+      },
+    });
 
-  return result.result;
+    return result.result;
+  } catch (error) {
+    // Unwrap RetryError so HTTPClient callers always see the original error
+    // type (e.g. HTTPError). Users who call withRetry() directly still get the
+    // full RetryError with its attempts/durationMs metadata.
+    if (error instanceof RetryError) {
+      throw error.cause;
+    }
+    throw error;
+  }
 }
 
 // Helper for XHR requests (supports upload progress)
@@ -523,8 +767,21 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
           });
           return headers;
         } else {
-          // Fallback if Headers is not available
-          return new Map() as unknown as Headers;
+          // Headers API unavailable (very old environments).
+          // Build a plain object with lowercased keys — structurally close enough
+          // for callers that iterate entries, while avoiding a broken Map cast.
+          const raw: Record<string, string> = {};
+          xhr
+            .getAllResponseHeaders()
+            .trim()
+            .split(/[\r\n]+/)
+            .forEach((line) => {
+              const colonIdx = line.indexOf(': ');
+              if (colonIdx > -1) {
+                raw[line.slice(0, colonIdx).toLowerCase()] = line.slice(colonIdx + 2);
+              }
+            });
+          return raw as unknown as Headers;
         }
       })();
 

@@ -40,7 +40,7 @@ export interface AuthConfig {
  * 3. Refreshing the token.
  * 4. Retrying the original request.
  */
-export function createAuthInterceptor(client: HTTPClient, config: AuthConfig) {
+export function createAuthInterceptor(client: HTTPClient, config: AuthConfig): void {
   let isRefreshing = false;
   let failedQueue: Array<{
     resolve: (token: string) => void;

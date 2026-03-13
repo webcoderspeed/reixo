@@ -61,19 +61,10 @@ export class NetworkRecorder {
         return response;
       },
       onRejected: (error: unknown) => {
-        // We can optionally record errors too, but for "fixtures" usually success is what we want.
-        // Let's try to record it if it has a response structure
-        const httpError = error as HTTPError;
-        if (this.isRecording && httpError.response) {
-          // Need to construct a proper HTTPResponse-like object from the error response
-          // But recordResponse expects HTTPResponse<T>.
-          // The error.response is usually a Response object (fetch API) or similar.
-          // Wait, HTTPError in http.ts has `response?: Response`.
-          // But we need the data body. HTTPError doesn't store the parsed body usually unless we added it.
-          // Actually, for now let's skip recording errors to keep it simple and type-safe
-          // or if HTTPError had a way to access the partial response.
-          // Looking at http.ts, HTTPError has `config`.
-        }
+        // HTTPError only carries the raw fetch `Response` object, not the parsed
+        // body — so we can't populate `responseBody` without an extra async read.
+        // Failed requests are intentionally not recorded to keep the fixture
+        // format simple and type-safe. Re-throw so other interceptors still run.
         return Promise.reject(error);
       },
     });

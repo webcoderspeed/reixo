@@ -1,6 +1,13 @@
 // Core public API - these are the main exports users should use
 export { HTTPBuilder, HTTPClient } from './core/http-client';
-export { HTTPError, ValidationError } from './utils/http';
+export {
+  HTTPError,
+  ValidationError,
+  NetworkError,
+  TimeoutError,
+  AbortError,
+  CircuitOpenError,
+} from './utils/http';
 export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
 export { WebSocketClient } from './core/websocket-client';
 export { SSEClient } from './core/sse-client';
@@ -14,16 +21,20 @@ export { poll, PollingController } from './utils/polling';
 export { InfiniteQuery } from './utils/infinite-query';
 
 // Internal utilities (exported for advanced usage but not typically needed)
-export { withRetry } from './utils/retry';
+export { withRetry, RetryError } from './utils/retry';
 export { http } from './utils/http';
 export { MockAdapter } from './utils/mock-adapter';
 export { ConsoleLogger, LogLevel } from './utils/logger';
+export type { ConsoleLoggerOptions } from './utils/logger';
 export { NetworkMonitor } from './utils/network';
 export { createBatchTransport } from './utils/batch-transport';
 export { paginate } from './utils/pagination';
 export { CacheManager, MemoryAdapter, WebStorageAdapter } from './utils/cache';
 export { RateLimiter } from './utils/rate-limiter';
 export { MetricsCollector } from './utils/metrics';
+export { NetworkRecorder } from './utils/recorder';
+export { Pipeline, AsyncPipeline } from './utils/pipeline';
+export { createTraceInterceptor } from './utils/tracing';
 
 // Reixo namespace for public API
 import { HTTPBuilder as _HTTPBuilder, HTTPClient as _HTTPClient } from './core/http-client';
@@ -59,7 +70,15 @@ export const Reixo = {
 
 // Types
 export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
-export type { HTTPOptions, HTTPResponse, HTTPMethod, ValidationSchema } from './utils/http';
+export type {
+  HTTPOptions,
+  HTTPResponse,
+  HTTPMethod,
+  ValidationSchema,
+  ParamsValue,
+  ParamScalar,
+  CacheMetadata,
+} from './utils/http';
 export type { HTTPClientConfig, RequestInterceptor, ResponseInterceptor } from './core/http-client';
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
@@ -71,7 +90,10 @@ export type { PollingOptions } from './utils/polling';
 export type { InfiniteQueryOptions, InfiniteData } from './utils/infinite-query';
 export type { CacheOptions, CacheEntry, StorageAdapter } from './utils/cache';
 export type { PersistentQueueOptions, QueueEvents } from './utils/queue';
-export type { Metrics } from './utils/metrics';
+export type { Metrics, RequestMetrics } from './utils/metrics';
+export type { RecordedRequest } from './utils/recorder';
+export type { TransformFn } from './utils/pipeline';
+export type { TracingConfig } from './utils/tracing';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {
   KnownRequestHeader,
