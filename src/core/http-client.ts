@@ -10,7 +10,7 @@ import {
   ParamsValue,
   CacheMetadata,
 } from '../utils/http';
-import type { HeadersWithSuggestions } from '../types/http-well-known';
+import type { HeadersWithSuggestions, HeadersRecord } from '../types/http-well-known';
 import { debounce, throttle, delay } from '../utils/timing';
 import { EventEmitter } from '../utils/emitter';
 import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
@@ -23,16 +23,55 @@ import { objectToFormData } from '../utils/form-data';
 import { InfiniteQuery, InfiniteQueryOptions } from '../utils/infinite-query';
 import { CircuitBreaker, CircuitBreakerOptions } from '../utils/circuit-breaker';
 
+// ---------------------------------------------------------------------------
+// Strict body-data type — replaces loose `unknown` on post/put/patch
+// ---------------------------------------------------------------------------
+
+/** JSON-serialisable primitive. */
+export type JsonPrimitive = string | number | boolean | null;
+/** JSON-serialisable array. */
+export type JsonArray = JsonValue[];
+/** JSON-serialisable object. */
+export type JsonObject = { [key: string]: JsonValue };
+/** Any JSON-serialisable value. */
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+
+/**
+ * Accepted body-data types for mutation requests (`post`, `put`, `patch`).
+ * Covers JSON-serialisable values plus native browser body types.
+ */
+export type BodyData = JsonValue | FormData | Blob | ArrayBuffer | URLSearchParams | ReadableStream;
+
+// ---------------------------------------------------------------------------
+// Logger meta — replaces loose `unknown` on log methods
+// ---------------------------------------------------------------------------
+
+/**
+ * Accepted type for the optional `meta` parameter on logger methods.
+ * Covers structured objects, primitives, and `null`/`undefined`.
+ */
+export type LogMeta =
+  | Record<string, JsonValue | HeadersRecord | Headers | undefined>
+  | JsonValue
+  | Error
+  | undefined;
+
+// ---------------------------------------------------------------------------
+// Interceptors
+// ---------------------------------------------------------------------------
+
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
-  onRejected?: (error: unknown) => unknown;
+  /** Receives the thrown value from a previous interceptor or from the request itself. */
+  onRejected?: (error: Error | HTTPError | unknown) => Error | HTTPError | unknown;
 }
 
 export interface ResponseInterceptor {
   onFulfilled?: (
     response: HTTPResponse<unknown>
   ) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>;
-  onRejected?: (error: unknown) => unknown;
+  /** Receives the thrown value; re-throw or return a fallback response. */
+  onRejected?: (error: Error | HTTPError | unknown) => HTTPResponse<unknown> | unknown;
 }
 
 export type HTTPRequestFunction = <T>(
@@ -41,9 +80,25 @@ export type HTTPRequestFunction = <T>(
 ) => Promise<HTTPResponse<T>>;
 
 export interface Logger {
-  info(message: string, meta?: unknown): void;
-  warn(message: string, meta?: unknown): void;
-  error(message: string, meta?: unknown): void;
+  info(message: string, meta?: LogMeta): void;
+  warn(message: string, meta?: LogMeta): void;
+  error(message: string, meta?: LogMeta): void;
+}
+
+// ---------------------------------------------------------------------------
+// Internal header normalisation helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts any `HeadersWithSuggestions` form into a plain `HeadersRecord` object
+ * so it can be safely spread/merged without unsafe casts.
+ * @internal
+ */
+function normalizeHeaders(headers?: HeadersWithSuggestions): HeadersRecord {
+  if (!headers) return {};
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries()) as HeadersRecord;
+  if (Array.isArray(headers)) return Object.fromEntries(headers) as HeadersRecord;
+  return headers;
 }
 
 /**
@@ -603,7 +658,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         return config;
       },
       onRejected: (error) => {
-        logger.error('Request Error', error);
+        logger.error('Request Error', error instanceof Error ? error : (error as LogMeta));
         return Promise.reject(error);
       },
     });
@@ -617,7 +672,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         return response;
       },
       onRejected: (error) => {
-        logger.error('Response Error', error);
+        logger.error('Response Error', error instanceof Error ? error : (error as LogMeta));
         return Promise.reject(error);
       },
     });
@@ -817,7 +872,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       } else {
         const headerName = this.config.versionHeader || 'X-API-Version';
         options.headers = {
-          ...((options.headers as Record<string, string>) || {}),
+          ...normalizeHeaders(options.headers),
           [headerName]: this.config.apiVersion,
         };
       }
@@ -830,17 +885,17 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       if (isCacheable) {
         const cacheKey = this.cacheManager.generateKey(url, options.params);
 
-        let strategy = 'cache-first';
+        let cacheStrategy = 'cache-first';
         const reqCacheConfig = options.cacheConfig as CacheOptions | undefined;
         const globalCacheConfig = this.config.cacheConfig as CacheOptions | undefined;
 
         if (reqCacheConfig?.strategy) {
-          strategy = reqCacheConfig.strategy;
+          cacheStrategy = reqCacheConfig.strategy;
         } else if (globalCacheConfig?.strategy) {
-          strategy = globalCacheConfig.strategy;
+          cacheStrategy = globalCacheConfig.strategy;
         }
 
-        if (strategy === 'stale-while-revalidate') {
+        if (cacheStrategy === 'stale-while-revalidate') {
           const cachedEntry = this.cacheManager.getEntry<T>(cacheKey);
           if (cachedEntry) {
             // Background Revalidation
@@ -871,7 +926,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
               cacheMetadata,
             };
           }
-        } else if (strategy === 'cache-first') {
+        } else if (cacheStrategy === 'cache-first') {
           const cachedEntry = this.cacheManager.getEntry<T>(cacheKey);
           if (cachedEntry) {
             const nowMs = Date.now();
@@ -941,7 +996,10 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       .catch((err: unknown) => {
         // Silently ignore cancellations — they are intentional
         if (err instanceof AbortError) return;
-        this.config.logger?.warn(`[Reixo] Prefetch failed for ${url}`, err);
+        this.config.logger?.warn(
+          `[Reixo] Prefetch failed for ${url}`,
+          err instanceof Error ? err : (err as LogMeta)
+        );
       });
 
     return {
@@ -1018,10 +1076,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         ...this.config,
         retry: retryOptions, // Default to resolved policy
         ...options, // Request-specific options override everything
+        // Merge global default headers with per-request headers — no unsafe casts
         headers: {
-          ...(this.config.headers as Record<string, string> | undefined),
-          ...(options.headers as Record<string, string> | undefined),
-        } as HeadersWithSuggestions,
+          ...normalizeHeaders(this.config.headers),
+          ...normalizeHeaders(options.headers),
+        } as HeadersRecord,
         signal: abortController.signal,
       };
 
@@ -1234,23 +1293,28 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * Extracted to avoid triplicating the same logic across all mutation methods.
    */
   private _serializeBody(
-    data: unknown,
+    data: BodyData | undefined,
     options?: HTTPOptions
-  ): { body: BodyInit | undefined; headers: Record<string, string> } {
-    let body: unknown = data;
-    const headers: Record<string, string> = {
-      ...((options?.headers as Record<string, string>) || {}),
-    };
+  ): { body: BodyInit | undefined; headers: HeadersRecord } {
+    // Normalise incoming headers to a plain mutable object — no unsafe casts
+    const headers: HeadersRecord = { ...normalizeHeaders(options?.headers) } as HeadersRecord;
 
     // Auto-convert plain objects to FormData when useFormData: true
-    if (
-      options?.useFormData &&
-      data &&
+    const isPlainObject =
+      data !== null &&
       typeof data === 'object' &&
-      !(typeof FormData !== 'undefined' && data instanceof FormData)
-    ) {
-      body = objectToFormData(data as Record<string, unknown>);
-    }
+      !(typeof FormData !== 'undefined' && data instanceof FormData) &&
+      !(data instanceof Blob) &&
+      !(data instanceof ArrayBuffer) &&
+      !(data instanceof URLSearchParams) &&
+      !(typeof ReadableStream !== 'undefined' && data instanceof ReadableStream);
+
+    const body: BodyInit | undefined = (() => {
+      if (options?.useFormData && data && isPlainObject) {
+        return objectToFormData(data as JsonObject);
+      }
+      return data as BodyInit | undefined;
+    })();
 
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
 
@@ -1261,10 +1325,15 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       if (!headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
-      body = data ? JSON.stringify(data) : undefined;
     }
 
-    return { body: body as BodyInit | undefined, headers };
+    const serializedBody: BodyInit | undefined = isFormData
+      ? body
+      : data
+        ? JSON.stringify(data)
+        : undefined;
+
+    return { body: serializedBody, headers };
   }
 
   /**
@@ -1315,7 +1384,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * const { data } = await client.post<User>('/users', { name: 'Alice' });
    * ```
    */
-  public post<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+  public post<T>(url: string, data?: BodyData, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
     return this.request<T>(url, { ...options, method: 'POST', body, headers });
   }
@@ -1332,7 +1401,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * await client.put('/users/1', { name: 'Bob', email: 'bob@example.com' });
    * ```
    */
-  public put<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+  public put<T>(url: string, data?: BodyData, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
     return this.request<T>(url, { ...options, method: 'PUT', body, headers });
   }
@@ -1363,7 +1432,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    * await client.patch('/users/1', { email: 'new@example.com' });
    * ```
    */
-  public patch<T>(url: string, data?: unknown, options?: HTTPOptions): Promise<HTTPResponse<T>> {
+  public patch<T>(url: string, data?: BodyData, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
     return this.request<T>(url, { ...options, method: 'PATCH', body, headers });
   }
@@ -1400,17 +1469,45 @@ export class HTTPBuilder {
     return this;
   }
 
+  /**
+   * Set a single default header by name and value.
+   *
+   * @example
+   * builder.withHeader('Authorization', 'Bearer <token>')
+   * builder.withHeader('X-Api-Key', 'my-key')
+   */
   public withHeader(key: string, value: string): this {
-    if (!this.config.headers) {
-      this.config.headers = {};
-    }
-    (this.config.headers as Record<string, string>)[key] = value;
+    // Always keep headers as a plain HeadersRecord so future spreads are cast-free
+    this.config.headers = { ...normalizeHeaders(this.config.headers), [key]: value };
     return this;
   }
 
-  public withHeaders(headers: Record<string, string>): this {
-    this.config.headers = { ...(this.config.headers as Record<string, string>), ...headers };
+  /**
+   * Merge additional default headers.
+   * Accepts a `HeadersRecord` (plain object with IntelliSense suggestions for
+   * well-known header names), a `Headers` instance, or a `[name, value][]` array.
+   *
+   * @example
+   * builder.withHeaders({
+   *   Authorization: 'Bearer <token>',
+   *   'Content-Type': 'application/json',
+   *   Accept: 'application/json',
+   * })
+   */
+  public withHeaders(headers: HeadersWithSuggestions): this {
+    this.config.headers = {
+      ...normalizeHeaders(this.config.headers),
+      ...normalizeHeaders(headers),
+    } as HeadersRecord;
     return this;
+  }
+
+  /**
+   * Shortcut: set a `defaultHeaders` alias. Same as `.withHeaders()`.
+   * @deprecated Prefer {@link withHeaders}.
+   */
+  public withDefaultHeaders(headers: HeadersWithSuggestions): this {
+    return this.withHeaders(headers);
   }
 
   public withRetry(options: RetryOptions | boolean): this {
@@ -1470,7 +1567,7 @@ export class HTTPBuilder {
 
   public addRequestInterceptor(
     onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>,
-    onRejected?: (error: unknown) => unknown
+    onRejected?: RequestInterceptor['onRejected']
   ): this {
     this.requestInterceptors.push({ onFulfilled, onRejected });
     return this;
@@ -1480,7 +1577,7 @@ export class HTTPBuilder {
     onFulfilled?: (
       response: HTTPResponse<unknown>
     ) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>,
-    onRejected?: (error: unknown) => unknown
+    onRejected?: ResponseInterceptor['onRejected']
   ): this {
     this.responseInterceptors.push({ onFulfilled, onRejected });
     return this;

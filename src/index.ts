@@ -79,7 +79,18 @@ export type {
   ParamScalar,
   CacheMetadata,
 } from './utils/http';
-export type { HTTPClientConfig, RequestInterceptor, ResponseInterceptor } from './core/http-client';
+export type {
+  HTTPClientConfig,
+  RequestInterceptor,
+  ResponseInterceptor,
+  // Strict body / meta types
+  JsonPrimitive,
+  JsonArray,
+  JsonObject,
+  JsonValue,
+  BodyData,
+  LogMeta,
+} from './core/http-client';
 export type { BatchOptions } from './utils/batch';
 export type { CircuitBreakerOptions } from './utils/circuit-breaker';
 export type { AuthConfig } from './utils/auth';
@@ -94,6 +105,7 @@ export type { Metrics, RequestMetrics } from './utils/metrics';
 export type { RecordedRequest } from './utils/recorder';
 export type { TransformFn } from './utils/pipeline';
 export type { TracingConfig } from './utils/tracing';
+export type { MockResponseData } from './utils/mock-adapter';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {
   KnownRequestHeader,

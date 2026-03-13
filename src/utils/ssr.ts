@@ -1,6 +1,11 @@
+import type { HeadersRecord } from '../types/http-well-known';
 import { HTTPOptions } from './http';
 
-export type HeaderProvider = () => Record<string, string> | Promise<Record<string, string>>;
+/**
+ * A function that returns the headers to forward for an SSR request.
+ * May be synchronous or async (e.g. when reading from Next.js `headers()`).
+ */
+export type HeaderProvider = () => HeadersRecord | Promise<HeadersRecord>;
 
 /**
  * Creates a request interceptor that forwards headers from an SSR context.
@@ -12,8 +17,8 @@ export type HeaderProvider = () => Record<string, string> | Promise<Record<strin
  * const ssrInterceptor = createSSRInterceptor(async () => {
  *   const headersList = await headers();
  *   return {
- *     Cookie: headersList.get('cookie') || '',
- *     Authorization: headersList.get('authorization') || '',
+ *     Cookie: headersList.get('cookie') ?? '',
+ *     Authorization: headersList.get('authorization') ?? '',
  *   };
  * });
  * client.interceptors.request.push(ssrInterceptor);
@@ -27,23 +32,25 @@ export function createSSRInterceptor(
       try {
         const ssrHeaders = await headerProvider();
 
-        const headersToForward = whitelist
-          ? Object.fromEntries(
+        const headersToForward: HeadersRecord = whitelist
+          ? (Object.fromEntries(
               Object.entries(ssrHeaders).filter(([key]) =>
                 whitelist.some((w) => key.toLowerCase() === w.toLowerCase())
               )
-            )
+            ) as HeadersRecord)
           : ssrHeaders;
 
-        config.headers = {
-          ...headersToForward,
-          ...(config.headers as Record<string, string>),
-        };
+        // Merge SSR headers under any per-request headers (request-level wins)
+        const existing =
+          config.headers instanceof Headers
+            ? (Object.fromEntries(config.headers.entries()) as HeadersRecord)
+            : Array.isArray(config.headers)
+              ? (Object.fromEntries(config.headers) as HeadersRecord)
+              : (config.headers ?? {});
+
+        config.headers = { ...headersToForward, ...existing } as HeadersRecord;
       } catch (error) {
-        // In some contexts (e.g. client-side rendering where ssr function might fail),
-        // we might want to ignore or log.
-        // For now, we'll just log warning if console exists and proceed.
-        if (typeof console !== 'undefined' && console.warn) {
+        if (typeof console !== 'undefined') {
           console.warn('[Reixo] SSR Header Forwarding failed:', error);
         }
       }

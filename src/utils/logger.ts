@@ -1,12 +1,31 @@
-import { Logger } from '../core/http-client';
+import type { HeadersRecord } from '../types/http-well-known';
+import { Logger, LogMeta } from '../core/http-client';
 
-export enum LogLevel {
-  NONE = 0,
-  ERROR = 1,
-  WARN = 2,
-  INFO = 3,
-  DEBUG = 4,
-}
+/**
+ * Numeric log-level constants.
+ *
+ * Implemented as an `as const` object (not an `enum`) to keep the emitted JS
+ * tree-shakeable and to avoid the dual-lookup overhead of TypeScript enums.
+ *
+ * @example
+ * new ConsoleLogger(LogLevel.DEBUG)
+ * new ConsoleLogger({ level: LogLevel.WARN, format: 'json' })
+ */
+export const LogLevel = {
+  /** No output at all. */
+  NONE: 0,
+  /** Fatal / unrecoverable errors only. */
+  ERROR: 1,
+  /** Degraded-service warnings and above. */
+  WARN: 2,
+  /** General operational messages and above (default). */
+  INFO: 3,
+  /** Verbose diagnostic messages and above. */
+  DEBUG: 4,
+} as const;
+
+/** The type of a valid {@link LogLevel} value. */
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 /**
  * Configuration options for {@link ConsoleLogger}.
@@ -38,6 +57,15 @@ export interface ConsoleLoggerOptions {
    * @example ['Authorization', 'Cookie', 'X-Api-Key']
    */
   redactHeaders?: string[];
+}
+
+/** Shape of a structured log-entry JSON object (json format). */
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  service?: string;
+  meta?: LogMeta;
 }
 
 /**
@@ -88,15 +116,15 @@ export class ConsoleLogger implements Logger {
   }
 
   /** @internal Redact sensitive header values before logging. */
-  private redactMeta(meta: unknown): unknown {
+  private redactMeta(meta: LogMeta): LogMeta {
     if (!this.redactSet.size || meta === undefined || meta === null) return meta;
 
-    // Attempt to redact headers inside common shapes:
-    // { headers: Record<string,string> } or a Headers instance
-    if (typeof meta === 'object') {
-      const m = meta as Record<string, unknown>;
-      if (m['headers'] && typeof m['headers'] === 'object') {
-        const headers = { ...(m['headers'] as Record<string, string>) };
+    if (typeof meta === 'object' && !Array.isArray(meta)) {
+      const m = meta as Record<string, LogMeta>;
+      const raw = m['headers'];
+      if (raw !== null && raw !== undefined && typeof raw === 'object' && !Array.isArray(raw)) {
+        // Safe: we confirmed headers is a plain object
+        const headers: HeadersRecord = { ...(raw as HeadersRecord) } as HeadersRecord;
         for (const key of Object.keys(headers)) {
           if (this.redactSet.has(key.toLowerCase())) {
             headers[key] = '[REDACTED]';
@@ -109,17 +137,17 @@ export class ConsoleLogger implements Logger {
   }
 
   /** @internal Emit a log message at the given level. */
-  private emit(level: 'info' | 'warn' | 'error' | 'debug', message: string, meta?: unknown): void {
+  private emit(level: 'info' | 'warn' | 'error' | 'debug', message: string, meta?: LogMeta): void {
     const safeMeta = this.redactMeta(meta);
 
     if (this.format === 'json') {
-      const entry: Record<string, unknown> = {
+      const entry: LogEntry = {
         timestamp: new Date().toISOString(),
         level: level.toUpperCase(),
         message,
       };
-      if (this.prefix) entry['service'] = this.prefix;
-      if (safeMeta !== undefined && safeMeta !== '') entry['meta'] = safeMeta;
+      if (this.prefix) entry.service = this.prefix;
+      if (safeMeta !== undefined && safeMeta !== '') entry.meta = safeMeta;
       console[level](JSON.stringify(entry));
     } else {
       const tag = this.prefix ? `${this.prefix} ` : '';
@@ -129,25 +157,25 @@ export class ConsoleLogger implements Logger {
     }
   }
 
-  debug(message: string, meta?: unknown): void {
+  debug(message: string, meta?: LogMeta): void {
     if (this.level >= LogLevel.DEBUG) {
       this.emit('debug', message, meta);
     }
   }
 
-  info(message: string, meta?: unknown): void {
+  info(message: string, meta?: LogMeta): void {
     if (this.level >= LogLevel.INFO) {
       this.emit('info', message, meta);
     }
   }
 
-  warn(message: string, meta?: unknown): void {
+  warn(message: string, meta?: LogMeta): void {
     if (this.level >= LogLevel.WARN) {
       this.emit('warn', message, meta);
     }
   }
 
-  error(message: string, meta?: unknown): void {
+  error(message: string, meta?: LogMeta): void {
     if (this.level >= LogLevel.ERROR) {
       this.emit('error', message, meta);
     }

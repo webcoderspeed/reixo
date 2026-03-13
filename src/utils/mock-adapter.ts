@@ -1,13 +1,35 @@
+import type { HeadersRecord } from '../types/http-well-known';
+import type { BodyData } from '../core/http-client';
 import { HTTPOptions, HTTPResponse, HTTPError, NetworkError, TimeoutError } from './http';
 import { HTTPRequestFunction } from '../core/http-client';
 
-/** Callback handler shape used by `reply((url, options) => [status, data, headers])`. */
+/**
+ * Accepted response-body type for mock replies.
+ * Covers JSON-serialisable values and `null` (e.g. 204 No Content).
+ */
+export type MockResponseData = BodyData | null | undefined;
+
+/**
+ * Callback handler shape for `.reply((url, options) => [status, data?, headers?])`.
+ *
+ * @example
+ * mock.onPost('/users').reply((url, opts) => {
+ *   const body = JSON.parse(opts.body as string);
+ *   return body.role === 'admin' ? [403, { error: 'Forbidden' }] : [201, { id: 1, ...body }];
+ * });
+ */
 export type MockReplyCallback = (
   url: string,
   options: HTTPOptions
 ) =>
-  | [status: number, data?: unknown, headers?: Record<string, string>]
-  | Promise<[status: number, data?: unknown, headers?: Record<string, string>]>;
+  | [status: number, data?: MockResponseData, headers?: HeadersRecord]
+  | Promise<[status: number, data?: MockResponseData, headers?: HeadersRecord]>;
+
+/** Optional per-handler reply options (not part of HeadersRecord business data). */
+interface ReplyOptions {
+  /** Simulate response latency (ms). Applied before the response is returned. */
+  delayMs?: number;
+}
 
 interface MockHandler {
   matcher: (url: string, options: HTTPOptions) => boolean;
@@ -24,20 +46,22 @@ interface MockHandler {
  * @example
  * ```ts
  * const mock = new MockAdapter();
- * const client = new HTTPClient({ transport: mock.transport });
+ * const client = new HTTPBuilder('https://api.example.com')
+ *   .withTransport(mock.transport)
+ *   .build();
  *
- * mock.onGet('/api/users').reply(200, [{ id: 1, name: 'Alice' }]);
- * mock.onPost('/api/users').reply((url, opts) => {
+ * mock.onGet('/users').reply(200, [{ id: 1, name: 'Alice' }]);
+ * mock.onPost('/users').reply((url, opts) => {
  *   const body = JSON.parse(opts.body as string);
  *   return [201, { id: 2, ...body }];
  * });
  *
- * const { data } = await client.get<User[]>('/api/users');
+ * const { data } = await client.get<User[]>('/users');
  * ```
  */
 export class MockAdapter {
-  private handlers: MockHandler[] = [];
-  private history: { url: string; options: HTTPOptions }[] = [];
+  private readonly handlers: MockHandler[] = [];
+  private history: Array<{ url: string; method: string; options: HTTPOptions }> = [];
 
   /**
    * Default delay applied to every response (milliseconds).
@@ -56,18 +80,17 @@ export class MockAdapter {
     url: string,
     options: HTTPOptions
   ): Promise<HTTPResponse<T>> => {
-    this.history.push({ url, options });
+    this.history.push({ url, method: (options.method ?? 'GET').toUpperCase(), options });
 
     if (this.delayResponse > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.delayResponse));
+      await new Promise<void>((resolve) => setTimeout(resolve, this.delayResponse));
     }
 
     const handlerIndex = this.handlers.findIndex((h) => h.matcher(url, options));
     const handler = this.handlers[handlerIndex];
 
     if (handler) {
-      // Remove one-time handlers before executing so they don't fire again
-      // even if the handler itself throws
+      // Remove one-time handlers before executing so they don't re-fire even on throw
       if (handler.once) {
         this.handlers.splice(handlerIndex, 1);
       }
@@ -91,11 +114,11 @@ export class MockAdapter {
   /**
    * Register a mock for the given HTTP `method` and URL pattern.
    *
-   * The returned builder exposes fluent methods to set the response:
+   * The returned builder exposes fluent methods:
    * - `.reply(status, data?, headers?)` — static response
+   * - `.reply(status, data?, headers?, options?)` — static response with latency
    * - `.reply(callback)` — dynamic response via a callback
-   * - `.replyOnce(status, data?, headers?)` — fires only once, then is removed
-   * - `.replyOnce(callback)` — dynamic single-use response
+   * - `.replyOnce(...)` — fires only once, then is removed
    * - `.networkError()` — simulate a network failure
    * - `.timeout()` — simulate a request timeout
    */
@@ -104,40 +127,49 @@ export class MockAdapter {
     url: string | RegExp
   ): {
     reply: {
-      (status: number, data?: unknown, headers?: Record<string, string>): MockAdapter;
+      (
+        status: number,
+        data?: MockResponseData,
+        headers?: HeadersRecord,
+        options?: ReplyOptions
+      ): MockAdapter;
       (callback: MockReplyCallback): MockAdapter;
     };
     replyOnce: {
-      (status: number, data?: unknown, headers?: Record<string, string>): MockAdapter;
+      (
+        status: number,
+        data?: MockResponseData,
+        headers?: HeadersRecord,
+        options?: ReplyOptions
+      ): MockAdapter;
       (callback: MockReplyCallback): MockAdapter;
     };
     networkError: () => MockAdapter;
     timeout: () => MockAdapter;
   } {
     const matcher = (reqUrl: string, reqOptions: HTTPOptions): boolean => {
-      const methodMatch = (reqOptions.method || 'GET').toUpperCase() === method.toUpperCase();
-      // Exact match, path-suffix match (e.g. '/users' matches 'https://api.example.com/users'),
-      // or RegExp match
+      const methodMatch = (reqOptions.method ?? 'GET').toUpperCase() === method.toUpperCase();
       const urlMatch =
         url instanceof RegExp
           ? url.test(reqUrl)
-          : reqUrl === url || reqUrl.endsWith(`/${url.replace(/^\//, '')}`);
+          : reqUrl === url || reqUrl.endsWith(`/${url.toString().replace(/^\//, '')}`);
       return methodMatch && urlMatch;
     };
 
     const buildReply = (
       once: boolean,
       statusOrCallback: number | MockReplyCallback,
-      staticData?: unknown,
-      staticHeaders: Record<string, string> = {}
+      staticData?: MockResponseData,
+      staticHeaders: HeadersRecord = {},
+      replyOptions: ReplyOptions = {}
     ): MockAdapter => {
       const handler: MockHandler = {
         matcher,
         once,
         response: async (reqUrl, reqOpts) => {
           let status: number;
-          let data: unknown;
-          let headers: Record<string, string>;
+          let data: MockResponseData;
+          let headers: HeadersRecord;
 
           if (typeof statusOrCallback === 'function') {
             const result = await statusOrCallback(reqUrl, reqOpts);
@@ -148,11 +180,17 @@ export class MockAdapter {
             headers = staticHeaders;
           }
 
+          // Simulate per-handler latency
+          const delayMs = replyOptions.delayMs ?? 0;
+          if (delayMs > 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+          }
+
           return {
             data,
             status,
             statusText: status === 200 ? 'OK' : 'Mock Response',
-            headers: new Headers(headers),
+            headers: new Headers(headers as Record<string, string>),
             config: reqOpts,
           } as HTTPResponse<unknown>;
         },
@@ -188,15 +226,17 @@ export class MockAdapter {
     return {
       reply: (
         statusOrCallback: number | MockReplyCallback,
-        data?: unknown,
-        headers?: Record<string, string>
-      ) => buildReply(false, statusOrCallback, data, headers),
+        data?: MockResponseData,
+        headers?: HeadersRecord,
+        options?: ReplyOptions
+      ) => buildReply(false, statusOrCallback, data, headers, options),
 
       replyOnce: (
         statusOrCallback: number | MockReplyCallback,
-        data?: unknown,
-        headers?: Record<string, string>
-      ) => buildReply(true, statusOrCallback, data, headers),
+        data?: MockResponseData,
+        headers?: HeadersRecord,
+        options?: ReplyOptions
+      ) => buildReply(true, statusOrCallback, data, headers, options),
 
       networkError: () => buildNetworkError(false),
       timeout: () => buildTimeout(false),
@@ -237,7 +277,7 @@ export class MockAdapter {
    * Call between tests to ensure handler isolation.
    */
   public reset(): void {
-    this.handlers = [];
+    this.handlers.length = 0;
     this.history = [];
   }
 
@@ -247,12 +287,15 @@ export class MockAdapter {
   }
 
   /** The most recently recorded request, or `undefined` if none. */
-  public get latestRequest(): { url: string; options: HTTPOptions } | undefined {
+  public get latestRequest(): { url: string; method: string; options: HTTPOptions } | undefined {
     return this.history[this.history.length - 1];
   }
 
-  /** Returns a copy of the full request history since the last {@link reset}. */
-  public getHistory(): Array<{ url: string; options: HTTPOptions }> {
+  /**
+   * Returns a copy of the full request history since the last {@link reset}.
+   * Each entry exposes `url`, `method`, and the full `options` object.
+   */
+  public getHistory(): Array<{ url: string; method: string; options: HTTPOptions }> {
     return [...this.history];
   }
 }

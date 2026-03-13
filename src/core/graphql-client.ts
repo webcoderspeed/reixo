@@ -1,4 +1,5 @@
-import { HTTPClient, HTTPClientConfig } from './http-client';
+import { HTTPClient, HTTPClientConfig, JsonObject, JsonValue } from './http-client';
+import type { HeadersRecord } from '../types/http-well-known';
 import { sha256 } from '../utils/hash';
 
 export interface GraphQLError {
@@ -43,8 +44,8 @@ export class GraphQLClient {
    */
   public async query<T>(
     query: string,
-    variables?: Record<string, unknown>,
-    headers?: Record<string, string>
+    variables?: JsonObject,
+    headers?: HeadersRecord
   ): Promise<GraphQLResponse<T>> {
     return this.request<T>(query, variables, headers);
   }
@@ -54,30 +55,26 @@ export class GraphQLClient {
    */
   public async mutate<T>(
     mutation: string,
-    variables?: Record<string, unknown>,
-    headers?: Record<string, string>
+    variables?: JsonObject,
+    headers?: HeadersRecord
   ): Promise<GraphQLResponse<T>> {
     return this.request<T>(mutation, variables, headers);
   }
 
   private async request<T>(
     query: string,
-    variables?: Record<string, unknown>,
-    headers?: Record<string, string>
+    variables?: JsonObject,
+    headers?: HeadersRecord
   ): Promise<GraphQLResponse<T>> {
     if (this.enablePersistedQueries) {
       return this.persistedRequest<T>(query, variables, headers);
     }
 
+    const body: JsonObject = { query, ...(variables !== undefined ? { variables } : {}) };
     const response = await this.httpClient.post<GraphQLResponse<T>>(
       '', // Post to baseURL directly
-      {
-        query,
-        variables,
-      },
-      {
-        headers,
-      }
+      body,
+      { headers }
     );
 
     return response.data;
@@ -85,32 +82,26 @@ export class GraphQLClient {
 
   private async persistedRequest<T>(
     query: string,
-    variables?: Record<string, unknown>,
-    headers?: Record<string, string>
+    variables?: JsonObject,
+    headers?: HeadersRecord
   ): Promise<GraphQLResponse<T>> {
     const hash = await sha256(query);
-    const extensions = {
-      persistedQuery: {
-        version: 1,
-        sha256Hash: hash,
-      },
+    const extensions: JsonObject = {
+      persistedQuery: { version: 1, sha256Hash: hash },
     };
 
     // Try sending just the hash first
     try {
-      const response = await this.httpClient.post<GraphQLResponse<T>>(
-        '',
-        {
-          extensions,
-          variables,
-        },
-        {
-          headers,
-          // Don't retry automatically on 4xx/5xx for this specific optimization flow
-          // unless it's a network error, but we want to handle the specific GraphQL error manually
-          retry: false,
-        }
-      );
+      const hashOnlyBody: JsonObject = {
+        extensions,
+        ...(variables !== undefined ? { variables } : {}),
+      };
+      const response = await this.httpClient.post<GraphQLResponse<T>>('', hashOnlyBody, {
+        headers,
+        // Don't retry automatically on 4xx/5xx for this specific optimization flow
+        // unless it's a network error, but we want to handle the specific GraphQL error manually
+        retry: false,
+      });
 
       // Check for specific APQ errors if the server returns 200 OK but with errors
       if (response.data.errors) {
@@ -138,15 +129,12 @@ export class GraphQLClient {
 
       if (isAPQError || errMsg.includes('PersistedQueryNotFound')) {
         // Retry with full query + hash
-        const response = await this.httpClient.post<GraphQLResponse<T>>(
-          '',
-          {
-            query,
-            extensions,
-            variables,
-          },
-          { headers }
-        );
+        const fullBody: JsonObject = {
+          query,
+          extensions,
+          ...(variables !== undefined ? { variables } : {}),
+        };
+        const response = await this.httpClient.post<GraphQLResponse<T>>('', fullBody, { headers });
         return response.data;
       }
 

@@ -43,6 +43,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean --sourcemap",
+    "build:playground": "esbuild src/index.ts --bundle --format=iife --global-name=Reixo --outfile=playground/dist/reixo.js --platform=browser --minify",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:watch": "vitest",

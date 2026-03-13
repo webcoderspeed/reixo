@@ -1,8 +1,11 @@
+import type { HeadersRecord } from '../types/http-well-known';
+import type { JsonValue } from '../core/http-client';
+
 /**
  * Utilities for security and data sanitization.
  */
 export class SecurityUtils {
-  private static readonly SENSITIVE_HEADERS = [
+  private static readonly SENSITIVE_HEADERS: readonly string[] = [
     'authorization',
     'cookie',
     'set-cookie',
@@ -11,7 +14,7 @@ export class SecurityUtils {
     'proxy-authorization',
   ];
 
-  private static readonly SENSITIVE_FIELDS = [
+  private static readonly SENSITIVE_FIELDS: readonly string[] = [
     'password',
     'token',
     'secret',
@@ -24,16 +27,14 @@ export class SecurityUtils {
 
   /**
    * Sanitizes headers by redacting sensitive values.
-   * Useful for logging or debugging.
+   * Returns a new `HeadersRecord` — never mutates the input.
    */
-  public static sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
-    const sanitized: Record<string, string> = {};
+  public static sanitizeHeaders(headers: HeadersRecord): HeadersRecord {
+    const sanitized: HeadersRecord = {};
     for (const [key, value] of Object.entries(headers)) {
-      if (this.SENSITIVE_HEADERS.includes(key.toLowerCase())) {
-        sanitized[key] = '[REDACTED]';
-      } else {
-        sanitized[key] = value;
-      }
+      sanitized[key] = SecurityUtils.SENSITIVE_HEADERS.includes(key.toLowerCase())
+        ? '[REDACTED]'
+        : (value as string);
     }
     return sanitized;
   }
@@ -48,30 +49,30 @@ export class SecurityUtils {
    * @param data   The value to mask.
    * @param _depth Internal recursion counter — do not pass externally.
    */
-  public static maskSensitiveData<T>(data: T, _depth = 0): T {
+  public static maskSensitiveData<T extends JsonValue>(data: T, _depth = 0): T {
     if (!data || typeof data !== 'object') {
       return data;
     }
 
-    // Guard against circular references and pathologically deep structures
     if (_depth >= SecurityUtils.MAX_MASK_DEPTH) {
       return '[MaxDepthReached]' as unknown as T;
     }
 
     if (Array.isArray(data)) {
-      return data.map((item) => this.maskSensitiveData(item, _depth + 1)) as unknown as T;
+      return data.map((item) =>
+        SecurityUtils.maskSensitiveData(item as JsonValue, _depth + 1)
+      ) as unknown as T;
     }
 
-    const masked = {} as Record<string, unknown>;
-    const obj = data as Record<string, unknown>;
+    const masked: Record<string, JsonValue> = {};
+    const obj = data as Record<string, JsonValue>;
 
     for (const key of Object.keys(obj)) {
-      const lowerKey = key.toLowerCase();
-      if (this.SENSITIVE_FIELDS.some((field) => lowerKey.includes(field.toLowerCase()))) {
-        masked[key] = '***';
-      } else {
-        masked[key] = this.maskSensitiveData(obj[key], _depth + 1);
-      }
+      masked[key] = SecurityUtils.SENSITIVE_FIELDS.some((field) =>
+        key.toLowerCase().includes(field.toLowerCase())
+      )
+        ? '***'
+        : SecurityUtils.maskSensitiveData(obj[key], _depth + 1);
     }
     return masked as unknown as T;
   }

@@ -1,77 +1,94 @@
-import { Reixo } from '../src';
-
 /**
- * Example 1: Basic HTTP Requests
- * Demonstrates GET, POST, PUT, DELETE methods, headers, timeouts, and error handling.
+ * Example 01 — Basic Requests
+ *
+ * Covers: GET, POST, PUT, PATCH, DELETE, HEAD, query params (flat/array/nested),
+ * custom headers, and paramsSerializer.
+ *
+ * Run: npx tsx examples/01-basic-requests.ts
+ * API:  https://jsonplaceholder.typicode.com
  */
 
-async function runBasicRequests() {
-  console.log('🚀 Running Basic HTTP Requests Example\n');
+import { HTTPBuilder } from '../src';
 
-  // 1. Create a client instance using the Builder pattern
-  const client = new Reixo.HTTPBuilder('https://jsonplaceholder.typicode.com')
-    .withTimeout(10000)
-    .withHeaders({
-      'Content-Type': 'application/json',
-      'User-Agent': 'Reixo-Example-Client/1.0',
-    })
+async function main() {
+  const client = new HTTPBuilder()
+    .withBaseURL('https://jsonplaceholder.typicode.com')
+    .withTimeout(10_000)
+    .withHeaders({ Accept: 'application/json' })
     .build();
 
-  try {
-    // --- GET Request ---
-    console.log('1. GET /posts/1');
-    const post = await client.get<{ id: number; title: string }>('/posts/1');
-    console.log('✅ Status:', post.status);
-    console.log('📄 Title:', post.data.title);
+  // ── GET ─────────────────────────────────────────────────────────────────────
+  console.log('GET /posts/1');
+  const post = await client.get<{ id: number; title: string; body: string }>('/posts/1');
+  console.log(`  ${post.status}  title: "${post.data.title.slice(0, 50)}"`);
 
-    // --- POST Request ---
-    console.log('\n2. POST /posts');
-    const newPost = {
-      title: 'Reixo is awesome',
-      body: 'It handles retries and queues effortlessly.',
-      userId: 1,
-    };
-    const created = await client.post<{ id: number; title: string }>('/posts', newPost);
-    console.log('✅ Status:', created.status);
-    console.log('🆕 Created ID:', created.data.id);
+  // ── GET with flat query params ───────────────────────────────────────────────
+  console.log('\nGET /posts?userId=1&_limit=3');
+  const posts = await client.get<{ id: number; title: string }[]>('/posts', {
+    params: { userId: 1, _limit: 3 },
+  });
+  console.log(`  ${posts.status}  ${posts.data.length} posts`);
 
-    // --- PUT Request (Update) ---
-    console.log('\n3. PUT /posts/1');
-    const updateData = {
-      id: 1,
-      title: 'Reixo Updated Title',
-      body: 'Updated content',
-      userId: 1,
-    };
-    const updated = await client.put<{ title: string }>('/posts/1', updateData);
-    console.log('✅ Status:', updated.status);
-    console.log('📝 Updated Title:', updated.data.title);
+  // ── GET with array params (repeated keys: ?id=1&id=2) ──────────────────────
+  console.log('\nGET /posts with array param');
+  const byIds = await client.get<{ id: number }[]>('/posts', {
+    params: { id: [1, 2, 3] },
+  });
+  console.log(`  ${byIds.status}  returned ${byIds.data.length} posts`);
 
-    // --- DELETE Request ---
-    console.log('\n4. DELETE /posts/1');
-    const deleted = await client.delete('/posts/1');
-    console.log('✅ Status:', deleted.status); // Should be 200 or 204
+  // ── GET with nested object params (bracket notation) ───────────────────────
+  console.log('\nGET with nested params → ?filter[userId]=1');
+  const nested = await client.get('/posts', {
+    params: { filter: { userId: 1 } },
+  });
+  console.log(`  ${nested.status}`);
 
-    // --- Query Parameters ---
-    console.log('\n5. GET /posts with params');
-    const userPosts = await client.get<{ id: number }[]>('/posts', {
-      params: { userId: '1' },
-    });
-    console.log('✅ Found posts:', userPosts.data.length);
+  // ── GET with custom paramsSerializer ────────────────────────────────────────
+  console.log('\nGET with paramsSerializer (comma-separated)');
+  const custom = await client.get('/posts', {
+    params: { userId: 1, _limit: 5 },
+    paramsSerializer: (p) =>
+      Object.entries(p)
+        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`)
+        .join('&'),
+  });
+  console.log(`  ${custom.status}`);
 
-    // --- Error Handling (404) ---
-    console.log('\n6. Handling Errors (404)');
-    try {
-      await client.get('/posts/999999');
-    } catch (error) {
-      // Reixo throws HTTPError
-      if (error instanceof Error) {
-        console.log('✅ Caught Expected Error:', error.message);
-      }
-    }
-  } catch (error) {
-    console.error('❌ Unexpected Error:', error);
-  }
+  // ── POST ────────────────────────────────────────────────────────────────────
+  console.log('\nPOST /posts');
+  const created = await client.post<{ id: number; title: string }>('/posts', {
+    title: 'Testing reixo',
+    body: 'HTTP clients should handle the boring parts.',
+    userId: 1,
+  });
+  console.log(`  ${created.status}  created id: ${created.data.id}`);
+
+  // ── PUT ─────────────────────────────────────────────────────────────────────
+  console.log('\nPUT /posts/1');
+  const replaced = await client.put<{ title: string }>('/posts/1', {
+    id: 1,
+    title: 'Replaced via PUT',
+    body: 'Complete replacement.',
+    userId: 1,
+  });
+  console.log(`  ${replaced.status}  title: "${replaced.data.title}"`);
+
+  // ── PATCH ───────────────────────────────────────────────────────────────────
+  console.log('\nPATCH /posts/1');
+  const patched = await client.patch<{ title: string }>('/posts/1', {
+    title: 'Patched title only',
+  });
+  console.log(`  ${patched.status}  title: "${patched.data.title}"`);
+
+  // ── DELETE ──────────────────────────────────────────────────────────────────
+  console.log('\nDELETE /posts/1');
+  const deleted = await client.delete('/posts/1');
+  console.log(`  ${deleted.status}`);
+
+  // ── HEAD (check resource without downloading body) ───────────────────────────
+  console.log('\nHEAD /posts/1');
+  const head = await client.head('/posts/1');
+  console.log(`  ${head.status}  content-type: ${head.headers.get('content-type')}`);
 }
 
-runBasicRequests();
+main().catch(console.error);
