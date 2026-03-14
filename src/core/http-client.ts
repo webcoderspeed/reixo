@@ -394,6 +394,36 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   private activeQueries = new Map<string, ActiveQuery>();
   public readonly metrics?: MetricsCollector;
 
+  /**
+   * Monotonically incrementing counter used to generate cheap request IDs.
+   * Replaces `crypto.randomUUID()` on the hot path — a simple string concat is
+   * ~10x faster for IDs that only need to be unique within this client instance.
+   */
+  private _reqSeq = 0;
+
+  // ── Performance: hot-path caches ────────────────────────────────────────────
+  /**
+   * Pre-normalised base headers from `config.headers` — computed once in the
+   * constructor so the per-request hot path never calls normalizeHeaders() on
+   * the (immutable) config object again.
+   */
+  private _cachedBaseHeaders: HeadersRecord = {};
+  /**
+   * True when `config.retryPolicies` is absent/empty — lets _executeRequest()
+   * skip the `.find()` scan and use `config.retry` directly.
+   */
+  private _hasRetryPolicies = false;
+  /**
+   * True when at least one request interceptor is registered — avoids the
+   * async reduce() overhead when the interceptor array is empty.
+   */
+  private _hasRequestInterceptors = false;
+  /**
+   * True when at least one response interceptor is registered — same gain on
+   * the response side.
+   */
+  private _hasResponseInterceptors = false;
+
   // Timing utilities
   public static readonly debounce = debounce;
   public static readonly throttle = throttle;
@@ -436,6 +466,21 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
 
     // Initialize offline queue if enabled
     this.setupOfflineQueue(config);
+
+    // ── Build hot-path caches after all setup is done ─────────────────────────
+    this._rebuildPerfCaches();
+  }
+
+  /**
+   * Rebuild all hot-path caches. Called once from the constructor and again
+   * whenever the interceptor arrays or base headers are mutated at runtime.
+   * @internal
+   */
+  private _rebuildPerfCaches(): void {
+    this._cachedBaseHeaders = normalizeHeaders(this.config.headers);
+    this._hasRetryPolicies = (this.config.retryPolicies?.length ?? 0) > 0;
+    this._hasRequestInterceptors = this.interceptors.request.length > 0;
+    this._hasResponseInterceptors = this.interceptors.response.length > 0;
   }
 
   /**
@@ -494,7 +539,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     url: string,
     options: HTTPOptions = {}
   ): { requestId: string; response: Promise<HTTPResponse<T>> } {
-    const requestId = crypto.randomUUID();
+    // Use the same cheap incremental ID to stay consistent with _executeRequest.
+    const requestId = `r${++this._reqSeq}`;
     const controller = new AbortController();
     this.abortControllers.set(requestId, controller);
     const response = this.request<T>(url, { ...options, signal: controller.signal }).finally(() => {
@@ -590,7 +636,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       throw new Error('Offline queue not configured');
     }
 
-    const requestId = dedupeKey || crypto.randomUUID();
+    const requestId = dedupeKey || `r${++this._reqSeq}`;
 
     return this.offlineQueue.add<HTTPResponse<T>>(() => this.request<T>(url, options), {
       id: requestId,
@@ -1025,10 +1071,15 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     }
 
     // Determine retry options based on policies
-    const retryOptions =
-      this.config.retryPolicies?.find((policy) =>
-        typeof policy.pattern === 'string' ? url.includes(policy.pattern) : policy.pattern.test(url)
-      )?.retry ?? this.config.retry;
+    // _hasRetryPolicies is pre-computed in _rebuildPerfCaches() — avoids a
+    // .find() scan on every request when no per-URL retry policies are set.
+    const retryOptions = this._hasRetryPolicies
+      ? (this.config.retryPolicies!.find((policy) =>
+          typeof policy.pattern === 'string'
+            ? url.includes(policy.pattern)
+            : policy.pattern.test(url)
+        )?.retry ?? this.config.retry)
+      : this.config.retry;
 
     // Deduplication check — safe idempotent methods only, per-request opt-out via deduplicate:false
     const method = (options.method ?? 'GET').toUpperCase();
@@ -1051,9 +1102,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     }
 
     const requestPromise = (async () => {
-      // Create abort controller for this request
+      // Use a cheap incremental ID instead of crypto.randomUUID() (~10x faster).
+      // IDs only need to be unique within this client instance for cancel-by-ID.
+      const requestId = `r${++this._reqSeq}`;
+
       const abortController = new AbortController();
-      const requestId = crypto.randomUUID();
       this.abortControllers.set(requestId, abortController);
 
       this.emit('request:start', {
@@ -1062,34 +1115,36 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         requestId,
       });
 
-      // Setup timeout for request abandonment detection (30 minutes)
+      // Abandonment detection: 30-minute safety net to release resources if a
+      // request is somehow never resolved.
       const abandonmentTimeout = setTimeout(
         () => {
           if (this.abortControllers.has(requestId)) {
-            // Request has been active for too long - likely abandoned
             abortController.abort();
             this.abortControllers.delete(requestId);
-
-            if (dedupeKey) {
-              this.inFlightRequests.delete(dedupeKey);
-            }
-
+            if (dedupeKey) this.inFlightRequests.delete(dedupeKey);
             this.config.logger?.warn(`Request abandoned and cleaned up: ${url}`);
           }
         },
         30 * 60 * 1000
-      ); // 30 minutes
+      );
+
+      // Merge headers: use pre-normalised base headers from cache when there are
+      // no per-request headers (the common case) — avoids two normalizeHeaders()
+      // calls and an object spread on every single request.
+      const mergedHeaders: HeadersRecord = options.headers
+        ? ({
+            ...this._cachedBaseHeaders,
+            ...normalizeHeaders(options.headers),
+          } as HeadersRecord)
+        : this._cachedBaseHeaders;
 
       const initialOptions: HTTPOptions = {
         url,
         ...this.config,
-        retry: retryOptions, // Default to resolved policy
-        ...options, // Request-specific options override everything
-        // Merge global default headers with per-request headers — no unsafe casts
-        headers: {
-          ...normalizeHeaders(this.config.headers),
-          ...normalizeHeaders(options.headers),
-        } as HeadersRecord,
+        retry: retryOptions,
+        ...options,
+        headers: mergedHeaders,
         signal: abortController.signal,
       };
 
@@ -1240,10 +1295,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           this.inFlightRequests.delete(dedupeKey);
         }
 
-        // Cleanup abort controller
+        // Cleanup abort controller and abandonment timeout
         this.abortControllers.delete(requestId);
-
-        // Cleanup abandonment timeout
         clearTimeout(abandonmentTimeout);
       }
     })();

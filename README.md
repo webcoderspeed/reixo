@@ -328,18 +328,18 @@ const user = await client.get<User>('/users/1');
 
 ## Performance
 
-reixo adds approximately 44µs of overhead over a raw `fetch` call for a typical GET request — that's the cost of the retry scheduler, circuit-breaker state check, deduplication lookup, and header injection that run on every request.
+reixo adds approximately 6–7µs of overhead over a raw `fetch` call for a typical GET request — that's the cost of the retry scheduler, circuit-breaker state check, deduplication lookup, and header injection that run on every request.
 
 Benchmark on Node.js v22, mocked fetch (measures client overhead only):
 
-| Client                  | ops/sec | p99 latency |
-| ----------------------- | ------: | ----------: |
-| native fetch            | 123,678 |        24µs |
-| reixo (basic)           |  69,343 |        47µs |
-| reixo + retry           |  68,757 |        48µs |
-| reixo + circuit-breaker |  68,630 |        44µs |
+| Client                  | ops/sec | p99 latency | vs native fetch |
+| ----------------------- | ------: | ----------: | --------------: |
+| native fetch            | 120,994 |       104µs |      (baseline) |
+| reixo (basic)           |  67,359 |       153µs |  −44% vs native |
+| reixo + retry           |  68,978 |       123µs |  −43% vs native |
+| reixo + circuit-breaker |  69,964 |        56µs |  −42% vs native |
 
-In real applications, the overhead is negligible compared to actual network latency (typically 10–200ms). The throughput difference in the table above reflects that reixo does real work on every call, not that it is slow.
+In real applications, the overhead is negligible compared to actual network latency (typically 10–200ms). The throughput difference in the table above reflects that reixo does real work on every call — retry policy resolution, circuit-breaker state checks, deduplication lookup, and header normalisation — not that it is slow.
 
 To reproduce: `node benchmarks/run.mjs`
 
