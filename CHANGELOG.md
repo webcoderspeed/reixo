@@ -1,5 +1,17 @@
 # Changelog
 
+All notable changes to **reixo** will be documented in this file.
+This project adheres to [Semantic Versioning](https://semver.org).
+
+## [2.1.7](https://github.com/webcoderspeed/reixo/compare/v2.1.6...v2.1.7) (2026-03-14)
+
+### 🐛 Bug Fixes
+
+* **ci:** npm install for native bindings + expand eslint ignores ([2663a2c](https://github.com/webcoderspeed/reixo/commit/2663a2c98417860702ba5077457ae0a084d69c52))
+* **ci:** untrack lockfile for cross-platform native bindings ([1e6d45e](https://github.com/webcoderspeed/reixo/commit/1e6d45e02774dd5d7726e25f5756822eabdef885))
+
+# Changelog
+
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
 ### [2.1.6](https://github.com/webcoderspeed/reixo/compare/v2.1.5...v2.1.6) (2026-03-13)
