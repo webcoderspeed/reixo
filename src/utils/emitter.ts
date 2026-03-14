@@ -52,4 +52,17 @@ export class EventEmitter<Events extends EventMap = Record<string, unknown[]>> {
       this.events = {};
     }
   }
+
+  /**
+   * Returns true if at least one listener is registered for the given event.
+   * Use this to guard object allocation before calling emit():
+   *
+   * @example
+   * if (this.hasListeners('request:start')) {
+   *   this.emit('request:start', { url, method, requestId });
+   * }
+   */
+  public hasListeners<K extends keyof Events>(event: K): boolean {
+    return (this.events[event]?.length ?? 0) > 0;
+  }
 }

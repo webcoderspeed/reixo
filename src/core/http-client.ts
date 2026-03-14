@@ -432,6 +432,20 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
    */
   private _baseTransportOpts: { baseURL?: string; timeoutMs?: number } = {};
 
+  /**
+   * True when `config.onUploadProgress` is set — pre-computed so the hot path
+   * avoids a property lookup into the full config object on every request.
+   * Combined with a per-request check to decide whether to allocate the
+   * upload-progress closure (saved on ~99% of requests).
+   */
+  private _hasGlobalUploadProgress = false;
+
+  /**
+   * True when `config.onDownloadProgress` is set — same rationale as
+   * `_hasGlobalUploadProgress`.
+   */
+  private _hasGlobalDownloadProgress = false;
+
   // Timing utilities
   public static readonly debounce = debounce;
   public static readonly throttle = throttle;
@@ -498,6 +512,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     if (this.config.baseURL !== undefined) this._baseTransportOpts.baseURL = this.config.baseURL;
     if (this.config.timeoutMs !== undefined)
       this._baseTransportOpts.timeoutMs = this.config.timeoutMs;
+
+    // Pre-compute progress handler flags — lets the hot path skip 2 closure
+    // allocations on every request when no global progress handlers are set
+    // (the overwhelmingly common case in production).
+    this._hasGlobalUploadProgress = !!this.config.onUploadProgress;
+    this._hasGlobalDownloadProgress = !!this.config.onDownloadProgress;
   }
 
   /**
@@ -1126,11 +1146,16 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       const abortController = new AbortController();
       this.abortControllers.set(requestId, abortController);
 
-      this.emit('request:start', {
-        url,
-        method: options.method || 'GET',
-        requestId,
-      });
+      // Only allocate the event payload object when at least one listener is
+      // registered — avoids a heap allocation on every request when nobody
+      // has called client.on('request:start', …).
+      if (this.hasListeners('request:start')) {
+        this.emit('request:start', {
+          url,
+          method: options.method || 'GET',
+          requestId,
+        });
+      }
 
       // Abandonment detection: 30-minute safety net to release resources if a
       // request is somehow never resolved.
@@ -1181,32 +1206,45 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         }
       }
 
-      // Chain progress handlers to emit events
-      const configUpload = this.config.onUploadProgress;
-      const requestUpload = options.onUploadProgress;
+      // Lazy progress handler allocation — only create closures when someone
+      // actually needs progress events. For the common case (no global handler,
+      // no per-request handler, no 'upload:progress' listeners) this saves two
+      // closure allocations + the associated GC pressure per request.
+      if (
+        this._hasGlobalUploadProgress ||
+        options.onUploadProgress ||
+        this.hasListeners('upload:progress')
+      ) {
+        const configUpload = this.config.onUploadProgress;
+        const requestUpload = options.onUploadProgress;
+        initialOptions.onUploadProgress = (progress: {
+          loaded: number;
+          total: number | null;
+          progress: number | null;
+        }) => {
+          if (configUpload) configUpload(progress);
+          if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
+          this.emit('upload:progress', { url, ...progress });
+        };
+      }
 
-      initialOptions.onUploadProgress = (progress: {
-        loaded: number;
-        total: number | null;
-        progress: number | null;
-      }) => {
-        if (configUpload) configUpload(progress);
-        if (requestUpload && requestUpload !== configUpload) requestUpload(progress);
-        this.emit('upload:progress', { url, ...progress });
-      };
-
-      const configDownload = this.config.onDownloadProgress;
-      const requestDownload = options.onDownloadProgress;
-
-      initialOptions.onDownloadProgress = (progress: {
-        loaded: number;
-        total: number | null;
-        progress: number | null;
-      }) => {
-        if (configDownload) configDownload(progress);
-        if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
-        this.emit('download:progress', { url, ...progress });
-      };
+      if (
+        this._hasGlobalDownloadProgress ||
+        options.onDownloadProgress ||
+        this.hasListeners('download:progress')
+      ) {
+        const configDownload = this.config.onDownloadProgress;
+        const requestDownload = options.onDownloadProgress;
+        initialOptions.onDownloadProgress = (progress: {
+          loaded: number;
+          total: number | null;
+          progress: number | null;
+        }) => {
+          if (configDownload) configDownload(progress);
+          if (requestDownload && requestDownload !== configDownload) requestDownload(progress);
+          this.emit('download:progress', { url, ...progress });
+        };
+      }
 
       // Run request interceptors using reduce for sequential async execution
       const mergedOptions = await this.interceptors.request.reduce(async (promise, interceptor) => {
@@ -1261,13 +1299,16 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           });
         }
 
-        this.emit('response:success', {
-          url,
-          method: mergedOptions.method || 'GET',
-          status: response.status,
-          requestId,
-          duration: Date.now() - startTime,
-        });
+        // Guard object allocation — only pay the cost when listeners exist.
+        if (this.hasListeners('response:success')) {
+          this.emit('response:success', {
+            url,
+            method: mergedOptions.method || 'GET',
+            status: response.status,
+            requestId,
+            duration: Date.now() - startTime,
+          });
+        }
 
         if (this.cacheManager && response.status >= 200 && response.status < 300) {
           const method = mergedOptions.method || 'GET';
@@ -1291,13 +1332,15 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           });
         }
 
-        this.emit('response:error', {
-          url,
-          method: mergedOptions.method || 'GET',
-          error,
-          requestId,
-          duration: Date.now() - startTime,
-        });
+        if (this.hasListeners('response:error')) {
+          this.emit('response:error', {
+            url,
+            method: mergedOptions.method || 'GET',
+            error,
+            requestId,
+            duration: Date.now() - startTime,
+          });
+        }
 
         // Run response interceptors (error case) using recursion
         const runErrorInterceptors = async (
