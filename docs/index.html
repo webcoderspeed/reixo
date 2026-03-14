@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>reixo — TypeScript HTTP Client with Result&lt;T,E&gt; Returns</title>
+  <meta name="description" content="reixo is a zero-dependency TypeScript HTTP client with Result&lt;T,E&gt; type-safe returns, built-in retry, circuit breaker, request deduplication, OpenTelemetry tracing, WebSocket, SSE, and GraphQL support.">
+  <meta name="keywords" content="reixo, typescript http client, axios alternative, fetch wrapper, result type, circuit breaker, opentelemetry, graphql, websocket, nodejs, bun, deno">
+  <meta name="author" content="Sanjeev Sharma">
+  <link rel="canonical" href="https://webcoderspeed.github.io/reixo/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://webcoderspeed.github.io/reixo/">
+  <meta property="og:title" content="reixo — TypeScript HTTP Client">
+  <meta property="og:description" content="Result&lt;T,E&gt; returns, retry, circuit breaker, dedup, OpenTelemetry, GraphQL, WebSocket — zero extra packages.">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"reixo","description":"TypeScript HTTP client with Result<T,E> returns, retry, circuit breaker, dedup, OpenTelemetry, WebSocket, SSE, GraphQL","url":"https://webcoderspeed.github.io/reixo/","downloadUrl":"https://www.npmjs.com/package/reixo","applicationCategory":"DeveloperApplication","operatingSystem":["Node.js","Bun","Deno","Browser"],"author":{"@type":"Person","name":"Sanjeev Sharma"},"license":"MIT"}</script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #09090b; color: #fafafa; overflow-x: hidden; }
+
+    .hero-grid {
+      background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+    .hero-radial { background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(14,165,233,0.18), transparent 70%); }
+
+    .grad-text {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .grad-text-blue {
+      background: linear-gradient(135deg, #38bdf8, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+    .glass-hover { transition: all 0.25s ease; }
+    .glass-hover:hover { background: rgba(255,255,255,0.06); border-color: rgba(14,165,233,0.3); transform: translateY(-2px); box-shadow: 0 16px 48px rgba(14,165,233,0.08); }
+
+    .nav-blur { background: rgba(9,9,11,0.82); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); }
+
+    .code-block { background: #0d1117; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; overflow: hidden; }
+    .code-header { background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.07); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    pre code.hljs { background: transparent !important; padding: 20px 22px !important; font-family: 'JetBrains Mono', monospace !important; font-size: 13px !important; line-height: 1.75 !important; }
+
+    .copy-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: #71717a; padding: 3px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .copy-btn:hover { background: rgba(14,165,233,0.15); border-color: rgba(14,165,233,0.35); color: #38bdf8; }
+    .copy-btn.copied { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.35); color: #4ade80; }
+
+    .tab-btn { padding: 7px 15px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; color: #52525b; border: 1px solid transparent; font-family: inherit; background: transparent; }
+    .tab-btn.active { background: rgba(14,165,233,0.12); border-color: rgba(14,165,233,0.28); color: #38bdf8; }
+    .tab-btn:hover:not(.active) { color: #a1a1aa; background: rgba(255,255,255,0.04); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 100px; font-size: 12px; font-weight: 500; }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease, transform 0.55s ease; }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+    .d1 { transition-delay: 0.08s; } .d2 { transition-delay: 0.16s; } .d3 { transition-delay: 0.24s; }
+    .d4 { transition-delay: 0.32s; } .d5 { transition-delay: 0.40s; }
+
+    .btn-primary { background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); border: none; border-radius: 10px; color: white; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.2s; font-family: inherit; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .compare-yes { color: #4ade80; }
+    .compare-no { color: #f87171; }
+    .compare-partial { color: #fbbf24; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    .stat-num { font-size: 2.75rem; font-weight: 900; line-height: 1; letter-spacing: -0.03em; }
+    .feature-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .grad-border { position: relative; }
+    .grad-border::before { content: ''; position: absolute; inset: -1px; border-radius: 13px; background: linear-gradient(135deg, rgba(14,165,233,0.45), rgba(99,102,241,0.45), rgba(192,132,252,0.4)); z-index: -1; pointer-events: none; }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-1 { animation: fadeUp 0.55s ease forwards; }
+    .anim-2 { animation: fadeUp 0.55s 0.1s ease forwards; opacity: 0; }
+    .anim-3 { animation: fadeUp 0.55s 0.2s ease forwards; opacity: 0; }
+    .anim-4 { animation: fadeUp 0.55s 0.3s ease forwards; opacity: 0; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav-blur fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6">
+    <div class="flex items-center justify-between h-15" style="height:60px">
+      <div class="flex items-center gap-7">
+        <a href="#" class="flex items-center gap-2.5 flex-shrink-0">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#38bdf8,#6366f1)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+          </div>
+          <span class="font-bold text-white text-lg">reixo</span>
+        </a>
+        <div class="hidden md:flex items-center gap-0.5">
+          <a href="#features" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">Features</a>
+          <a href="#examples" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">Examples</a>
+          <a href="#comparison" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">Compare</a>
+          <a href="#platforms" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">Platforms</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener" class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white glass rounded-lg transition-all" style="border-radius:8px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="https://www.npmjs.com/package/reixo" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center px-4 py-1.5 text-sm font-semibold btn-primary rounded-lg">
+          npm install reixo
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero-grid hero-radial relative min-h-screen flex flex-col items-center justify-center px-4 pt-16 pb-12 overflow-hidden">
+  <div class="absolute top-1/3 -left-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" style="background:rgba(14,165,233,0.07)"></div>
+  <div class="absolute bottom-1/3 -right-32 w-96 h-96 rounded-full blur-3xl pointer-events-none" style="background:rgba(99,102,241,0.07)"></div>
+
+  <div class="relative max-w-5xl w-full mx-auto text-center">
+    <!-- Pill badge -->
+    <div class="inline-flex items-center gap-2 mb-7 anim-1">
+      <span class="badge" style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);color:#38bdf8">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        v2.1.14 &mdash; stable
+      </span>
+    </div>
+
+    <!-- H1 -->
+    <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.05] mb-6 anim-2">
+      The HTTP client<br>
+      <span class="grad-text">that never throws.</span>
+    </h1>
+
+    <p class="text-lg sm:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed anim-3">
+      <code class="text-sky-400 font-mono text-base" style="background:rgba(14,165,233,0.1);padding:2px 7px;border-radius:5px">Result&lt;T,E&gt;</code> returns
+      instead of try/catch hell. Retry, circuit breaker, dedup, OpenTelemetry,
+      GraphQL, WebSocket, SSE &mdash; all built-in, zero extra packages.
+    </p>
+
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14 anim-4">
+      <div id="hero-copy" class="code-block flex items-center gap-3 px-5 py-3 cursor-pointer select-none" style="border-radius:10px" onclick="copyHeroCmd(this)">
+        <span class="text-zinc-600 font-mono text-sm">$</span>
+        <code class="font-mono text-sm" style="color:#4ade80">npm install reixo</code>
+        <button class="copy-btn" style="padding:2px 8px;font-size:11px">copy</button>
+      </div>
+      <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener" class="flex items-center gap-2 px-6 py-3 glass glass-hover rounded-xl text-sm font-semibold text-white">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <!-- Hero code preview -->
+    <div class="max-w-2xl mx-auto grad-border" style="border-radius:13px">
+      <div class="code-block" style="border-radius:12px;border:none">
+        <div class="code-header">
+          <div class="flex items-center gap-1.5">
+            <span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span>
+            <span class="ml-3 text-xs text-zinc-600 font-mono">api.ts</span>
+          </div>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code class="language-typescript">import { createClient } from 'reixo';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+
+// No try/catch. No .catch(). Never throws.
+const result = await api.tryGet&lt;User&gt;('/users/42');
+
+if (result.ok) {
+  console.log(result.data.name);    // ✓ User — fully typed
+} else {
+  console.error(result.error.code); // ✓ NetworkError | HttpError
+}
+
+// Functional style
+const name = result.map(u =&gt; u.name).unwrapOr('Anonymous');</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="border-y border-white/5 py-14">
+  <div class="max-w-4xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div class="reveal"><div class="stat-num grad-text-blue">0</div><div class="text-zinc-500 text-sm mt-1">dependencies</div></div>
+    <div class="reveal d1"><div class="stat-num text-white">&lt;25kb</div><div class="text-zinc-500 text-sm mt-1">gzipped</div></div>
+    <div class="reveal d2"><div class="stat-num grad-text">17+</div><div class="text-zinc-500 text-sm mt-1">built-in features</div></div>
+    <div class="reveal d3"><div class="stat-num text-white">6</div><div class="text-zinc-500 text-sm mt-1">runtimes supported</div></div>
+  </div>
+</div>
+
+<!-- PROBLEM → SOLUTION -->
+<section class="py-24 max-w-7xl mx-auto px-4">
+  <div class="text-center mb-14 reveal">
+    <span class="badge mb-4" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171">The Problem</span>
+    <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">You're fighting your HTTP client.</h2>
+    <p class="text-zinc-400 max-w-xl mx-auto">Every team ends up writing the same boilerplate. The same fragile error handling. The same half-baked retry logic buried in utils.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+    <!-- Before -->
+    <div class="reveal d1">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style="background:rgba(239,68,68,0.15);color:#f87171">✗</div>
+        <span class="text-sm font-semibold" style="color:#f87171">Before — every codebase has this</span>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">old-api.ts</span></div>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code class="language-typescript">// Repeated in every project...
+async function fetchUser(id: string) {
+  try {
+    const res = await fetch(`/api/users/${id}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    if (!res.ok) {
+      // Different error shapes in every codebase
+      const body = await res.json().catch(() =&gt; ({}));
+      throw new Error(body.message ?? `HTTP ${res.status}`);
+    }
+
+    return res.json() as Promise&lt;User&gt;;
+  } catch (err) {
+    // Network error? Timeout? 4xx? 5xx?
+    // No idea. Log and hope for the best.
+    console.error('fetchUser failed', err);
+    throw err;
+  }
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- After -->
+    <div class="reveal d2">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style="background:rgba(34,197,94,0.15);color:#4ade80">✓</div>
+        <span class="text-sm font-semibold" style="color:#4ade80">After reixo — clean, typed, exhaustive</span>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">api.ts</span></div>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code class="language-typescript">// Typed. Never throws. Exhaustive.
+const result = await api.tryGet&lt;User&gt;(`/users/${id}`);
+
+if (result.ok) {
+  return result.data; // User — fully typed ✓
+}
+
+// result.error is NetworkError | HttpError — typed too
+if (result.error.type === 'HTTP_ERROR') {
+  return handleStatus(result.error.status);
+}
+
+// TypeScript flags if you forget a branch
+return fallback;</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="py-24 relative">
+  <div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(to bottom,transparent,rgba(14,165,233,0.03),transparent)"></div>
+  <div class="max-w-7xl mx-auto px-4 relative">
+    <div class="text-center mb-14 reveal">
+      <span class="badge mb-4" style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);color:#38bdf8">Features</span>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Everything you need. Nothing you don't.</h2>
+      <p class="text-zinc-400 max-w-xl mx-auto">Every feature is built on the native Fetch API. No hidden transitive dependencies. Fully tree-shakeable.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d1">
+        <div class="feature-icon mb-4" style="background:rgba(14,165,233,0.12);color:#38bdf8">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Result&lt;T, E&gt; Returns</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Every request returns <code class="text-sky-400 text-xs" style="background:rgba(14,165,233,0.1);padding:1px 5px;border-radius:4px">Ok&lt;T&gt; | Err&lt;E&gt;</code>. TypeScript enforces exhaustive handling at compile time. No more silent failures.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">type-safe errors</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">no try/catch</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">.map() .unwrap()</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d2">
+        <div class="feature-icon mb-4" style="background:rgba(245,158,11,0.12);color:#f59e0b">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Smart Retry + Backoff</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Exponential backoff with jitter, per-request override, configurable status codes, and an <code class="text-xs text-zinc-300">onRetry</code> hook. No external packages needed.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">exponential backoff</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">jitter</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">per-request</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d3">
+        <div class="feature-icon mb-4" style="background:rgba(239,68,68,0.12);color:#f87171">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Circuit Breaker</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Opens after a failure threshold, half-opens to probe recovery. Protects your app from cascading failures without any extra libraries.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">open/half-open</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">configurable threshold</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d1">
+        <div class="feature-icon mb-4" style="background:rgba(139,92,246,0.12);color:#a78bfa">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Request Deduplication</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Identical in-flight GETs are coalesced into one network call. Ten components asking for the same data? One request. Zero config.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">in-flight dedup</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">SSR-safe</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">React-ready</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d2">
+        <div class="feature-icon mb-4" style="background:rgba(16,185,129,0.12);color:#34d399">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Zero-Dep OpenTelemetry</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Automatic W3C <code class="text-emerald-400 text-xs">traceparent</code> propagation without <code class="text-xs text-zinc-300">@opentelemetry/api</code>. Hooks for full OTLP span export.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">traceparent</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">W3C trace context</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">zero deps</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d3">
+        <div class="feature-icon mb-4" style="background:rgba(236,72,153,0.12);color:#f472b6">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">GraphQL · WebSocket · SSE</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">First-class GraphQL client. WebSocket manager with auto-reconnect. Server-Sent Events with <code class="text-xs text-zinc-300">for await</code> async iterator.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">GraphQL</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">WebSocket</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">SSE</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d1">
+        <div class="feature-icon mb-4" style="background:rgba(6,182,212,0.12);color:#22d3ee">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Offline Queue</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Requests made offline queue locally and auto-replay when connectivity returns. Built on the Network Information API with localStorage persistence. PWA-ready.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">auto-replay</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">PWA-ready</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d2">
+        <div class="feature-icon mb-4" style="background:rgba(20,184,166,0.12);color:#2dd4bf">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Response Caching</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">In-memory and localStorage adapters built in. Respects <code class="text-teal-400 text-xs">Cache-Control</code> or set a custom TTL. Stale-while-revalidate pattern supported.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">TTL caching</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">stale-while-revalidate</span>
+        </div>
+      </div>
+
+      <div class="glass glass-hover rounded-xl p-6 reveal d3">
+        <div class="feature-icon mb-4" style="background:rgba(249,115,22,0.12);color:#fb923c">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+        </div>
+        <h3 class="font-bold text-white mb-2">Upload Progress + Pagination</h3>
+        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Resumable chunked uploads with <code class="text-orange-400 text-xs">onProgress</code> callbacks. Cursor, offset, and link-header pagination helpers built-in.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">chunked upload</span>
+          <span class="text-xs px-2 py-1 rounded" style="background:#18181b;color:#71717a">pagination helpers</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CODE EXAMPLES -->
+<section id="examples" class="py-24" style="background:rgba(9,9,11,0.7)">
+  <div class="max-w-4xl mx-auto px-4">
+    <div class="text-center mb-12 reveal">
+      <span class="badge mb-4" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">Code Examples</span>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">See it in action.</h2>
+      <p class="text-zinc-400">Real patterns for real production problems.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-5 reveal">
+      <button class="tab-btn active" onclick="switchTab('basic',this)">Basic</button>
+      <button class="tab-btn" onclick="switchTab('retry',this)">Retry</button>
+      <button class="tab-btn" onclick="switchTab('circuit',this)">Circuit Breaker</button>
+      <button class="tab-btn" onclick="switchTab('graphql',this)">GraphQL</button>
+      <button class="tab-btn" onclick="switchTab('auth',this)">Auth</button>
+      <button class="tab-btn" onclick="switchTab('realtime',this)">Realtime</button>
+    </div>
+
+    <div class="reveal d1">
+
+      <div id="tab-basic" class="tab-panel active">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">basic.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createClient } from 'reixo';
+
+const api = createClient({
+  baseURL: 'https://api.example.com',
+  timeout: 10_000,
+  headers: { 'X-API-Version': '2' },
+});
+
+// GET — typed, never throws
+const result = await api.tryGet&lt;User&gt;('/users/1');
+if (result.ok) console.log(result.data.name);
+
+// POST
+const post = await api.tryPost&lt;Post&gt;('/posts', {
+  body: { title: 'Hello', content: '...' },
+});
+
+// Full REST
+await api.tryPut('/users/1', { body: { role: 'admin' } });
+await api.tryPatch('/users/1', { body: { active: true } });
+await api.tryDelete('/users/1');</code></pre>
+        </div>
+      </div>
+
+      <div id="tab-retry" class="tab-panel">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">retry.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createClient } from 'reixo';
+
+const api = createClient({
+  baseURL: 'https://api.example.com',
+  retry: {
+    attempts: 3,
+    strategy: 'exponential', // 'linear' | 'exponential' | 'fixed'
+    baseDelay: 300,           // ms
+    maxDelay: 5_000,
+    jitter: true,             // prevents thundering herd
+    retryOn: [408, 429, 503],
+    onRetry: ({ attempt, error, delay }) =&gt; {
+      console.log(`Retry ${attempt} in ${delay}ms`);
+    },
+  },
+});
+
+// Retries up to 3x before returning Err
+const result = await api.tryGet&lt;Data&gt;('/flaky');
+
+// Per-request override
+await api.tryGet('/health', { retry: { attempts: 1 } });</code></pre>
+        </div>
+      </div>
+
+      <div id="tab-circuit" class="tab-panel">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">circuit-breaker.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createClient, CircuitBreakerState } from 'reixo';
+
+const api = createClient({
+  baseURL: 'https://payments.example.com',
+  circuitBreaker: {
+    threshold: 5,          // open after 5 consecutive failures
+    resetTimeout: 30_000,  // probe recovery after 30s
+    onStateChange: (state: CircuitBreakerState) =&gt; {
+      metrics.gauge('circuit_state', state); // CLOSED | OPEN | HALF_OPEN
+    },
+  },
+});
+
+const result = await api.tryPost&lt;ChargeResult&gt;('/charge', { body });
+
+if (!result.ok) {
+  if (result.error.type === 'CIRCUIT_OPEN') {
+    return { status: 'degraded' }; // fast-fail gracefully
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <div id="tab-graphql" class="tab-panel">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">graphql.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createGraphQLClient } from 'reixo';
+
+const gql = createGraphQLClient({
+  endpoint: 'https://api.example.com/graphql',
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+// Query
+const result = await gql.query&lt;{ user: User }&gt;({
+  query: `query GetUser($id: ID!) {
+    user(id: $id) { id name email avatar }
+  }`,
+  variables: { id: '42' },
+});
+
+if (result.ok) console.log(result.data.user.name);
+
+// Mutation
+await gql.mutate&lt;{ updateUser: User }&gt;({
+  mutation: `mutation Update($id: ID!, $name: String!) {
+    updateUser(id: $id, name: $name) { id name }
+  }`,
+  variables: { id: '42', name: 'Alice' },
+});</code></pre>
+        </div>
+      </div>
+
+      <div id="tab-auth" class="tab-panel">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">auth-interceptor.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createClient } from 'reixo';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+
+// Attach JWT on every request
+api.interceptors.request.use(async (config) =&gt; {
+  const token = await tokenStore.getAccessToken();
+  config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Auto-refresh on 401
+api.interceptors.response.use(
+  (res) =&gt; res,
+  async (error, original) =&gt; {
+    if (error.status === 401 &amp;&amp; !original._retry) {
+      original._retry = true;
+      await tokenStore.refresh();
+      return api.request(original); // replay with new token
+    }
+    return Promise.reject(error);
+  },
+);</code></pre>
+        </div>
+      </div>
+
+      <div id="tab-realtime" class="tab-panel">
+        <div class="code-block">
+          <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">realtime.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre><code class="language-typescript">import { createClient, createWebSocketManager } from 'reixo';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+
+// Server-Sent Events — async iterator
+for await (const event of api.sse('/stream/events')) {
+  console.log(event.type, event.data);
+  if (event.type === 'done') break;
+}
+
+// WebSocket with auto-reconnect
+const ws = createWebSocketManager('wss://ws.example.com/live', {
+  reconnect: {
+    maxAttempts: 10,
+    delay: 1_000,
+    backoff: 'exponential',
+  },
+  onMessage: (msg) =&gt; dispatch(parseMessage(msg)),
+  onReconnect: (n) =&gt; console.log(`Reconnect attempt ${n}`),
+  onClose: () =&gt; setStatus('disconnected'),
+});
+
+ws.send({ type: 'subscribe', channels: ['prices', 'orders'] });</code></pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="comparison" class="py-24 max-w-7xl mx-auto px-4">
+  <div class="text-center mb-12 reveal">
+    <span class="badge mb-4" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa">Comparison</span>
+    <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">How does reixo stack up?</h2>
+    <p class="text-zinc-400 max-w-xl mx-auto">Every check below would have been a separate npm package. reixo ships it all.</p>
+  </div>
+
+  <div class="reveal overflow-x-auto">
+    <table class="w-full" style="min-width:680px">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+          <th class="text-left py-4 pr-6 text-sm font-semibold text-zinc-300" style="width:200px">Feature</th>
+          <th class="text-center py-4 px-4 text-sm font-bold text-sky-400">reixo</th>
+          <th class="text-center py-4 px-4 text-sm font-medium text-zinc-500">axios</th>
+          <th class="text-center py-4 px-4 text-sm font-medium text-zinc-500">ky</th>
+          <th class="text-center py-4 px-4 text-sm font-medium text-zinc-500">ofetch</th>
+          <th class="text-center py-4 px-4 text-sm font-medium text-zinc-500">got</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Result&lt;T,E&gt; returns</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Zero dependencies</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Circuit breaker</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Request deduplication</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Built-in retry</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-partial">~</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-yes">✓</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">OpenTelemetry tracing</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">GraphQL support</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">WebSocket + SSE</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Offline queue</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04)"><td class="py-3.5 pr-6 text-sm text-zinc-300">Edge / Workers runtime</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+        <tr><td class="py-3.5 pr-6 text-sm text-zinc-300">Mock adapter for tests</td><td class="text-center py-3.5 compare-yes font-bold">✓</td><td class="text-center py-3.5 compare-yes">✓</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td><td class="text-center py-3.5 compare-no">✗</td></tr>
+      </tbody>
+    </table>
+    <p class="text-xs text-zinc-700 mt-3 text-right">~ partial/plugin &nbsp;·&nbsp; ✓ built-in &nbsp;·&nbsp; ✗ unavailable</p>
+  </div>
+</section>
+
+<!-- PLATFORMS -->
+<section id="platforms" class="py-20" style="background:rgba(9,9,11,0.6)">
+  <div class="max-w-4xl mx-auto px-4 text-center">
+    <div class="reveal mb-10">
+      <span class="badge mb-4" style="background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);color:#2dd4bf">Platforms</span>
+      <h2 class="text-3xl font-bold text-white mb-3">Runs everywhere Fetch runs.</h2>
+      <p class="text-zinc-400">One API, six runtimes, zero adapter switching.</p>
+    </div>
+    <div class="flex flex-wrap justify-center gap-4 reveal d1">
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">⬢</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">Node.js</div><div class="text-xs text-zinc-600">v20+</div></div>
+      </div>
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">🍞</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">Bun</div><div class="text-xs text-zinc-600">v1+</div></div>
+      </div>
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">🦕</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">Deno</div><div class="text-xs text-zinc-600">v2+</div></div>
+      </div>
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">🌐</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">Browser</div><div class="text-xs text-zinc-600">all modern</div></div>
+      </div>
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">☁️</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">CF Workers</div><div class="text-xs text-zinc-600">Edge runtime</div></div>
+      </div>
+      <div class="glass glass-hover rounded-xl px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">▲</span>
+        <div class="text-left"><div class="text-sm font-semibold text-white">Vercel Edge</div><div class="text-xs text-zinc-600">Edge Functions</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL / QUICKSTART -->
+<section class="py-24 max-w-4xl mx-auto px-4">
+  <div class="text-center mb-12 reveal">
+    <span class="badge mb-4" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);color:#4ade80">Get Started</span>
+    <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Up and running in 60 seconds.</h2>
+  </div>
+
+  <div class="grid sm:grid-cols-4 gap-3 mb-8 reveal">
+    <div class="code-block p-4 cursor-pointer hover:border-sky-500/30 transition-colors" onclick="copyInstall('npm install reixo',this)">
+      <div class="text-xs text-zinc-600 mb-2 font-mono">npm</div>
+      <code class="font-mono text-sm" style="color:#4ade80">npm install reixo</code>
+    </div>
+    <div class="code-block p-4 cursor-pointer hover:border-sky-500/30 transition-colors" onclick="copyInstall('pnpm add reixo',this)">
+      <div class="text-xs text-zinc-600 mb-2 font-mono">pnpm</div>
+      <code class="font-mono text-sm" style="color:#4ade80">pnpm add reixo</code>
+    </div>
+    <div class="code-block p-4 cursor-pointer hover:border-sky-500/30 transition-colors" onclick="copyInstall('yarn add reixo',this)">
+      <div class="text-xs text-zinc-600 mb-2 font-mono">yarn</div>
+      <code class="font-mono text-sm" style="color:#4ade80">yarn add reixo</code>
+    </div>
+    <div class="code-block p-4 cursor-pointer hover:border-sky-500/30 transition-colors" onclick="copyInstall('bun add reixo',this)">
+      <div class="text-xs text-zinc-600 mb-2 font-mono">bun</div>
+      <code class="font-mono text-sm" style="color:#4ade80">bun add reixo</code>
+    </div>
+  </div>
+
+  <div class="reveal d1">
+    <div class="code-block">
+      <div class="code-header"><div class="flex items-center gap-1.5"><span class="dot bg-red-500"></span><span class="dot bg-yellow-500 mx-1.5"></span><span class="dot bg-green-500"></span><span class="ml-3 text-xs text-zinc-600 font-mono">quickstart.ts</span></div><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+      <pre><code class="language-typescript">import { createClient } from 'reixo';
+
+// Create once, export for reuse
+const api = createClient({
+  baseURL: 'https://jsonplaceholder.typicode.com',
+  timeout: 8_000,
+  retry: { attempts: 2 },
+});
+
+interface Todo { id: number; title: string; completed: boolean }
+
+// Never throws — result is Ok&lt;Todo&gt; | Err&lt;NetworkError | HttpError&gt;
+const result = await api.tryGet&lt;Todo&gt;('/todos/1');
+
+if (result.ok) {
+  console.log('Title:', result.data.title);
+  console.log('Done:', result.data.completed);
+} else {
+  // TypeScript knows exactly what error type this is
+  console.error('Error:', result.error.message);
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-28 relative overflow-hidden">
+  <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(14,165,233,0.06),rgba(99,102,241,0.06),rgba(192,132,252,0.06))"></div>
+  <div class="absolute inset-0 hero-grid" style="opacity:0.4"></div>
+  <div class="relative max-w-2xl mx-auto px-4 text-center">
+    <div class="reveal">
+      <h2 class="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight leading-tight">
+        Stop writing<br><span class="grad-text">HTTP boilerplate.</span>
+      </h2>
+      <p class="text-zinc-400 text-lg mb-10 leading-relaxed">reixo handles retries, error typing, circuit breaking, and tracing so you can ship features instead of infrastructure.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener" class="btn-primary px-8 py-3.5 rounded-xl text-base font-semibold">Get started on GitHub</a>
+        <a href="https://www.npmjs.com/package/reixo" target="_blank" rel="noopener" class="flex items-center gap-2 px-8 py-3.5 glass glass-hover rounded-xl text-base font-semibold text-white">View on npm</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid rgba(255,255,255,0.05)" class="py-12">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:linear-gradient(135deg,#38bdf8,#6366f1)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        </div>
+        <span class="font-bold text-white">reixo</span>
+        <span class="text-zinc-700 text-sm ml-1">v2.1.14</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-5 text-sm text-zinc-600">
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+        <a href="https://www.npmjs.com/package/reixo" target="_blank" rel="noopener" class="hover:text-white transition-colors">npm</a>
+        <a href="https://github.com/webcoderspeed/reixo/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">MIT License</a>
+        <a href="https://github.com/webcoderspeed/reixo/issues" target="_blank" rel="noopener" class="hover:text-white transition-colors">Issues</a>
+        <a href="https://github.com/webcoderspeed/reixo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Contributing</a>
+      </div>
+      <p class="text-zinc-700 text-sm">
+        By <a href="https://webcoderspeed.com" target="_blank" rel="noopener" class="text-zinc-500 hover:text-white transition-colors">Sanjeev Sharma</a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  hljs.highlightAll();
+
+  // Scroll reveal
+  const obs = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); } }),
+    { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
+  );
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+  // Tabs
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById('tab-' + name);
+    if (panel) { panel.classList.add('active'); hljs.highlightAll(); }
+    btn.classList.add('active');
+  }
+
+  // Copy code block
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.innerText || pre.textContent || '').then(() => {
+      btn.textContent = 'copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Copy hero install cmd
+  function copyHeroCmd(el) {
+    navigator.clipboard.writeText('npm install reixo').then(() => {
+      const btn = el.querySelector('.copy-btn');
+      btn.textContent = 'copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Copy install command from card
+  function copyInstall(text, el) {
+    navigator.clipboard.writeText(text).then(() => {
+      const prev = el.style.borderColor;
+      el.style.borderColor = 'rgba(34,197,94,0.5)';
+      setTimeout(() => { el.style.borderColor = prev; }, 1500);
+    });
+  }
+</script>
+</body>
+</html>
