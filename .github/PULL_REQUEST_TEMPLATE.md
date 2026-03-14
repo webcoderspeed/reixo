@@ -1,32 +1,35 @@
-## Description
+## Summary
 
-Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change.
+<!-- Briefly describe what this PR does and why. Link the issue it addresses. -->
 
-Fixes # (issue)
+Closes #
 
-## Type of change
+## Type of Change
 
-Please delete options that are not relevant.
+- [ ] 🐛 Bug fix (non-breaking)
+- [ ] ✨ New feature (non-breaking)
+- [ ] 💥 Breaking change
+- [ ] ♻️ Refactor / internal cleanup
+- [ ] 📝 Documentation only
+- [ ] 🔧 Chore / tooling / CI
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
+## What Changed
 
-## How Has This Been Tested?
+<!-- Describe the key changes made. Include relevant context for reviewers. -->
 
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Please also list any relevant details for your test configuration
+## Testing
 
-- [ ] Test A
-- [ ] Test B
+- [ ] Added / updated unit tests for the change
+- [ ] Existing tests pass (`npm test`)
+- [ ] Type-checked cleanly (`npm run typecheck`)
+- [ ] Linted cleanly (`npm run lint:check`)
+- [ ] Formatted (`npm run format:check`)
 
-## Checklist:
+## Checklist
 
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published in downstream modules
+- [ ] Types are correct — no `any` introduced without justification
+- [ ] Public API changes are reflected in JSDoc / README
+- [ ] CHANGELOG entry added (if user-facing change)
+- [ ] No `console.*` calls in `src/` — use `internalLog/internalWarn/internalError` instead
+- [ ] No secrets, tokens, or credentials in the diff
+- [ ] Breaking changes are documented in the PR description

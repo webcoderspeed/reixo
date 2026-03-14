@@ -1,5 +1,5 @@
-import { HTTPClient } from '../core/http-client';
-import { HTTPResponse } from './http';
+import type { HTTPClient } from '../core/http-client';
+import type { HTTPResponse } from './http';
 
 export interface PaginationOptions<T> {
   pageParam?: string; // Default: 'page'
@@ -21,7 +21,7 @@ function extractItems<T>(data: unknown, path?: string): T[] {
       if (obj && typeof obj === 'object' && key in (obj as Record<string, unknown>)) {
         return (obj as Record<string, unknown>)[key];
       }
-      return undefined;
+      return null;
     }, data);
     return Array.isArray(result) ? (result as T[]) : [];
   }

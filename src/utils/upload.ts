@@ -12,11 +12,29 @@ export class ResumableUploader {
   private readonly chunkSize: number;
   private readonly retries: number;
   private readonly parallel: number;
+  /** AbortController shared across all in-flight chunk requests. */
+  private _abortController: AbortController = new AbortController();
 
   constructor(options: UploadOptions = {}) {
     this.chunkSize = options.chunkSize || 1024 * 1024; // 1MB
     this.retries = options.retries || 3;
     this.parallel = options.parallel || 1;
+  }
+
+  /**
+   * Abort all in-flight chunk uploads.
+   *
+   * Any pending `upload()` call will reject with a `DOMException(AbortError)`.
+   * The upload state is NOT cleared — you can inspect `completedChunks` to
+   * determine how much was already transferred.
+   *
+   * Note: true resumability (persisting chunk state and restarting from the
+   * last completed chunk) is tracked in todos/05-missing-features.md.
+   */
+  public abort(): void {
+    this._abortController.abort();
+    // Reset so the next upload() call starts fresh
+    this._abortController = new AbortController();
   }
 
   public async upload(url: string, file: File | Blob, options: UploadOptions = {}): Promise<void> {
@@ -53,6 +71,7 @@ export class ResumableUploader {
         body: chunk,
         headers,
         retry: { maxRetries: this.retries },
+        signal: this._abortController.signal,
       });
 
       uploadedSize += chunk.size;

@@ -28,7 +28,7 @@ export function objectToFormData(
       if (isFile) {
         formData.append(formKey, value as Blob);
       } else if (Array.isArray(value)) {
-        value.forEach((item, index) => {
+        for (const [index, item] of value.entries()) {
           const isItemFile =
             (typeof File !== 'undefined' && item instanceof File) ||
             (typeof Blob !== 'undefined' && item instanceof Blob);
@@ -44,7 +44,7 @@ export function objectToFormData(
             // Primitives in array
             formData.append(formKey, String(item));
           }
-        });
+        }
       } else if (value instanceof Date) {
         // Use ISO 8601 format for deterministic, locale-independent serialisation
         formData.append(formKey, value.toISOString());

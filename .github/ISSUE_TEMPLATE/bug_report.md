@@ -1,42 +1,45 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: ''
+about: Something isn't working as expected
+title: 'bug: '
 labels: bug
 assignees: ''
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Describe the Bug
 
-**To Reproduce**
-Steps to reproduce the behavior:
+<!-- A clear and concise description of what the bug is. -->
 
-1. Create a client with config '...'
-2. Make a request to '...'
-3. See error
+## Reproduction
 
-**Reproduction Code**
-Please provide a minimal code snippet that reproduces the issue.
+<!-- Minimal code snippet that reproduces the issue. -->
 
 ```ts
 import { HTTPBuilder } from 'reixo';
 
+const client = new HTTPBuilder('https://api.example.com').build();
+
 // Your code here
 ```
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Expected Behaviour
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+<!-- What did you expect to happen? -->
 
-**Environment (please complete the following information):**
+## Actual Behaviour
 
-- OS: [e.g. macOS, Windows]
-- Browser [e.g. chrome, safari] (if applicable)
-- Node Version [e.g. 18.x]
-- Reixo Version [e.g. 2.1.0]
+<!-- What actually happened? Include any error messages or stack traces. -->
 
-**Additional context**
-Add any other context about the problem here.
+## Environment
+
+| Field                     | Value                          |
+| ------------------------- | ------------------------------ |
+| reixo version             |                                |
+| Node / Bun / Deno version |                                |
+| Runtime                   | Node.js / Bun / Deno / Browser |
+| OS                        | macOS / Windows / Linux        |
+| TypeScript version        |                                |
+
+## Additional Context
+
+<!-- Logs, screenshots, or any other relevant information. -->

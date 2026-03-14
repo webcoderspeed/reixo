@@ -129,7 +129,7 @@ export function parseTraceparent(value: string | undefined | null): SpanContext 
   if (!value) return null;
   const parts = value.trim().split('-');
   if (parts.length < 4) return null;
-  const [version, traceId, spanId, flags] = parts;
+  const [version, traceId, spanId, flags] = parts as [string, string, string, string];
   if (version !== '00') return null;
   if (!/^[0-9a-f]{32}$/.test(traceId)) return null;
   if (!/^[0-9a-f]{16}$/.test(spanId)) return null;
@@ -139,7 +139,7 @@ export function parseTraceparent(value: string | undefined | null): SpanContext 
   return {
     traceId,
     spanId,
-    traceFlags: parseInt(flags, 16),
+    traceFlags: Number.parseInt(flags, 16),
   };
 }
 
@@ -191,12 +191,14 @@ export function createOTelInterceptor(config: OTelConfig = {}) {
 
   return {
     onFulfilled: (options: HTTPOptions): HTTPOptions => {
-      const headers: HeadersRecord =
-        options.headers instanceof Headers
-          ? (Object.fromEntries(options.headers.entries()) as HeadersRecord)
-          : Array.isArray(options.headers)
-            ? (Object.fromEntries(options.headers) as HeadersRecord)
-            : ({ ...(options.headers ?? {}) } as HeadersRecord);
+      let headers: HeadersRecord;
+      if (options.headers instanceof Headers) {
+        headers = Object.fromEntries(options.headers.entries()) as HeadersRecord;
+      } else if (Array.isArray(options.headers)) {
+        headers = Object.fromEntries(options.headers) as HeadersRecord;
+      } else {
+        headers = { ...(options.headers ?? {}) } as HeadersRecord;
+      }
 
       // Respect an upstream traceparent if already present
       const upstreamCtx = parseTraceparent(headers['traceparent']);

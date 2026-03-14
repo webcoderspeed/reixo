@@ -83,8 +83,10 @@ export class CircuitBreaker {
         this.transitionTo(CircuitState.CLOSED);
       }
     } else {
-      // In CLOSED state, a success resets the failure count (optional, but good practice)
+      // In CLOSED state, a success resets both failure count and any stale
+      // nextAttempt timestamp left over from a previous OPEN→HALF_OPEN cycle.
       this.failures = 0;
+      this.nextAttempt = 0;
     }
   }
 

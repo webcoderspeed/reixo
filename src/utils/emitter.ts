@@ -1,4 +1,5 @@
 export type EventMap = Record<string, unknown[]>;
+import { internalError } from './internal-log';
 
 export class EventEmitter<Events extends EventMap = Record<string, unknown[]>> {
   private events: { [K in keyof Events]?: Array<(...args: Events[K]) => void> } = {};
@@ -29,7 +30,7 @@ export class EventEmitter<Events extends EventMap = Record<string, unknown[]>> {
         // Isolate listener errors: log immediately so the stack trace is visible
         // in the console, then re-throw via queueMicrotask so other listeners
         // still fire in the current turn.
-        console.error('[Reixo] Unhandled error in event listener:', err);
+        internalError('Unhandled error in event listener:', err);
         queueMicrotask(() => {
           throw err;
         });

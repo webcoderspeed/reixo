@@ -1,6 +1,7 @@
-import { HTTPClient, HTTPClientConfig, JsonObject, JsonValue } from './http-client';
 import type { HeadersRecord } from '../types/http-well-known';
 import { sha256 } from '../utils/hash';
+import type { HTTPClientConfig, JsonObject } from './http-client';
+import { HTTPClient } from './http-client';
 
 export interface GraphQLError {
   message: string;

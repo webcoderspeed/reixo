@@ -1,7 +1,7 @@
-import { EventEmitter } from '../utils/emitter';
-import { RetryOptions } from '../types/index';
-import { delay } from '../utils/timing';
 import type { HeadersRecord } from '../types/http-well-known';
+import type { RetryOptions } from '../types/index';
+import { EventEmitter } from '../utils/emitter';
+import { delay } from '../utils/timing';
 
 /**
  * Configuration for {@link SSEClient}.

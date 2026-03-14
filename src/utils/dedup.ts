@@ -46,12 +46,50 @@ export interface DedupStats {
 // ---------------------------------------------------------------------------
 
 /**
+ * Safely stringify a value for use in a dedup key.
+ *
+ * `JSON.stringify` throws a `TypeError` on circular references (common with
+ * Mongoose documents, framework model objects, or accidentally self-referencing
+ * state). This wrapper catches the error and returns a deterministic fallback
+ * string so the request still proceeds — it simply won't be deduplicated.
+ *
+ * Uses a WeakMap to cache stringified object references so that the same body
+ * object is not serialised more than once per in-flight window.
+ */
+const _bodyStringCache = new WeakMap<object, string>();
+
+function safeStringifyBody(body: JsonValue | string | null | undefined): string {
+  if (body === null || body === undefined) return '';
+  if (typeof body === 'string') return body;
+  if (typeof body !== 'object') return String(body);
+
+  // Check the WeakMap cache first (avoids repeated serialisation of large bodies)
+  const cached = _bodyStringCache.get(body as object);
+  if (cached !== undefined) return cached;
+
+  try {
+    const str = JSON.stringify(body);
+    _bodyStringCache.set(body as object, str);
+    return str;
+  } catch {
+    // Circular reference or non-serialisable value — fall back to a unique marker.
+    // The request will not be deduplicated, which is the safe default behaviour.
+    const fallback = `[non-serializable:${Object.prototype.toString.call(body)}]`;
+    _bodyStringCache.set(body as object, fallback);
+    return fallback;
+  }
+}
+
+/**
  * Produce a stable deduplication key from the request method, resolved URL,
  * and (optionally) a serialised body.
  *
  * The key must be cheap to compute and collision-resistant for practical use.
  * We intentionally do NOT hash (CPU cost), relying on the URL + body string
  * to be unique in practice for in-flight windows.
+ *
+ * Body serialisation is guarded against circular references — such requests
+ * are treated as non-deduplicated rather than crashing the entire pipeline.
  */
 export function buildDedupKey(
   method: string,
@@ -59,12 +97,7 @@ export function buildDedupKey(
   body?: JsonValue | string | null
 ): string {
   const m = method.toUpperCase();
-  const b =
-    body === null || body === undefined
-      ? ''
-      : typeof body === 'string'
-        ? body
-        : JSON.stringify(body);
+  const b = safeStringifyBody(body);
   return `${m}::${url}::${b}`;
 }
 

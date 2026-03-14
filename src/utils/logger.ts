@@ -1,5 +1,5 @@
+import type { Logger, LogMeta } from '../core/http-client';
 import type { HeadersRecord } from '../types/http-well-known';
-import { Logger, LogMeta } from '../core/http-client';
 
 /**
  * Numeric log-level constants.

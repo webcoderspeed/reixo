@@ -1,35 +1,41 @@
-import { RetryOptions } from '../types';
-import {
-  http,
+import type { RetryOptions } from '../types';
+import type { HeadersRecord, HeadersWithSuggestions } from '../types/http-well-known';
+import type { Result } from '../types/result';
+import { err, ok } from '../types/result';
+import type { CacheOptions } from '../utils/cache';
+import { CacheManager } from '../utils/cache';
+import type { CircuitBreakerOptions } from '../utils/circuit-breaker';
+import { CircuitBreaker } from '../utils/circuit-breaker';
+import type { ConnectionPoolOptions } from '../utils/connection';
+import { ConnectionPool } from '../utils/connection';
+import { EventEmitter } from '../utils/emitter';
+import { objectToFormData } from '../utils/form-data';
+import type {
+  CacheMetadata,
   HTTPOptions,
   HTTPResponse,
-  HTTPError,
-  ValidationError,
   IHTTPClient,
-  AbortError,
   ParamsValue,
-  CacheMetadata,
 } from '../utils/http';
-import type { HeadersWithSuggestions, HeadersRecord } from '../types/http-well-known';
-import { debounce, throttle, delay } from '../utils/timing';
-import { EventEmitter } from '../utils/emitter';
-import { ConnectionPool, ConnectionPoolOptions } from '../utils/connection';
-import { RateLimiter } from '../utils/rate-limiter';
-import { MetricsCollector } from '../utils/metrics';
-import { CacheManager, CacheOptions } from '../utils/cache';
-import { TaskQueue, PersistentQueueOptions } from '../utils/queue';
+import { AbortError, http, HTTPError, ValidationError } from '../utils/http';
+import type { InfiniteQueryOptions } from '../utils/infinite-query';
+import { InfiniteQuery } from '../utils/infinite-query';
 import { generateKey } from '../utils/keys';
-import { objectToFormData } from '../utils/form-data';
-import { InfiniteQuery, InfiniteQueryOptions } from '../utils/infinite-query';
-import { CircuitBreaker, CircuitBreakerOptions } from '../utils/circuit-breaker';
+import { MetricsCollector } from '../utils/metrics';
 import { createOTelInterceptor, type OTelConfig } from '../utils/otel';
-import { Result, ok, err } from '../types/result';
+import type { PersistentQueueOptions } from '../utils/queue';
+import { TaskQueue } from '../utils/queue';
+import { RateLimiter } from '../utils/rate-limiter';
+import { debounce, delay, throttle } from '../utils/timing';
 
 // ---------------------------------------------------------------------------
 // Strict body-data type — replaces loose `unknown` on post/put/patch
 // ---------------------------------------------------------------------------
 
 /** JSON-serialisable primitive. */
+/** PEM-encoded certificate/key content, as string or raw Buffer. */
+type PemValue = string | Buffer | Array<string | Buffer>;
+
 export type JsonPrimitive = string | number | boolean | null;
 /** JSON-serialisable array. */
 export type JsonArray = JsonValue[];
@@ -65,7 +71,7 @@ export type LogMeta =
 export interface RequestInterceptor {
   onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>;
   /** Receives the thrown value from a previous interceptor or from the request itself. */
-  onRejected?: (error: Error | HTTPError | unknown) => Error | HTTPError | unknown;
+  onRejected?: (error: unknown) => unknown;
 }
 
 export interface ResponseInterceptor {
@@ -189,11 +195,11 @@ export interface HTTPClientConfig {
     /** Reject servers with self-signed or untrusted certificates. @default true */
     rejectUnauthorized?: boolean;
     /** Custom CA certificate(s) in PEM format. */
-    ca?: string | Buffer | Array<string | Buffer>;
+    ca?: PemValue;
     /** Client certificate in PEM format (mutual TLS). */
-    cert?: string | Buffer | Array<string | Buffer>;
+    cert?: PemValue;
     /** Client private key in PEM format (mutual TLS). */
-    key?: string | Buffer | Array<string | Buffer>;
+    key?: PemValue;
     /** Passphrase for an encrypted private key. */
     passphrase?: string;
   };
@@ -389,9 +395,9 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   public readonly metrics?: MetricsCollector;
 
   // Timing utilities
-  public static debounce = debounce;
-  public static throttle = throttle;
-  public static delay = delay;
+  public static readonly debounce = debounce;
+  public static readonly throttle = throttle;
+  public static readonly delay = delay;
 
   constructor(private readonly config: HTTPClientConfig) {
     super();
@@ -550,7 +556,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       this.offlineQueue.on('queue:restored', (tasks) => {
         this.config.logger?.info(`Offline queue restored with ${tasks.length} pending requests`);
 
-        tasks.forEach((task) => {
+        for (const task of tasks) {
           if (task.data && typeof task.data === 'object' && 'url' in task.data) {
             const { url, options } = task.data as { url: string; options: HTTPOptions };
             // Re-queue the task
@@ -558,7 +564,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
               this.config.logger?.error(`Failed to process restored task ${task.id}`, err);
             });
           }
-        });
+        }
       });
 
       this.offlineQueue.on('queue:drain', () => {
@@ -603,7 +609,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       window.addEventListener('beforeunload', cleanupOnUnload);
       window.addEventListener('pagehide', cleanupOnUnload);
 
-      if (this.config.revalidateOnFocus !== false) {
+      if (this.config.revalidateOnFocus === true) {
         const onFocus = () => {
           this.emit('focus');
           this.revalidateActiveQueries();
@@ -767,8 +773,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   ): Promise<void> {
     if (!this.cacheManager) return;
 
-    const key = this.cacheManager.generateKey(url, options.params);
-
     let newData: T;
     if (typeof data === 'function') {
       const oldData = this.getQueryData<T>(url, options.params) ?? undefined;
@@ -849,7 +853,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   private notifyObservers(key: string, data: unknown) {
     const query = this.activeQueries.get(key);
     if (query) {
-      query.observers.forEach((cb) => cb(data));
+      for (const cb of query.observers) cb(data);
     }
   }
 
@@ -1217,6 +1221,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         ): Promise<HTTPResponse<T>> => {
           if (index >= this.interceptors.response.length) throw err;
           const interceptor = this.interceptors.response[index];
+          if (!interceptor) throw err;
           if (interceptor.onRejected) {
             try {
               const recovered = await interceptor.onRejected(err);
@@ -1286,9 +1291,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           .map(([k, v]) => `-H '${k}: ${v}'`)
           .join(' ')
       : '';
-    const body = options.body
-      ? `-d '${typeof options.body === 'string' ? options.body : JSON.stringify(options.body)}'`
-      : '';
+    let bodyStr = '';
+    if (options.body) {
+      bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+    }
+    const body = bodyStr ? `-d '${bodyStr}'` : '';
     return `curl -X ${method} ${headers} ${body} '${fullUrl}'`.trim();
   }
 
@@ -1332,11 +1339,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       }
     }
 
-    const serializedBody: BodyInit | undefined = isFormData
-      ? body
-      : data
-        ? JSON.stringify(data)
-        : undefined;
+    let serializedBody: BodyInit | undefined;
+    if (isFormData) {
+      serializedBody = body;
+    } else if (data) {
+      serializedBody = JSON.stringify(data);
+    }
 
     return { body: serializedBody, headers };
   }
@@ -1783,7 +1791,7 @@ export class HTTPBuilder {
   }
 
   // Timing utilities available on builder
-  public static debounce = debounce;
-  public static throttle = throttle;
-  public static delay = delay;
+  public static readonly debounce = debounce;
+  public static readonly throttle = throttle;
+  public static readonly delay = delay;
 }

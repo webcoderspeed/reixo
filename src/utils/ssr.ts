@@ -1,5 +1,6 @@
 import type { HeadersRecord } from '../types/http-well-known';
-import { HTTPOptions } from './http';
+import type { HTTPOptions } from './http';
+import { internalWarn } from './internal-log';
 
 /**
  * A function that returns the headers to forward for an SSR request.
@@ -41,18 +42,18 @@ export function createSSRInterceptor(
           : ssrHeaders;
 
         // Merge SSR headers under any per-request headers (request-level wins)
-        const existing =
-          config.headers instanceof Headers
-            ? (Object.fromEntries(config.headers.entries()) as HeadersRecord)
-            : Array.isArray(config.headers)
-              ? (Object.fromEntries(config.headers) as HeadersRecord)
-              : (config.headers ?? {});
+        let existing: Record<string, string>;
+        if (config.headers instanceof Headers) {
+          existing = Object.fromEntries(config.headers.entries()) as HeadersRecord;
+        } else if (Array.isArray(config.headers)) {
+          existing = Object.fromEntries(config.headers) as HeadersRecord;
+        } else {
+          existing = (config.headers ?? {}) as Record<string, string>;
+        }
 
         config.headers = { ...headersToForward, ...existing } as HeadersRecord;
       } catch (error) {
-        if (typeof console !== 'undefined') {
-          console.warn('[Reixo] SSR Header Forwarding failed:', error);
-        }
+        internalWarn('SSR Header Forwarding failed:', error);
       }
       return config;
     },

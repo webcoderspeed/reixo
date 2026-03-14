@@ -1,7 +1,7 @@
+import type { BodyData, JsonValue } from '../core/http-client';
+import type { HTTPClient } from '../core/http-client';
 import type { HeadersRecord } from '../types/http-well-known';
-import type { JsonValue, BodyData } from '../core/http-client';
-import { HTTPClient } from '../core/http-client';
-import { HTTPOptions, HTTPResponse } from './http';
+import type { HTTPOptions, HTTPResponse } from './http';
 
 export interface RecordedRequest {
   id: string;

@@ -45,7 +45,15 @@
     "cloudflare-workers",
     "edge-runtime",
     "browser",
-    "network-errors"
+    "network-errors",
+    "rate-limiting",
+    "no-throw",
+    "resumable-upload",
+    "chunked-upload",
+    "infinite-scroll",
+    "mock-adapter",
+    "jwt",
+    "auth-interceptor"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -83,10 +91,8 @@
     "benchmark": "npx tsx benchmarks/suite.ts",
     "prepublishOnly": "npm run build && npm run test && npm run lint:check && npm run typecheck",
     "prepare": "husky install",
-    "release": "npm run build && standard-version",
-    "release:major": "npm run release -- --release-as major",
-    "release:minor": "npm run release -- --release-as minor",
-    "release:patch": "npm run release -- --release-as patch"
+    "commit": "cz",
+    "lint:fix": "eslint . --fix"
   },
   "repository": {
     "type": "git",
@@ -97,8 +103,8 @@
     "url": "https://github.com/webcoderspeed/reixo/issues"
   },
   "author": {
-    "name": "WebCoderSpeed",
-    "email": "sanjeev@webcoderspeed.com",
+    "name": "Sanjeev Sharma",
+    "email": "webcoderspeed@gmail.com",
     "url": "https://webcoderspeed.com"
   },
   "funding": {
@@ -113,31 +119,49 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
   },
   "lint-staged": {
-    "*.{ts,js,json,md}": [
+    "*.{ts,js}": [
+      "eslint --fix",
       "prettier --write"
     ],
-    "*.{ts,js}": [
-      "eslint --fix"
+    "*.{json,md,yml,yaml,mjs,cjs}": [
+      "prettier --write"
     ]
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
+    "@commitlint/types": "^20.4.4",
     "@eslint/js": "^9.39.2",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-sonarjs": "^4.0.2",
+    "eslint-plugin-unicorn": "^63.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
-    "standard-version": "^9.5.0",
+    "semantic-release": "^24.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
     "tinybench": "^6.0.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   }
 }

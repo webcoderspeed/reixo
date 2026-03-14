@@ -1,5 +1,6 @@
-import { generateKey } from './keys';
 import type { ParamsValue } from './http';
+import { internalWarn } from './internal-log';
+import { generateKey } from './keys';
 
 export interface CacheEntry<T> {
   data: T;
@@ -101,7 +102,7 @@ export class WebStorageAdapter implements StorageAdapter {
     try {
       this.storage.setItem(this.getKey(key), JSON.stringify(entry));
     } catch (e) {
-      console.warn('Failed to save to storage', e);
+      internalWarn('Failed to save to storage', e);
     }
   }
 
@@ -117,7 +118,7 @@ export class WebStorageAdapter implements StorageAdapter {
         keysToRemove.push(key);
       }
     }
-    keysToRemove.forEach((key) => this.storage.removeItem(key));
+    for (const key of keysToRemove) this.storage.removeItem(key);
   }
 
   size(): number {
@@ -168,8 +169,8 @@ export class CacheManager {
       try {
         this.adapter = new WebStorageAdapter(options.storage, options.keyPrefix);
       } catch {
-        console.warn(
-          `[Reixo] ${options.storage}Storage not available — falling back to MemoryAdapter. ` +
+        internalWarn(
+          `${options.storage}Storage not available — falling back to MemoryAdapter. ` +
             `This is expected in SSR/Node environments.`
         );
         this.adapter = new MemoryAdapter(options.maxEntries || 100);

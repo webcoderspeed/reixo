@@ -1,5 +1,6 @@
-import { BatchProcessor, BatchOptions } from './batch';
-import { HTTPOptions, HTTPResponse } from './http';
+import type { BatchOptions } from './batch';
+import { BatchProcessor } from './batch';
+import type { HTTPOptions, HTTPResponse } from './http';
 
 export interface BatchRequestItem {
   url: string;

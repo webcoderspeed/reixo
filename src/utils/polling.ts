@@ -1,3 +1,4 @@
+import { internalError } from './internal-log';
 import { delay } from './timing';
 
 /**
@@ -180,7 +181,7 @@ export class PollingController<T = unknown> {
             throw error;
           }
         } else {
-          console.error('Polling task error:', error);
+          internalError('Polling task error:', error);
         }
 
         if (!this.isRunning) return;

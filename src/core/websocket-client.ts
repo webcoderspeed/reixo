@@ -1,5 +1,5 @@
+import type { RetryOptions } from '../types/index';
 import { EventEmitter } from '../utils/emitter';
-import { RetryOptions } from '../types/index';
 import { delay } from '../utils/timing';
 
 /**

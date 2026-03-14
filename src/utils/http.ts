@@ -1,8 +1,8 @@
-import { RetryOptions } from '../types';
-import { withRetry, RetryError } from './retry';
-import { isTransientNetworkError } from './network-errors';
-import { CacheOptions } from './cache';
+import type { RetryOptions } from '../types';
 import type { HeadersWithSuggestions } from '../types/http-well-known';
+import type { CacheOptions } from './cache';
+import { isTransientNetworkError } from './network-errors';
+import { RetryError, withRetry } from './retry';
 
 /**
  * All valid HTTP methods as a string-literal union.
@@ -495,11 +495,10 @@ export async function http<T = unknown>(
   //   { page: 2 }                       → "page=2"
   //   { tags: ['a','b'] }               → "tags=a&tags=b"
   //   { filter: { status: 'active' } }  → "filter[status]=active"
-  const query = params
-    ? paramsSerializer
-      ? paramsSerializer(params)
-      : serializeParams(params)
-    : '';
+  let query = '';
+  if (params) {
+    query = paramsSerializer ? paramsSerializer(params) : serializeParams(params);
+  }
 
   const separator = baseUrlWithUrl.includes('?') ? '&' : '?';
   const fullUrl = params ? `${baseUrlWithUrl}${separator}${query}` : baseUrlWithUrl;
@@ -595,7 +594,7 @@ export async function http<T = unknown>(
         if (options.onDownloadProgress && response.body && typeof TransformStream !== 'undefined') {
           // Wrap stream for progress without buffering
           const contentLength = response.headers.get('Content-Length');
-          const total = contentLength ? parseInt(contentLength, 10) : null;
+          const total = contentLength ? Number.parseInt(contentLength, 10) : null;
           let loaded = 0;
 
           const transformStream = new TransformStream<Uint8Array, Uint8Array>({
@@ -619,7 +618,7 @@ export async function http<T = unknown>(
           // Handle download progress with buffering
           const reader = (response.body as ReadableStream<Uint8Array>).getReader();
           const contentLength = response.headers.get('Content-Length');
-          const total = contentLength ? parseInt(contentLength, 10) : null;
+          const total = contentLength ? Number.parseInt(contentLength, 10) : null;
           let loaded = 0;
           const chunks: Uint8Array[] = [];
 
@@ -748,13 +747,12 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
 
     if (options.headers) {
       if (typeof Headers !== 'undefined' && options.headers instanceof Headers) {
-        options.headers.forEach((value, key) => xhr.setRequestHeader(key, value));
+        for (const [key, value] of options.headers.entries()) xhr.setRequestHeader(key, value);
       } else if (Array.isArray(options.headers)) {
-        options.headers.forEach(([key, value]) => xhr.setRequestHeader(key, value));
+        for (const [key, value] of options.headers) xhr.setRequestHeader(key, value);
       } else {
-        Object.entries(options.headers).forEach(([key, value]) =>
-          xhr.setRequestHeader(key, value as string)
-        );
+        for (const [key, value] of Object.entries(options.headers))
+          xhr.setRequestHeader(key, value as string);
       }
     }
 
@@ -778,28 +776,27 @@ async function xhrRequest<T>(url: string, options: HTTPOptions): Promise<HTTPRes
             .getAllResponseHeaders()
             .trim()
             .split(/[\r\n]+/);
-          headerLines.forEach((line) => {
+          for (const line of headerLines) {
             const parts = line.split(': ');
             const key = parts.shift();
             const value = parts.join(': ');
             if (key) headers.append(key, value);
-          });
+          }
           return headers;
         } else {
           // Headers API unavailable (very old environments).
           // Build a plain object with lowercased keys — structurally close enough
           // for callers that iterate entries, while avoiding a broken Map cast.
           const raw: Record<string, string> = {};
-          xhr
+          for (const line of xhr
             .getAllResponseHeaders()
             .trim()
-            .split(/[\r\n]+/)
-            .forEach((line) => {
-              const colonIdx = line.indexOf(': ');
-              if (colonIdx > -1) {
-                raw[line.slice(0, colonIdx).toLowerCase()] = line.slice(colonIdx + 2);
-              }
-            });
+            .split(/[\r\n]+/)) {
+            const colonIdx = line.indexOf(': ');
+            if (colonIdx > -1) {
+              raw[line.slice(0, colonIdx).toLowerCase()] = line.slice(colonIdx + 2);
+            }
+          }
           return raw as unknown as Headers;
         }
       })();

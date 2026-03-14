@@ -66,13 +66,13 @@ export class BatchProcessor<T, R> {
         throw new Error('Batch processor result length mismatch');
       }
 
-      currentBatch.forEach((batchItem, index) => {
-        batchItem.resolve(results[index]);
-      });
+      for (const [index, batchItem] of currentBatch.entries()) {
+        batchItem.resolve(results[index] as R);
+      }
     } catch (error) {
-      currentBatch.forEach((batchItem) => {
+      for (const batchItem of currentBatch) {
         batchItem.reject(error);
-      });
+      }
     }
   }
 }

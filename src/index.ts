@@ -1,76 +1,76 @@
 // Core public API - these are the main exports users should use
+export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
 export { HTTPBuilder, HTTPClient } from './core/http-client';
+export { SSEClient } from './core/sse-client';
+export { WebSocketClient } from './core/websocket-client';
 export {
-  HTTPError,
-  ValidationError,
-  NetworkError,
-  TimeoutError,
   AbortError,
   CircuitOpenError,
+  HTTPError,
+  NetworkError,
+  TimeoutError,
+  ValidationError,
 } from './utils/http';
-export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
-export { WebSocketClient } from './core/websocket-client';
-export { SSEClient } from './core/sse-client';
 
 // Advanced utilities (exported but users might not need them directly)
-export { TaskQueue } from './utils/queue';
-export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { createAuthInterceptor } from './utils/auth';
 export { BatchProcessor } from './utils/batch';
-export { poll, PollingController } from './utils/polling';
+export { CircuitBreaker, CircuitState } from './utils/circuit-breaker';
 export { InfiniteQuery } from './utils/infinite-query';
+export { poll, PollingController } from './utils/polling';
+export { TaskQueue } from './utils/queue';
 
 // Internal utilities (exported for advanced usage but not typically needed)
-export { withRetry, RetryError } from './utils/retry';
-export { http } from './utils/http';
-export { MockAdapter } from './utils/mock-adapter';
-export { ConsoleLogger, LogLevel } from './utils/logger';
-export type { ConsoleLoggerOptions } from './utils/logger';
-export { NetworkMonitor } from './utils/network';
 export { createBatchTransport } from './utils/batch-transport';
-export { paginate } from './utils/pagination';
-export type { PaginationOptions } from './utils/pagination';
 export { CacheManager, MemoryAdapter, WebStorageAdapter } from './utils/cache';
-export { RateLimiter } from './utils/rate-limiter';
+export { http } from './utils/http';
+export type { ConsoleLoggerOptions } from './utils/logger';
+export { ConsoleLogger, LogLevel } from './utils/logger';
 export { MetricsCollector } from './utils/metrics';
+export { MockAdapter } from './utils/mock-adapter';
+export { NetworkMonitor } from './utils/network';
+export type { PaginationOptions } from './utils/pagination';
+export { paginate } from './utils/pagination';
+export { AsyncPipeline, Pipeline } from './utils/pipeline';
+export { RateLimiter } from './utils/rate-limiter';
 export { NetworkRecorder } from './utils/recorder';
-export { Pipeline, AsyncPipeline } from './utils/pipeline';
+export { RetryError, withRetry } from './utils/retry';
 export { createTraceInterceptor } from './utils/tracing';
 // New next-gen utilities
-export { createOTelInterceptor, parseTraceparent, formatTraceparent } from './utils/otel';
-export { RequestDeduplicator, buildDedupKey, DEDUP_SAFE_METHODS } from './utils/dedup';
+export { err, mapResult, ok, toResult, unwrap, unwrapOr } from './types/result';
+export { buildDedupKey, DEDUP_SAFE_METHODS, RequestDeduplicator } from './utils/dedup';
 export {
-  isTransientNetworkError,
+  classifyNetworkError,
   isDnsError,
   isTimeoutError,
-  classifyNetworkError,
+  isTransientNetworkError,
   TRANSIENT_NETWORK_CODES,
 } from './utils/network-errors';
+export { createOTelInterceptor, formatTraceparent, parseTraceparent } from './utils/otel';
 export {
   detectRuntime,
   getRuntimeCapabilities,
   isBrowser,
-  isNode,
   isEdgeRuntime,
+  isNode,
 } from './utils/runtime';
-export { ok, err, toResult, mapResult, unwrap, unwrapOr } from './types/result';
 export { ResumableUploader } from './utils/upload';
 
 // Reixo namespace for public API
+import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
 import { HTTPBuilder as _HTTPBuilder, HTTPClient as _HTTPClient } from './core/http-client';
-import { TaskQueue as _TaskQueue } from './utils/queue';
+import { SSEClient as _SSEClient } from './core/sse-client';
+import { WebSocketClient as _WebSocketClient } from './core/websocket-client';
+import { createAuthInterceptor as _createAuthInterceptor } from './utils/auth';
+import { BatchProcessor as _BatchProcessor } from './utils/batch';
 import {
   CircuitBreaker as _CircuitBreaker,
   CircuitState as _CircuitState,
 } from './utils/circuit-breaker';
-import { BatchProcessor as _BatchProcessor } from './utils/batch';
-import { createAuthInterceptor as _createAuthInterceptor } from './utils/auth';
 import { HTTPError as _HTTPError } from './utils/http';
-import { GraphQLClient as _GraphQLClient } from './core/graphql-client';
-import { WebSocketClient as _WebSocketClient } from './core/websocket-client';
-import { SSEClient as _SSEClient } from './core/sse-client';
-import { poll as _poll } from './utils/polling';
 import { InfiniteQuery as _InfiniteQuery } from './utils/infinite-query';
+import { poll as _poll } from './utils/polling';
+import { TaskQueue as _TaskQueue } from './utils/queue';
 
 export const Reixo = {
   HTTPBuilder: _HTTPBuilder,
@@ -89,54 +89,54 @@ export const Reixo = {
 };
 
 // Types
-export type { RetryOptions, RetryResult, QueueOptions, QueueTask } from './types';
 export type {
-  HTTPOptions,
-  HTTPResponse,
-  HTTPMethod,
-  ValidationSchema,
-  ParamsValue,
-  ParamScalar,
-  CacheMetadata,
-} from './utils/http';
-export type {
+  BodyData,
   HTTPClientConfig,
-  RequestInterceptor,
-  ResponseInterceptor,
-  // Strict body / meta types
-  JsonPrimitive,
   JsonArray,
   JsonObject,
+  // Strict body / meta types
+  JsonPrimitive,
   JsonValue,
-  BodyData,
   LogMeta,
+  RequestInterceptor,
+  ResponseInterceptor,
   // Re-export Result from http-client (used by tryGet/tryPost/etc. return types)
 } from './core/http-client';
-export type { BatchOptions } from './utils/batch';
-export type { CircuitBreakerOptions } from './utils/circuit-breaker';
-export type { AuthConfig } from './utils/auth';
-export type { BatchTransportConfig, BatchRequestItem } from './utils/batch-transport';
-export type { WebSocketConfig, WebSocketEvents } from './core/websocket-client';
 export type { SSEConfig, SSEEvents } from './core/sse-client';
-export type { PollingOptions } from './utils/polling';
-export type { InfiniteQueryOptions, InfiniteData } from './utils/infinite-query';
-export type { CacheOptions, CacheEntry, StorageAdapter } from './utils/cache';
-export type { PersistentQueueOptions, QueueEvents } from './utils/queue';
+export type { WebSocketConfig, WebSocketEvents } from './core/websocket-client';
+export type { QueueOptions, QueueTask, RetryOptions, RetryResult } from './types';
+export type { AuthConfig } from './utils/auth';
+export type { BatchOptions } from './utils/batch';
+export type { BatchRequestItem, BatchTransportConfig } from './utils/batch-transport';
+export type { CacheEntry, CacheOptions, StorageAdapter } from './utils/cache';
+export type { CircuitBreakerOptions } from './utils/circuit-breaker';
+export type {
+  CacheMetadata,
+  HTTPMethod,
+  HTTPOptions,
+  HTTPResponse,
+  ParamScalar,
+  ParamsValue,
+  ValidationSchema,
+} from './utils/http';
+export type { InfiniteData, InfiniteQueryOptions } from './utils/infinite-query';
 export type { Metrics, RequestMetrics } from './utils/metrics';
-export type { RecordedRequest } from './utils/recorder';
-export type { TransformFn } from './utils/pipeline';
-export type { TracingConfig } from './utils/tracing';
 export type { MockResponseData } from './utils/mock-adapter';
+export type { TransformFn } from './utils/pipeline';
+export type { PollingOptions } from './utils/polling';
+export type { PersistentQueueOptions, QueueEvents } from './utils/queue';
+export type { RecordedRequest } from './utils/recorder';
+export type { TracingConfig } from './utils/tracing';
 // New next-gen types
-export type { Result, Ok, Err } from './types/result';
-export type { OTelConfig, SpanContext, OTelSpanHooks } from './utils/otel';
+export type { Err, Ok, Result } from './types/result';
 export type { DedupStats } from './utils/dedup';
 export type { NetworkErrorClass } from './utils/network-errors';
-export type { RuntimeName, RuntimeCapabilities } from './utils/runtime';
+export type { OTelConfig, OTelSpanHooks, SpanContext } from './utils/otel';
+export type { RuntimeCapabilities, RuntimeName } from './utils/runtime';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {
-  KnownRequestHeader,
   HeadersRecord,
   HeadersWithSuggestions,
+  KnownRequestHeader,
   MimeType,
 } from './types/http-well-known';

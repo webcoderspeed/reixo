@@ -1,4 +1,4 @@
-import { RetryOptions, RetryResult } from '../types';
+import type { RetryOptions, RetryResult } from '../types';
 import { isTransientNetworkError } from './network-errors';
 
 export { isTransientNetworkError };
@@ -108,6 +108,7 @@ function calculateDelay(
   if (jitter) {
     // Apply ±50 % jitter as documented to spread retries across time
     const jitterAmount = baseDelay * 0.5;
+    // eslint-disable-next-line sonarjs/pseudo-random -- jitter is not security-sensitive
     return baseDelay - jitterAmount + Math.random() * jitterAmount * 2;
   }
 

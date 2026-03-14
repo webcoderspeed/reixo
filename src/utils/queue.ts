@@ -1,6 +1,8 @@
-import { QueueOptions, QueueTask } from '../types';
+import type { QueueOptions, QueueTask } from '../types';
+import type { StorageAdapter } from './cache';
+import { MemoryAdapter, WebStorageAdapter } from './cache';
 import { EventEmitter } from './emitter';
-import { StorageAdapter, WebStorageAdapter, MemoryAdapter } from './cache';
+import { internalWarn } from './internal-log';
 import { NetworkMonitor } from './network';
 
 export interface PersistentQueueOptions extends QueueOptions {
@@ -53,9 +55,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
         try {
           this.storage = new WebStorageAdapter(options.storage);
         } catch {
-          console.warn(
-            `[Reixo] ${options.storage}Storage not available — falling back to MemoryAdapter.`
-          );
+          internalWarn(`${options.storage}Storage not available — falling back to MemoryAdapter.`);
           this.storage = new MemoryAdapter();
         }
       } else {
@@ -227,6 +227,30 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
 
   public get isQueuePaused(): boolean {
     return this.isPaused;
+  }
+
+  /**
+   * Returns a Promise that resolves when the queue has no more pending or
+   * active tasks.
+   *
+   * If the queue is already empty and idle, the Promise resolves immediately.
+   * Useful for "wait until all uploads finish before navigating away" patterns.
+   *
+   * @example
+   * queue.add(() => uploadFile(file));
+   * await queue.drain(); // wait for all tasks to complete
+   */
+  public drain(): Promise<void> {
+    if (this.queue.length === 0 && this.activeCount === 0) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      const onDrain = () => {
+        this.off('queue:drain', onDrain);
+        resolve();
+      };
+      this.on('queue:drain', onDrain);
+    });
   }
 
   public async *[Symbol.asyncIterator](): AsyncIterator<unknown> {

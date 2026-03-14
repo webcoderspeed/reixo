@@ -1,5 +1,8 @@
-import type { Agent as HttpAgent } from 'http';
-import type { Agent as HttpsAgent } from 'https';
+import type { Agent as HttpAgent } from 'node:http';
+import type { Agent as HttpsAgent } from 'node:https';
+
+/** PEM-encoded certificate/key content, as string or raw Buffer. */
+type PemValue = string | Buffer | Array<string | Buffer>;
 
 export interface ConnectionPoolOptions {
   maxSockets?: number;
@@ -8,9 +11,9 @@ export interface ConnectionPoolOptions {
   timeout?: number;
   // TLS/SSL Options
   rejectUnauthorized?: boolean;
-  ca?: string | Buffer | Array<string | Buffer>;
-  cert?: string | Buffer | Array<string | Buffer>;
-  key?: string | Buffer | Array<string | Buffer>;
+  ca?: PemValue;
+  cert?: PemValue;
+  key?: PemValue;
   passphrase?: string;
   secureProtocol?: string;
 }
@@ -43,7 +46,7 @@ export class ConnectionPool {
 
     if (!this.httpAgent) {
       try {
-        const http = await import('http');
+        const http = await import('node:http');
         this.httpAgent = new http.Agent(this.options);
       } catch {
         // Ignore if http module is not available
@@ -62,7 +65,7 @@ export class ConnectionPool {
 
     if (!this.httpsAgent) {
       try {
-        const https = await import('https');
+        const https = await import('node:https');
         this.httpsAgent = new https.Agent(this.options);
       } catch {
         // Ignore if https module is not available

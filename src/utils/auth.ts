@@ -1,6 +1,19 @@
-import { HTTPClient } from '../core/http-client';
-import { HTTPOptions, HTTPError } from './http';
+import type { HTTPClient } from '../core/http-client';
 import type { KnownRequestHeader } from '../types/http-well-known';
+import type { HTTPError, HTTPOptions } from './http';
+
+/**
+ * Type guard for HTTPError.
+ * Replaces the unsafe `error as HTTPError` cast in the 401 interceptor.
+ */
+function isHTTPError(error: unknown): error is HTTPError {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'status' in error &&
+    typeof (error as Record<string, unknown>)['status'] === 'number'
+  );
+}
 
 export interface AuthConfig {
   /**
@@ -48,13 +61,13 @@ export function createAuthInterceptor(client: HTTPClient, config: AuthConfig): v
   }> = [];
 
   const processQueue = (error: unknown, token: string | null = null) => {
-    failedQueue.forEach((prom) => {
+    for (const prom of failedQueue) {
       if (error) {
         prom.reject(error);
       } else {
         prom.resolve(token!);
       }
-    });
+    }
     failedQueue = [];
   };
 
@@ -90,7 +103,13 @@ export function createAuthInterceptor(client: HTTPClient, config: AuthConfig): v
   // Response Interceptor: Handle 401
   client.interceptors.response.push({
     onRejected: async (error: unknown) => {
-      const httpError = error as HTTPError;
+      // Type-safe guard: only proceed if this is genuinely an HTTPError.
+      // A direct `as HTTPError` cast is unsafe — the error could be a plain Error,
+      // a string, or any other rejection value.
+      if (!isHTTPError(error)) {
+        return Promise.reject(error);
+      }
+      const httpError = error;
       const originalRequest = httpError.config as HTTPOptions & { _retry?: boolean };
 
       if (httpError.status === 401 && !originalRequest._retry) {

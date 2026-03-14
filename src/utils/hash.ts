@@ -1,3 +1,5 @@
+import { internalWarn } from './internal-log';
+
 /**
  * Computes a SHA-256 hash of the given string.
  * Works in both modern Browsers and Node.js (16+).
@@ -18,10 +20,10 @@ export async function sha256(message: string): Promise<string> {
   // But usually bundlers handle 'crypto' import for Node.
   try {
     // Dynamic import to avoid build errors in browser if not polyfilled
-    const { createHash } = await import('crypto');
+    const { createHash } = await import('node:crypto');
     return createHash('sha256').update(message).digest('hex');
   } catch {
-    console.warn('SHA-256 hashing requires crypto API. Falling back to simple hash (non-secure).');
+    internalWarn('SHA-256 hashing requires crypto API. Falling back to simple hash (non-secure).');
     return simpleHash(message);
   }
 }
