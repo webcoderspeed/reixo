@@ -36,3 +36,4 @@ Thumbs.db
 
 # Build artifacts
 tsup.config.bundled*.mjs
+playground/dist/
