@@ -10,12 +10,26 @@ export default [
   // ── Ignore patterns ────────────────────────────────────────────
   {
     ignores: [
+      // Build outputs
       'dist/',
-      'node_modules/',
+      'release/',
       'coverage/',
-      'playground/', // dev playground, not library code
-      'examples/', // demo scripts — intentionally loose code
-      'benchmarks/', // perf scripts — not production code
+      // Dependencies
+      'node_modules/',
+      // Dev / demo / perf — not library code
+      'playground/',
+      'examples/',
+      'benchmarks/',
+      // Docs and scratch
+      'docs/',
+      'todos/',
+      // Generated declaration files
+      '**/*.d.ts',
+      // tsup generates temp bundled config files in root
+      'tsup.config.bundled_*.mjs',
+      // Root config files that don't need linting
+      'commitlint.config.mjs',
+      'vitest.config.ts',
     ],
   },
 
