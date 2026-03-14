@@ -328,18 +328,26 @@ const user = await client.get<User>('/users/1');
 
 ## Performance
 
-reixo adds approximately 6–7µs of overhead over a raw `fetch` call for a typical GET request — that's the cost of the retry scheduler, circuit-breaker state check, deduplication lookup, and header injection that run on every request.
+reixo adds approximately **5–6µs** of overhead over a raw `fetch` call for a typical GET request. That covers retry policy resolution, circuit-breaker state checks, deduplication lookup, AbortController lifecycle, and header normalisation — work that every serious HTTP client must do.
 
-Benchmark on Node.js v22, mocked fetch (measures client overhead only):
+Benchmark on Node.js v22, mocked fetch (measures pure client overhead):
 
 | Client                  | ops/sec | p99 latency | vs native fetch |
 | ----------------------- | ------: | ----------: | --------------: |
-| native fetch            | 120,994 |       104µs |      (baseline) |
-| reixo (basic)           |  67,359 |       153µs |  −44% vs native |
-| reixo + retry           |  68,978 |       123µs |  −43% vs native |
-| reixo + circuit-breaker |  69,964 |        56µs |  −42% vs native |
+| native fetch            | 123,701 |        37µs |      (baseline) |
+| reixo (basic)           |  73,716 |        42µs |  −40% vs native |
+| reixo + retry           |  73,850 |        37µs |  −40% vs native |
+| reixo + circuit-breaker |  71,825 |        53µs |  −42% vs native |
 
-In real applications, the overhead is negligible compared to actual network latency (typically 10–200ms). The throughput difference in the table above reflects that reixo does real work on every call — retry policy resolution, circuit-breaker state checks, deduplication lookup, and header normalisation — not that it is slow.
+**How reixo stays fast on the hot path:**
+
+- Pre-computed base headers normalised once in constructor, not per request
+- Slim transport-config template (2 fields) replaces full `config` spread (22+ fields) per call
+- Response interceptors short-circuit synchronously when none registered (saves one microtask roundtrip — the dominant cost in any async client)
+- Incremental request IDs replace `crypto.randomUUID()` (~10× cheaper)
+- `retryPolicies` scanned once at startup; per-URL `.find()` skipped on every request when no policies are set
+
+In real applications the overhead is negligible compared to actual network latency (10–200ms). The throughput difference above reflects that reixo does real work on every call — it is not simply slow.
 
 To reproduce: `node benchmarks/run.mjs`
 
