@@ -12,6 +12,14 @@
   <a href="https://github.com/webcoderspeed/reixo/actions/workflows/ci.yml"><img src="https://github.com/webcoderspeed/reixo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"/></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.0%2B-blue" alt="TypeScript"/></a>
+  <a href="https://webcoderspeed.github.io/reixo/"><img src="https://img.shields.io/badge/website-webcoderspeed.github.io-0ea5e9" alt="website"/></a>
+</p>
+
+<p align="center">
+  <a href="https://webcoderspeed.github.io/reixo/"><strong>Website</strong></a> &middot;
+  <a href="https://github.com/webcoderspeed/reixo">GitHub</a> &middot;
+  <a href="https://www.npmjs.com/package/reixo">npm</a> &middot;
+  <a href="https://github.com/webcoderspeed/reixo/issues">Issues</a>
 </p>
 
 ---

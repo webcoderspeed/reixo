@@ -95,10 +95,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean --sourcemap",
-    "postbuild": "rm -f tsup.config.bundled_*.mjs",
+    "build": "tsdown",
     "build:playground": "esbuild src/index.ts --bundle --format=iife --global-name=Reixo --outfile=playground/dist/reixo.js --platform=browser --minify",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -121,7 +120,7 @@
     "type": "git",
     "url": "git+https://github.com/webcoderspeed/reixo.git"
   },
-  "homepage": "https://github.com/webcoderspeed/reixo",
+  "homepage": "https://webcoderspeed.github.io/reixo/",
   "bugs": {
     "url": "https://github.com/webcoderspeed/reixo/issues"
   },
@@ -179,7 +178,7 @@
     "@size-limit/preset-small-lib": "^11.0.0",
     "size-limit": "^11.0.0",
     "tinybench": "^6.0.0",
-    "tsup": "^8.5.1",
+    "tsdown": "^0.12.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
