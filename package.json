@@ -76,6 +76,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean --sourcemap",
+    "postbuild": "rm -f tsup.config.bundled_*.mjs",
     "build:playground": "esbuild src/index.ts --bundle --format=iife --global-name=Reixo --outfile=playground/dist/reixo.js --platform=browser --minify",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
