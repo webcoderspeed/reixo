@@ -90,6 +90,7 @@
     "demo": "npx tsx examples/demo.ts",
     "benchmark": "npm run build && node benchmarks/run.mjs",
     "benchmark:realtime": "npx tsx benchmarks/realtime.ts",
+    "size": "size-limit",
     "prepublishOnly": "npm run build && npm run test && npm run lint && npm run lint:check && npm run typecheck",
     "prepare": "husky install",
     "commit": "cz",
@@ -154,6 +155,8 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "conventional-changelog-conventionalcommits": "^8.0.0",
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "size-limit": "^11.0.0",
     "tinybench": "^6.0.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
@@ -164,5 +167,17 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
-  }
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.mjs",
+      "name": "ESM (gzipped)",
+      "limit": "100 KB"
+    },
+    {
+      "path": "dist/index.js",
+      "name": "CJS (gzipped)",
+      "limit": "100 KB"
+    }
+  ]
 }
