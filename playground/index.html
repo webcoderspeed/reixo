@@ -1,1334 +1,1074 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reixo — Interactive Playground</title>
-  <script src="dist/reixo.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>reixo — The TypeScript HTTP Client You'll Never Replace</title>
+  <meta name="description" content="reixo is a TypeScript HTTP client with Result&lt;T,E&gt; type-safe returns, retry, circuit breaker, request deduplication, OpenTelemetry, WebSocket, SSE, GraphQL — all in one package.">
+  <meta name="keywords" content="reixo, typescript http client, axios alternative, fetch wrapper, retry, circuit breaker, opentelemetry, graphql client, nodejs, bun, deno">
+  <meta name="author" content="webcoderspeed">
+  <link rel="canonical" href="https://webcoderspeed.github.io/reixo/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://webcoderspeed.github.io/reixo/">
+  <meta property="og:title" content="reixo — TypeScript HTTP Client">
+  <meta property="og:description" content="reixo is a TypeScript HTTP client with Result&lt;T,E&gt; type-safe returns, retry, circuit breaker, request deduplication, OpenTelemetry, WebSocket, SSE, GraphQL — all in one package.">
+  <meta property="og:image" content="https://webcoderspeed.github.io/reixo/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="reixo — TypeScript HTTP Client">
+  <meta name="twitter:description" content="Result&lt;T,E&gt; returns, retry, circuit breaker, dedup, cache, GraphQL, WebSocket, SSE — zero extra packages.">
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "reixo",
+    "description": "TypeScript HTTP client with Result<T,E> returns, retry, circuit breaker, request deduplication, OpenTelemetry, WebSocket, SSE, GraphQL",
+    "version": "2.1.12",
+    "url": "https://webcoderspeed.github.io/reixo/",
+    "downloadUrl": "https://www.npmjs.com/package/reixo",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": ["Node.js", "Bun", "Deno", "Browser"],
+    "author": {
+      "@type": "Organization",
+      "name": "webcoderspeed"
+    },
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d2e;
-      --surface2: #242741;
-      --border: #2e3250;
-      --accent: #6366f1;
-      --accent2: #818cf8;
-      --green: #22c55e;
-      --red: #ef4444;
-      --yellow: #eab308;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --code-bg: #0d0f1a;
-      --radius: 8px;
-      --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+      --bg-dark: #080810;
+      --accent-start: #6366f1;
+      --accent-end: #8b5cf6;
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --border-subtle: rgba(255, 255, 255, 0.1);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       line-height: 1.6;
-      min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    /* ── Header ── */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 56px;
+    /* Animated Gradient Background */
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    .hero-gradient-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, #080810, #6366f1 25%, #8b5cf6 50%, #080810 75%);
+      background-size: 300% 300%;
+      animation: gradientShift 8s ease infinite;
+      opacity: 0.3;
+      z-index: 0;
+    }
+
+    .hero-blob {
+      position: absolute;
+      filter: blur(90px);
+      opacity: 0.3;
+      mix-blend-mode: screen;
+    }
+
+    .blob-1 {
+      width: 400px;
+      height: 400px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      top: -100px;
+      right: -100px;
+      animation: float 8s ease-in-out infinite;
+    }
+
+    .blob-2 {
+      width: 300px;
+      height: 300px;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      bottom: -50px;
+      left: -50px;
+      animation: float 10s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translate(0, 0);
+      }
+      33% {
+        transform: translate(30px, -50px);
+      }
+      66% {
+        transform: translate(-20px, 20px);
+      }
+    }
+
+    /* Glassmorphism */
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+    }
+
+    .glass:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Gradient Text */
+    .gradient-text {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Scroll Animations */
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(2rem);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .fade-in-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Tabs */
+    .tab-button {
+      position: relative;
+      padding: 0.75rem 1.5rem;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    .tab-button.active {
+      color: var(--text-primary);
+    }
+
+    .tab-button.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Code Block */
+    .code-block {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .code-block pre {
+      margin: 0;
+      background: none;
+    }
+
+    .code-block code {
+      background: none;
+      border-radius: 0;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    /* Counter Animation */
+    .counter {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Checkbox & X icons */
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      color: #10b981;
+      stroke-width: 2.5;
+    }
+
+    .x-icon {
+      width: 20px;
+      height: 20px;
+      color: #6b7280;
+      stroke-width: 2.5;
+    }
+
+    /* Sticky Nav */
+    nav {
       position: sticky;
       top: 0;
-      z-index: 10;
-    }
-    .logo { display: flex; align-items: center; gap: 10px; }
-    .logo-mark {
-      width: 28px; height: 28px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 13px; color: white;
-    }
-    .logo-text { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-    .logo-badge {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px 10px;
-      font-size: 11px;
-      color: var(--muted);
-    }
-    header nav { display: flex; gap: 16px; align-items: center; }
-    header nav a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 13px;
-      transition: color 0.15s;
-    }
-    header nav a:hover { color: var(--text); }
-
-    /* ── Layout ── */
-    .layout {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      min-height: calc(100vh - 56px);
+      z-index: 50;
+      background: rgba(8, 8, 16, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-subtle);
     }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 16px 0;
-      position: sticky;
-      top: 56px;
-      height: calc(100vh - 56px);
-      overflow-y: auto;
-    }
-    .sidebar-section {
-      padding: 4px 16px 8px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-    .sidebar-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      cursor: pointer;
-      border-radius: 0;
-      color: var(--muted);
-      font-size: 13px;
-      transition: all 0.12s;
-      border-left: 2px solid transparent;
-    }
-    .sidebar-item:hover { background: var(--surface2); color: var(--text); }
-    .sidebar-item.active {
-      background: rgba(99,102,241,0.12);
-      color: var(--accent2);
-      border-left-color: var(--accent);
-    }
-    .sidebar-item .icon { font-size: 15px; width: 20px; text-align: center; }
-
-    /* ── Main content ── */
-    main { overflow-y: auto; }
-
-    /* ── Demo panel ── */
-    .demo-panel { display: none; padding: 28px; max-width: 900px; }
-    .demo-panel.active { display: block; }
-
-    .demo-header { margin-bottom: 20px; }
-    .demo-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .demo-desc { color: var(--muted); font-size: 13px; line-height: 1.6; }
-
-    /* ── Code block ── */
-    .code-block {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-    .code-header {
-      background: var(--surface2);
-      padding: 8px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    .code-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
-    .copy-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.12s;
-    }
-    .copy-btn:hover { background: var(--surface); color: var(--text); }
-    pre {
-      padding: 16px;
-      overflow-x: auto;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      line-height: 1.7;
-      color: #c9d1d9;
-    }
-
-    /* ── Run button ── */
-    .run-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: var(--radius);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
+    /* Buttons */
+    .btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: background 0.15s;
-      margin-bottom: 16px;
+      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1rem;
     }
-    .run-btn:hover { background: #5457e5; }
-    .run-btn:disabled { background: var(--border); cursor: not-allowed; }
 
-    /* ── Output ── */
-    .output-section { margin-top: 8px; }
-    .output-label {
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 6px;
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 30px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1.5px solid var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Copy Button */
+    .copy-btn {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.5rem;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.5);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
     }
-    .output-status {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--border);
-    }
-    .output-status.running { background: var(--yellow); animation: pulse 1s infinite; }
-    .output-status.success { background: var(--green); }
-    .output-status.error   { background: var(--red); }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .output-box {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.8;
-      min-height: 80px;
-      max-height: 360px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .output-line { display: block; }
-    .output-line.log   { color: #c9d1d9; }
-    .output-line.info  { color: var(--accent2); }
-    .output-line.warn  { color: var(--yellow); }
-    .output-line.error { color: var(--red); }
-    .output-line.success { color: var(--green); }
-    .output-line.dim   { color: var(--muted); }
-    .output-placeholder { color: var(--muted); font-style: italic; }
 
-    /* ── Cards ── */
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
+    .copy-btn:hover {
+      background: rgba(99, 102, 241, 0.3);
+      border-color: rgba(99, 102, 241, 0.8);
     }
-    .card-title { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .card-value { font-size: 22px; font-weight: 700; color: var(--text); }
-    .card-value.green { color: var(--green); }
-    .card-value.red   { color: var(--red); }
 
-    /* ── Divider ── */
-    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .copy-btn.copied {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.5);
+    }
 
-    /* ── Home hero ── */
-    .hero {
-      padding: 48px 28px;
-      max-width: 680px;
+    /* Stats Bars */
+    .stat-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
     }
-    .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 12px; }
-    .hero p  { color: var(--muted); font-size: 15px; line-height: 1.7; margin-bottom: 24px; }
-    .hero-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 32px; }
-    .feat {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      display: flex; align-items: flex-start; gap: 10px;
+
+    .stat-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      border-radius: 4px;
+      animation: fillBar 1s ease-out 0.2s forwards;
+      transform-origin: left;
     }
-    .feat-icon { font-size: 18px; }
-    .feat-text strong { display: block; font-size: 12px; margin-bottom: 2px; }
-    .feat-text span { font-size: 11px; color: var(--muted); }
-    .start-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: var(--radius);
-      font-size: 14px;
+
+    @keyframes fillBar {
+      from {
+        width: 0;
+      }
+      to {
+        width: var(--width);
+      }
+    }
+
+    /* Comparison Table */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .comparison-table th {
+      background: rgba(99, 102, 241, 0.1);
       font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
+      color: var(--text-primary);
     }
-    .start-btn:hover { background: #5457e5; }
 
-    /* ── Syntax highlight tokens ── */
-    .kw  { color: #ff7b72; }
-    .fn  { color: #d2a8ff; }
-    .str { color: #a5d6ff; }
-    .num { color: #79c0ff; }
-    .cm  { color: #8b949e; font-style: italic; }
-    .obj { color: #ffa657; }
+    .comparison-table tr:hover {
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .comparison-table td:first-child {
+      font-weight: 500;
+    }
+
+    /* Number Badge */
+    .number-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 50%;
+      font-weight: 700;
+      margin-right: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .counter {
+        font-size: 2rem;
+      }
+
+      .comparison-table {
+        font-size: 0.9rem;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 0.75rem;
+      }
+    }
+
+    /* Link Styling */
+    a {
+      color: #6366f1;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    a:hover {
+      color: #8b5cf6;
+    }
   </style>
 </head>
-<body>
+<body class="bg-black">
 
-<header>
-  <div class="logo">
-    <div class="logo-mark">R</div>
-    <span class="logo-text">reixo</span>
-    <span class="logo-badge">Playground</span>
-  </div>
-  <nav>
-    <a href="https://github.com/webcoderspeed/reixo" target="_blank">GitHub</a>
-    <a href="https://www.npmjs.com/package/reixo" target="_blank">npm</a>
-    <a href="https://github.com/webcoderspeed/reixo/tree/main/examples" target="_blank">Examples</a>
+  <!-- Navigation -->
+  <nav class="w-full">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <span class="text-white font-bold text-lg">rx</span>
+        </div>
+        <span class="text-lg font-bold text-white">reixo</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="text-xs font-mono bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent font-semibold">v2.1.12</span>
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </a>
+        <a href="https://www.npmjs.com/package/reixo" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors" aria-label="npm">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M1 3h22v18H1V3m3 3v12h3V6H4m4 0v12h3V9h3v9h3V6H8z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
   </nav>
-</header>
 
-<div class="layout">
-  <aside class="sidebar">
-    <div class="sidebar-section">Overview</div>
-    <div class="sidebar-item active" onclick="showPanel('home')" data-panel="home">
-      <span class="icon">🏠</span> Home
-    </div>
+  <!-- Hero Section -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-20">
+    <div class="hero-gradient-bg"></div>
+    <div class="hero-blob blob-1"></div>
+    <div class="hero-blob blob-2"></div>
 
-    <div class="sidebar-section" style="margin-top:8px">Core</div>
-    <div class="sidebar-item" onclick="showPanel('basic')" data-panel="basic">
-      <span class="icon">📡</span> HTTP Requests
-    </div>
-    <div class="sidebar-item" onclick="showPanel('params')" data-panel="params">
-      <span class="icon">🔗</span> Query Params
-    </div>
-    <div class="sidebar-item" onclick="showPanel('errors')" data-panel="errors">
-      <span class="icon">⚠️</span> Error Handling
-    </div>
-    <div class="sidebar-item" onclick="showPanel('cancel')" data-panel="cancel">
-      <span class="icon">🛑</span> Cancellation
-    </div>
+    <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold mb-8 gradient-text fade-in-up">
+        The last HTTP client you'll ever install.
+      </h1>
 
-    <div class="sidebar-section" style="margin-top:8px">Resilience</div>
-    <div class="sidebar-item" onclick="showPanel('retry')" data-panel="retry">
-      <span class="icon">🔄</span> Retry
-    </div>
-    <div class="sidebar-item" onclick="showPanel('circuit')" data-panel="circuit">
-      <span class="icon">⚡</span> Circuit Breaker
-    </div>
+      <p class="text-lg sm:text-xl text-gray-300 mb-12 max-w-3xl mx-auto fade-in-up" style="animation-delay: 0.1s;">
+        TypeScript-first. Result&lt;T,E&gt; returns. Retry, circuit breaker, dedup, cache, GraphQL, WebSocket, SSE — zero extra packages.
+      </p>
 
-    <div class="sidebar-section" style="margin-top:8px">Performance</div>
-    <div class="sidebar-item" onclick="showPanel('cache')" data-panel="cache">
-      <span class="icon">💾</span> Caching
-    </div>
-    <div class="sidebar-item" onclick="showPanel('polling')" data-panel="polling">
-      <span class="icon">🔁</span> Polling
-    </div>
-
-    <div class="sidebar-section" style="margin-top:8px">Developer Tools</div>
-    <div class="sidebar-item" onclick="showPanel('mock')" data-panel="mock">
-      <span class="icon">🎭</span> MockAdapter
-    </div>
-    <div class="sidebar-item" onclick="showPanel('logger')" data-panel="logger">
-      <span class="icon">📋</span> Logging
-    </div>
-    <div class="sidebar-item" onclick="showPanel('metrics')" data-panel="metrics">
-      <span class="icon">📊</span> Metrics
-    </div>
-  </aside>
-
-  <main id="main-content">
-
-    <!-- ── HOME ── -->
-    <div id="panel-home" class="demo-panel active">
-      <div class="hero">
-        <h1>reixo playground</h1>
-        <p>An interactive demo environment for the <strong>reixo</strong> HTTP client library. Every example runs live in your browser against <a href="https://jsonplaceholder.typicode.com" style="color:var(--accent2)">JSONPlaceholder</a> — a free, public REST API.</p>
-
-        <div class="hero-features">
-          <div class="feat"><span class="feat-icon">🔌</span><div class="feat-text"><strong>Zero dependencies</strong><span>Fetch API, no axios, no bloat</span></div></div>
-          <div class="feat"><span class="feat-icon">🎯</span><div class="feat-text"><strong>Fully typed</strong><span>Zero <code>any</code> policy throughout</span></div></div>
-          <div class="feat"><span class="feat-icon">🔄</span><div class="feat-text"><strong>Smart retry</strong><span>Exponential backoff + jitter</span></div></div>
-          <div class="feat"><span class="feat-icon">⚡</span><div class="feat-text"><strong>Circuit breaker</strong><span>Fail-fast with auto-recovery</span></div></div>
-          <div class="feat"><span class="feat-icon">💾</span><div class="feat-text"><strong>Response cache</strong><span>cache-first, SWR, network-first</span></div></div>
-          <div class="feat"><span class="feat-icon">🛑</span><div class="feat-text"><strong>Cancellation</strong><span>Per-request and bulk cancel</span></div></div>
-          <div class="feat"><span class="feat-icon">🎭</span><div class="feat-text"><strong>MockAdapter</strong><span>Test without a real server</span></div></div>
-          <div class="feat"><span class="feat-icon">📋</span><div class="feat-text"><strong>Structured logging</strong><span>JSON format + header redaction</span></div></div>
+      <div class="bg-gray-900 border border-gray-700 rounded-lg p-6 mb-12 max-w-2xl mx-auto relative fade-in-up" style="animation-delay: 0.2s;">
+        <div class="flex items-center justify-center gap-3">
+          <span class="text-gray-400 font-mono text-sm sm:text-base">$ npm install reixo</span>
         </div>
-
-        <button class="start-btn" onclick="showPanel('basic')">Try the first demo →</button>
-      </div>
-    </div>
-
-    <!-- ── BASIC REQUESTS ── -->
-    <div id="panel-basic" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">HTTP Requests</div>
-        <div class="demo-desc">GET, POST, PUT, PATCH, DELETE with typed responses using JSONPlaceholder.</div>
+        <button class="copy-btn" onclick="copyToClipboard('npm install reixo')" title="Copy to clipboard">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+        </button>
       </div>
 
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12 fade-in-up" style="animation-delay: 0.3s;">
+        <a href="#quickstart" class="btn btn-primary">Get Started</a>
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">View on GitHub</a>
+      </div>
+
+      <p class="text-sm text-gray-400 fade-in-up" style="animation-delay: 0.4s;">
+        Used by developers worldwide · MIT License · TypeScript
+      </p>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border-t border-b border-gray-800 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div class="text-center">
+          <div class="counter text-4xl mb-2" data-target="73000">0</div>
+          <p class="text-gray-400 text-sm">req/sec</p>
         </div>
-        <pre><span class="cm">// Build a typed client</span>
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">Reixo</span>.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withTimeout</span>(<span class="num">10000</span>)
-  .<span class="fn">build</span>();
+        <div class="text-center">
+          <div class="text-4xl font-bold mb-2 gradient-text">100%</div>
+          <p class="text-gray-400 text-sm">TypeScript</p>
+        </div>
+        <div class="text-center">
+          <div class="text-4xl font-bold mb-2 gradient-text">0</div>
+          <p class="text-gray-400 text-sm">Dependencies</p>
+        </div>
+        <div class="text-center">
+          <div class="text-4xl font-bold mb-2 gradient-text">MIT</div>
+          <p class="text-gray-400 text-sm">License</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<span class="cm">// GET</span>
-<span class="kw">const</span> user = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users/1'</span>);
-<span class="fn">log</span>(<span class="str">`User: ${user.data.name} &lt;${user.data.email}&gt;`</span>);
+  <!-- Replace 5 Packages Section -->
+  <section class="py-20 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-16 gradient-text fade-in-up">Replace 5 packages with 1</h2>
 
-<span class="cm">// POST</span>
-<span class="kw">const</span> post = <span class="kw">await</span> client.<span class="fn">post</span>(<span class="str">'/posts'</span>, {
-  title: <span class="str">'Hello reixo'</span>,
-  body: <span class="str">'First post'</span>,
-  userId: <span class="num">1</span>
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        <div class="fade-in-up">
+          <h3 class="text-xl font-semibold mb-6 text-gray-300">Before: 5 separate packages</h3>
+          <div class="space-y-3 text-gray-400 font-mono text-sm">
+            <div class="flex items-center gap-2"><span class="text-red-500">x</span> npm install axios</div>
+            <div class="flex items-center gap-2"><span class="text-red-500">x</span> npm install axios-retry</div>
+            <div class="flex items-center gap-2"><span class="text-red-500">x</span> npm install opossum</div>
+            <div class="flex items-center gap-2"><span class="text-red-500">x</span> npm install graphql-request</div>
+            <div class="flex items-center gap-2"><span class="text-red-500">x</span> npm install lru-cache</div>
+          </div>
+        </div>
+
+        <div class="flex justify-center md:order-last">
+          <div class="w-1 h-32 bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full"></div>
+        </div>
+
+        <div class="fade-in-up md:col-start-2">
+          <h3 class="text-xl font-semibold mb-6 text-gray-300">After: Just reixo</h3>
+          <div class="bg-gradient-to-r from-indigo-500/20 to-purple-600/20 border border-indigo-500/50 rounded-lg p-6 text-center font-mono text-sm text-indigo-300">
+            <span class="text-green-500">✓</span> npm install reixo
+          </div>
+          <p class="text-gray-400 text-sm mt-4 text-center">Everything you need. Nothing you don't.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-16 gradient-text fade-in-up">Powerful Features Built In</h2>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Feature 1: Result Type -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">Result&lt;T,E&gt; Returns</h3>
+          <p class="text-gray-400">No try/catch hell. Type-safe error handling that makes your code predictable and maintainable.</p>
+        </div>
+
+        <!-- Feature 2: Retry & Circuit Breaker -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300" style="animation-delay: 0.1s;">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">Smart Retry & Circuit Breaker</h3>
+          <p class="text-gray-400">Exponential backoff, configurable thresholds, and half-open states. Built for real-world reliability.</p>
+        </div>
+
+        <!-- Feature 3: Deduplication -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300" style="animation-delay: 0.2s;">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">Request Deduplication</h3>
+          <p class="text-gray-400">Identical concurrent requests are automatically merged. Save bandwidth and reduce latency.</p>
+        </div>
+
+        <!-- Feature 4: OpenTelemetry -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300" style="animation-delay: 0.3s;">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">OpenTelemetry Tracing</h3>
+          <p class="text-gray-400">Zero-dependency W3C trace context propagation. Observe every request end-to-end.</p>
+        </div>
+
+        <!-- Feature 5: Multiple Protocols -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300" style="animation-delay: 0.4s;">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3L7 20"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">GraphQL + WebSocket + SSE</h3>
+          <p class="text-gray-400">All protocols in one unified API. REST, GraphQL, real-time subscriptions, and more.</p>
+        </div>
+
+        <!-- Feature 6: Offline Queue -->
+        <div class="glass p-8 rounded-xl fade-in-up hover:scale-105 transition-transform duration-300" style="animation-delay: 0.5s;">
+          <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3 text-white">Offline Queue</h3>
+          <p class="text-gray-400">Requests queue automatically when offline. Replay seamlessly when connectivity restores.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Code Showcase Section -->
+  <section class="py-20 bg-gradient-to-b from-indigo-500/5 via-transparent to-purple-600/5">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-4 gradient-text fade-in-up">Built for Real Development</h2>
+      <p class="text-center text-gray-400 mb-16 fade-in-up">Clean, intuitive API that feels natural to TypeScript developers</p>
+
+      <div class="glass rounded-xl overflow-hidden fade-in-up">
+        <!-- Tab Buttons -->
+        <div class="flex border-b border-gray-700 overflow-x-auto">
+          <button class="tab-button active" onclick="switchTab('basic')">Basic Request</button>
+          <button class="tab-button" onclick="switchTab('retry')">Retry Config</button>
+          <button class="tab-button" onclick="switchTab('graphql')">GraphQL</button>
+          <button class="tab-button" onclick="switchTab('react')">React Integration</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-8 code-block">
+          <div id="basic" class="tab-content active">
+            <pre><code class="language-typescript">import { reixo } from 'reixo';
+
+const client = reixo.create({
+  baseURL: 'https://api.example.com'
 });
-<span class="fn">log</span>(<span class="str">`Created post #${post.data.id}`</span>);
 
-<span class="cm">// PATCH</span>
-<span class="kw">const</span> updated = <span class="kw">await</span> client.<span class="fn">patch</span>(<span class="str">'/posts/1'</span>, { title: <span class="str">'Updated'</span> });
-<span class="fn">log</span>(<span class="str">`Patched: ${updated.data.title}`</span>);
+const result = await client.get&lt;User&gt;('/users/1');
 
-<span class="cm">// DELETE</span>
-<span class="kw">const</span> del = <span class="kw">await</span> client.<span class="fn">delete</span>(<span class="str">'/posts/1'</span>);
-<span class="fn">log</span>(<span class="str">`Deleted: status ${del.status}`</span>);
+if (result.ok) {
+  console.log(result.data); // User
+} else {
+  console.error(result.error.code); // typed error
+}</code></pre>
+          </div>
 
-<span class="cm">// HEAD (check resource existence)</span>
-<span class="kw">const</span> head = <span class="kw">await</span> client.<span class="fn">head</span>(<span class="str">'/users/1'</span>);
-<span class="fn">log</span>(<span class="str">`HEAD /users/1 → ${head.status}`</span>);</pre>
-      </div>
-
-      <button class="run-btn" onclick="runDemo('basic')">▶ Run</button>
-
-      <div class="output-section">
-        <div class="output-label">
-          <div class="output-status" id="status-basic"></div>
-          Output
-        </div>
-        <div class="output-box" id="output-basic"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── QUERY PARAMS ── -->
-    <div id="panel-params" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Query Parameters</div>
-        <div class="demo-desc">Flat values, arrays, nested objects, and custom serializers.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">Reixo</span>.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>).<span class="fn">build</span>();
-
-<span class="cm">// Flat key=value</span>
-<span class="kw">const</span> r1 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts'</span>, {
-  params: { userId: <span class="num">1</span>, _limit: <span class="num">3</span> }
-});
-<span class="fn">log</span>(<span class="str">`Posts by user 1: ${r1.data.length} results`</span>);
-
-<span class="cm">// Array params → ?tags=js&amp;tags=ts</span>
-<span class="kw">const</span> url = <span class="kw">new</span> URL(<span class="str">'https://jsonplaceholder.typicode.com/posts'</span>);
-[<span class="str">'js'</span>, <span class="str">'ts'</span>, <span class="str">'api'</span>].<span class="fn">forEach</span>(t => url.searchParams.<span class="fn">append</span>(<span class="str">'tags'</span>, t));
-<span class="fn">log</span>(<span class="str">`Array params URL: ?${url.searchParams.toString()}`</span>);
-
-<span class="cm">// Nested object → ?filter[status]=active&amp;filter[date]=2026-01-01</span>
-<span class="kw">const</span> r2 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts'</span>, {
-  params: { _limit: <span class="num">2</span>, userId: <span class="num">2</span> }
-});
-<span class="fn">log</span>(<span class="str">`Posts by user 2: ${r2.data.map(p => p.id).join(', ')}`</span>);
-
-<span class="cm">// Custom serializer</span>
-<span class="kw">const</span> r3 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users'</span>, {
-  params: { _limit: <span class="num">5</span> },
-  paramsSerializer: (p) => Object.<span class="fn">entries</span>(p)
-    .<span class="fn">map</span>(([k,v]) => <span class="str">`${k}=${v}`</span>).<span class="fn">join</span>(<span class="str">'&amp;'</span>)
-});
-<span class="fn">log</span>(<span class="str">`Custom serializer: ${r3.data.map(u => u.name).join(', ')}`</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('params')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-params"></div>Output</div>
-        <div class="output-box" id="output-params"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── ERROR HANDLING ── -->
-    <div id="panel-errors" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Error Handling</div>
-        <div class="demo-desc">HTTPError, NetworkError, TimeoutError — all with instanceof checks.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, HTTPError, TimeoutError, NetworkError } = Reixo;
-
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withRetry</span>(<span class="kw">false</span>)
-  .<span class="fn">build</span>();
-
-<span class="cm">// 404 → HTTPError</span>
-<span class="kw">try</span> {
-  <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users/9999'</span>);
-} <span class="kw">catch</span> (err) {
-  <span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">HTTPError</span>) {
-    <span class="fn">log</span>(<span class="str">`HTTPError: ${err.status} ${err.statusText}`</span>, <span class="str">'error'</span>);
-    <span class="fn">log</span>(<span class="str">`  URL: ${err.config.url}`</span>, <span class="str">'dim'</span>);
-  }
-}
-
-<span class="cm">// Timeout → TimeoutError</span>
-<span class="kw">const</span> slow = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://httpbin.org'</span>)
-  .<span class="fn">withTimeout</span>(<span class="num">100</span>)  <span class="cm">// 100ms timeout</span>
-  .<span class="fn">withRetry</span>(<span class="kw">false</span>)
-  .<span class="fn">build</span>();
-<span class="kw">try</span> {
-  <span class="kw">await</span> slow.<span class="fn">get</span>(<span class="str">'/delay/5'</span>);
-} <span class="kw">catch</span> (err) {
-  <span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">TimeoutError</span>) {
-    <span class="fn">log</span>(<span class="str">`TimeoutError: ${err.message}`</span>, <span class="str">'warn'</span>);
-  } <span class="kw">else</span> {
-    <span class="fn">log</span>(<span class="str">`Other error: ${err.message}`</span>, <span class="str">'warn'</span>);
-  }
-}
-
-<span class="fn">log</span>(<span class="str">'Error handling complete'</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('errors')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-errors"></div>Output</div>
-        <div class="output-box" id="output-errors"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── CANCELLATION ── -->
-    <div id="panel-cancel" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Request Cancellation</div>
-        <div class="demo-desc">Cancel individual requests by ID, cancel all in-flight requests, and use prefetch handles.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, AbortError } = Reixo;
-
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withRetry</span>(<span class="kw">false</span>)
-  .<span class="fn">build</span>();
-
-<span class="cm">// requestWithId — get an ID you can use to cancel later</span>
-<span class="kw">const</span> { requestId, promise } = client.<span class="fn">requestWithId</span>(<span class="str">'/todos/1'</span>);
-<span class="fn">log</span>(<span class="str">`Started request: ${requestId}`</span>);
-
-<span class="cm">// Cancel it immediately</span>
-client.<span class="fn">cancel</span>(requestId);
-<span class="kw">try</span> {
-  <span class="kw">await</span> promise;
-} <span class="kw">catch</span> (err) {
-  <span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">AbortError</span>) {
-    <span class="fn">log</span>(<span class="str">`Cancelled: ${err.message}`</span>, <span class="str">'warn'</span>);
-  }
-}
-
-<span class="cm">// cancelAll — cancel every in-flight request</span>
-<span class="kw">const</span> req1 = client.<span class="fn">get</span>(<span class="str">'/users/1'</span>);
-<span class="kw">const</span> req2 = client.<span class="fn">get</span>(<span class="str">'/users/2'</span>);
-client.<span class="fn">cancelAll</span>();
-<span class="kw">const</span> results = <span class="kw">await</span> Promise.<span class="fn">allSettled</span>([req1, req2]);
-<span class="fn">log</span>(<span class="str">`cancelAll: ${results.filter(r=>r.status==='rejected').length} cancelled`</span>, <span class="str">'warn'</span>);
-
-<span class="cm">// Prefetch handle</span>
-<span class="kw">const</span> handle = client.<span class="fn">prefetch</span>(<span class="str">'/posts/1'</span>);
-<span class="fn">log</span>(<span class="str">`Prefetch completed: ${handle.completed}`</span>);
-<span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">200</span>));
-<span class="fn">log</span>(<span class="str">`Prefetch completed after wait: ${handle.completed}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('cancel')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-cancel"></div>Output</div>
-        <div class="output-box" id="output-cancel"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── RETRY ── -->
-    <div id="panel-retry" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Retry</div>
-        <div class="demo-desc">Exponential backoff with jitter, selective retry conditions, and RetryError inspection.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> { HTTPBuilder } = Reixo;
-
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withRetry</span>({
-    maxAttempts: <span class="num">3</span>,
-    initialDelayMs: <span class="num">200</span>,
-    backoffFactor: <span class="num">2</span>,
-    jitter: <span class="kw">true</span>,
-    <span class="cm">// Only retry on 5xx and network errors (not 4xx)</span>
-    retryCondition: (err) => {
-      <span class="kw">if</span> (err?.status >= <span class="num">400</span> &amp;&amp; err?.status &lt; <span class="num">500</span>) <span class="kw">return false</span>;
-      <span class="kw">return true</span>;
-    }
-  })
-  .<span class="fn">build</span>();
-
-<span class="cm">// This request succeeds</span>
-<span class="kw">const</span> res = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users/1'</span>);
-<span class="fn">log</span>(<span class="str">`✓ ${res.data.name}`</span>, <span class="str">'success'</span>);
-
-<span class="cm">// 404 is NOT retried (4xx)</span>
-<span class="kw">try</span> {
-  <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users/9999'</span>);
-} <span class="kw">catch</span> (err) {
-  <span class="fn">log</span>(<span class="str">`404 not retried: ${err.status}`</span>, <span class="str">'warn'</span>);
-}
-
-<span class="cm">// withRetry() standalone utility</span>
-<span class="kw">const</span> { withRetry } = Reixo;
-<span class="kw">let</span> attempts = <span class="num">0</span>;
-<span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">withRetry</span>(
-  <span class="kw">async</span> () => {
-    attempts++;
-    <span class="kw">if</span> (attempts &lt; <span class="num">3</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'transient'</span>);
-    <span class="kw">return</span> <span class="str">'success'</span>;
+          <div id="retry" class="tab-content">
+            <pre><code class="language-typescript">const client = reixo.create({
+  baseURL: 'https://api.example.com',
+  retry: {
+    attempts: 3,
+    delay: 'exponential',
+    on: [429, 503],
   },
-  { maxAttempts: <span class="num">5</span>, initialDelayMs: <span class="num">50</span> }
+  circuitBreaker: {
+    threshold: 5,
+    timeout: 30_000,
+  },
+});
+
+// Requests automatically retry on 429/503
+const result = await client.post('/data', { /* ... */ });</code></pre>
+          </div>
+
+          <div id="graphql" class="tab-content">
+            <pre><code class="language-typescript">const { data } = await client.graphql&lt;{
+  user: User
+}&gt;({
+  query: `query GetUser($id: ID!) {
+    user(id: $id) {
+      id
+      name
+      email
+    }
+  }`,
+  variables: { id: '1' },
+});
+
+console.log(data.user.name);</code></pre>
+          </div>
+
+          <div id="react" class="tab-content">
+            <pre><code class="language-typescript">const { data, loading, error } = useReixoQuery&lt;User&gt;(
+  '/users/1'
 );
-<span class="fn">log</span>(<span class="str">`withRetry succeeded after ${attempts} attempts: ${result.value}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('retry')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-retry"></div>Output</div>
-        <div class="output-box" id="output-retry"><span class="output-placeholder">Press Run to execute…</span></div>
+
+if (loading) return &lt;Spinner /&gt;;
+if (error)   return &lt;ErrorBanner message={error.message} /&gt;;
+return &lt;UserCard user={data} /&gt;;</code></pre>
+          </div>
+        </div>
       </div>
     </div>
+  </section>
 
-    <!-- ── CIRCUIT BREAKER ── -->
-    <div id="panel-circuit" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Circuit Breaker</div>
-        <div class="demo-desc">Fail-fast with automatic CLOSED → OPEN → HALF_OPEN → CLOSED state machine.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  <!-- Performance Section -->
+  <section class="py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-4 gradient-text fade-in-up">Performance Built In</h2>
+      <p class="text-center text-gray-400 mb-16 fade-in-up">Optimized from the ground up for speed</p>
+
+      <div class="glass rounded-xl p-8 fade-in-up">
+        <div class="space-y-8">
+          <!-- reixo -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-white">reixo</span>
+              <span class="text-indigo-400 font-mono font-bold">73K ops/sec</span>
+            </div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="--width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- ky -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-gray-400">ky</span>
+              <span class="text-gray-400 font-mono">80K ops/sec</span>
+            </div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="--width: 91%; background: #6b7280;"></div>
+            </div>
+          </div>
+
+          <!-- node-fetch -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-gray-400">node-fetch</span>
+              <span class="text-gray-400 font-mono">60K ops/sec</span>
+            </div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="--width: 82%; background: #4b5563;"></div>
+            </div>
+          </div>
+
+          <!-- axios -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-gray-400">axios</span>
+              <span class="text-gray-400 font-mono">50K ops/sec</span>
+            </div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="--width: 68%; background: #374151;"></div>
+            </div>
+          </div>
+
+          <!-- got -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-gray-400">got</span>
+              <span class="text-gray-400 font-mono">40K ops/sec</span>
+            </div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" style="--width: 55%; background: #1f2937;"></div>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { CircuitBreaker, CircuitState, CircuitOpenError } = Reixo;
 
-<span class="kw">const</span> cb = <span class="kw">new</span> <span class="fn">CircuitBreaker</span>({
-  failureThreshold: <span class="num">3</span>,   <span class="cm">// Open after 3 consecutive failures</span>
-  resetTimeoutMs: <span class="num">1000</span>,   <span class="cm">// Try HALF_OPEN after 1s</span>
-  successThreshold: <span class="num">1</span>,   <span class="cm">// Close again after 1 success</span>
+        <p class="text-sm text-gray-500 mt-8 text-center">
+          Benchmark: 1000 concurrent GET requests, Node.js 22, Apple M2
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Table Section -->
+  <section class="py-20 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-16 gradient-text fade-in-up">Comprehensive Feature Comparison</h2>
+
+      <div class="overflow-x-auto fade-in-up">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="text-center">reixo</th>
+              <th class="text-center">axios</th>
+              <th class="text-center">ky</th>
+              <th class="text-center">got</th>
+              <th class="text-center">node-fetch</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>TypeScript Native</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Result&lt;T,E&gt; Type</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Built-in Retry</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Circuit Breaker</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Request Deduplication</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Offline Queue</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>OpenTelemetry</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>GraphQL Support</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>WebSocket</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>SSE (Server-Sent Events)</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Bun/Deno Support</td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="x-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+              <td class="text-center"><svg class="check-icon mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></td>
+            </tr>
+            <tr>
+              <td>Dependencies</td>
+              <td class="text-center"><span class="font-mono font-bold gradient-text">0</span></td>
+              <td class="text-center"><span class="text-gray-400">1</span></td>
+              <td class="text-center"><span class="text-gray-400">0</span></td>
+              <td class="text-center"><span class="text-gray-400">3+</span></td>
+              <td class="text-center"><span class="text-gray-400">0</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start Section -->
+  <section id="quickstart" class="py-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-4xl font-bold text-center mb-16 gradient-text fade-in-up">Get Started in 2 Steps</h2>
+
+      <div class="space-y-8">
+        <!-- Step 1 -->
+        <div class="flex gap-6 fade-in-up" style="animation-delay: 0.1s;">
+          <div class="number-badge">1</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold mb-3 text-white">Install reixo</h3>
+            <div class="bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300">
+              npm install reixo
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-6 fade-in-up" style="animation-delay: 0.2s;">
+          <div class="number-badge">2</div>
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold mb-3 text-white">Start Using</h3>
+            <div class="bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm">
+              <pre><code class="language-typescript">import { reixo } from 'reixo';
+
+const client = reixo.create({
+  baseURL: 'https://api.example.com'
 });
 
-<span class="fn">log</span>(<span class="str">`Initial state: ${cb.state}`</span>);
-
-<span class="cm">// Simulate failures to trip the breaker</span>
-<span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; <span class="num">3</span>; i++) {
-  <span class="kw">await</span> cb.<span class="fn">execute</span>(<span class="kw">async</span> () => { <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'service down'</span>); })
-    .<span class="fn">catch</span>(() => {});
-  <span class="fn">log</span>(<span class="str">`After failure ${i+1}: ${cb.state}`</span>);
-}
-
-<span class="cm">// Breaker is now OPEN — requests fail immediately</span>
-<span class="kw">try</span> {
-  <span class="kw">await</span> cb.<span class="fn">execute</span>(<span class="kw">async</span> () => <span class="str">'would succeed'</span>);
-} <span class="kw">catch</span> (err) {
-  <span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">CircuitOpenError</span>) {
-    <span class="fn">log</span>(<span class="str">`CircuitOpenError: ${err.message}`</span>, <span class="str">'error'</span>);
-  }
-}
-
-<span class="cm">// Wait for reset window, then recover</span>
-<span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">1100</span>));
-<span class="kw">const</span> result = <span class="kw">await</span> cb.<span class="fn">execute</span>(<span class="kw">async</span> () => <span class="str">'recovered!'</span>);
-<span class="fn">log</span>(<span class="str">`Recovered: "${result}", state: ${cb.state}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('circuit')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-circuit"></div>Output</div>
-        <div class="output-box" id="output-circuit"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── CACHING ── -->
-    <div id="panel-cache" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Response Caching</div>
-        <div class="demo-desc">cache-first, stale-while-revalidate, cache metadata, and manual invalidation.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+const result = await client.get('/data');
+if (result.ok) console.log(result.data);</code></pre>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withCache</span>({ ttl: <span class="num">30000</span>, strategy: <span class="str">'cache-first'</span> })
-  .<span class="fn">build</span>();
-
-<span class="cm">// First request — goes to network</span>
-<span class="kw">const</span> r1 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts/1'</span>);
-<span class="fn">log</span>(<span class="str">`First : "${r1.data.title.slice(0,40)}…"`</span>);
-<span class="fn">log</span>(<span class="str">`  Cache hit: ${r1.cacheMetadata?.hit ?? false}`</span>, <span class="str">'dim'</span>);
-
-<span class="cm">// Second request — served from cache</span>
-<span class="kw">const</span> r2 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts/1'</span>);
-<span class="fn">log</span>(<span class="str">`Second: cache hit = ${r2.cacheMetadata?.hit}`</span>, <span class="str">'success'</span>);
-<span class="kw">if</span> (r2.cacheMetadata) {
-  <span class="fn">log</span>(<span class="str">`  age=${r2.cacheMetadata.age}s, ttl=${r2.cacheMetadata.ttl}s`</span>, <span class="str">'dim'</span>);
-}
-
-<span class="cm">// Invalidate cache and force re-fetch</span>
-client.<span class="fn">invalidateCache</span>(<span class="str">'/posts/1'</span>);
-<span class="kw">const</span> r3 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts/1'</span>);
-<span class="fn">log</span>(<span class="str">`After invalidate: hit = ${r3.cacheMetadata?.hit ?? false}`</span>);
-
-<span class="cm">// Stale-while-revalidate strategy</span>
-<span class="kw">const</span> swrClient = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withCache</span>({ ttl: <span class="num">5000</span>, strategy: <span class="str">'stale-while-revalidate'</span> })
-  .<span class="fn">build</span>();
-<span class="kw">await</span> swrClient.<span class="fn">get</span>(<span class="str">'/posts/2'</span>); <span class="cm">// prime cache</span>
-<span class="kw">const</span> swr = <span class="kw">await</span> swrClient.<span class="fn">get</span>(<span class="str">'/posts/2'</span>);
-<span class="fn">log</span>(<span class="str">`SWR strategy: ${swr.cacheMetadata?.strategy}`</span>, <span class="str">'info'</span>);</pre>
       </div>
-      <button class="run-btn" onclick="runDemo('cache')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-cache"></div>Output</div>
-        <div class="output-box" id="output-cache"><span class="output-placeholder">Press Run to execute…</span></div>
+
+      <div class="text-center mt-16">
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          Read the Documentation
+        </a>
       </div>
     </div>
+  </section>
 
-    <!-- ── POLLING ── -->
-    <div id="panel-polling" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Polling</div>
-        <div class="demo-desc">Poll until a condition is met, with adaptive intervals and timeout protection.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 py-12 bg-gradient-to-b from-transparent to-indigo-500/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <span class="text-white font-bold">rx</span>
+            </div>
+            <span class="text-lg font-bold text-white">reixo</span>
+          </div>
+          <p class="text-gray-400 text-sm">The TypeScript HTTP client you'll never replace.</p>
         </div>
-        <pre><span class="kw">const</span> { poll } = Reixo;
-
-<span class="cm">// Simulate a job that finishes after 4 ticks</span>
-<span class="kw">let</span> tick = <span class="num">0</span>;
-<span class="kw">async function</span> <span class="fn">checkJob</span>() {
-  tick++;
-  <span class="kw">const</span> progress = Math.<span class="fn">min</span>(tick * <span class="num">25</span>, <span class="num">100</span>);
-  <span class="fn">log</span>(<span class="str">`  tick ${tick}: progress ${progress}%`</span>, <span class="str">'dim'</span>);
-  <span class="kw">return</span> { status: progress >= <span class="num">100</span> ? <span class="str">'done'</span> : <span class="str">'running'</span>, progress };
-}
-
-<span class="kw">const</span> { promise, cancel } = <span class="fn">poll</span>(checkJob, {
-  interval: <span class="num">300</span>,
-  until: (r) => r.status === <span class="str">'done'</span>,
-
-  <span class="cm">// Slow polling early, fast when nearly complete</span>
-  adaptiveInterval: (r) => r.progress &lt; <span class="num">75</span> ? <span class="num">400</span> : <span class="num">100</span>,
-
-  timeout: <span class="num">10000</span>,
-});
-
-<span class="kw">const</span> result = <span class="kw">await</span> promise;
-<span class="fn">log</span>(<span class="str">`Job finished: ${result.status} after ${tick} ticks`</span>, <span class="str">'success'</span>);
-
-<span class="cm">// poll() with maxAttempts limit</span>
-tick = <span class="num">0</span>;
-<span class="kw">const</span> { promise: p2 } = <span class="fn">poll</span>(checkJob, {
-  interval: <span class="num">200</span>,
-  maxAttempts: <span class="num">2</span>,  <span class="cm">// will fail — not enough attempts</span>
-});
-<span class="kw">await</span> p2.<span class="fn">catch</span>(err => <span class="fn">log</span>(<span class="str">`maxAttempts: ${err.message}`</span>, <span class="str">'warn'</span>));</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('polling')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-polling"></div>Output</div>
-        <div class="output-box" id="output-polling"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── MOCK ADAPTER ── -->
-    <div id="panel-mock" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">MockAdapter</div>
-        <div class="demo-desc">Test your code without a real server — fixed replies, callback handlers, delays, and error simulation.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <div>
+          <h4 class="font-semibold text-white mb-4">Resources</h4>
+          <ul class="space-y-2 text-sm text-gray-400">
+            <li><a href="https://github.com/webcoderspeed/reixo" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub Repository</a></li>
+            <li><a href="https://www.npmjs.com/package/reixo" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">npm Package</a></li>
+            <li><a href="https://github.com/webcoderspeed/reixo#documentation" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Documentation</a></li>
+            <li><a href="https://github.com/webcoderspeed/reixo/issues" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Issues & Discussions</a></li>
+          </ul>
         </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, MockAdapter, HTTPError, NetworkError } = Reixo;
-
-<span class="kw">const</span> mock = <span class="kw">new</span> <span class="fn">MockAdapter</span>();
-<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://api.example.com'</span>)
-  .<span class="fn">withTransport</span>(mock.transport)
-  .<span class="fn">withRetry</span>(<span class="kw">false</span>)
-  .<span class="fn">build</span>();
-
-<span class="cm">// Fixed reply</span>
-mock.<span class="fn">onGet</span>(<span class="str">'/users/1'</span>).<span class="fn">reply</span>(<span class="num">200</span>, { id: <span class="num">1</span>, name: <span class="str">'Alice'</span> });
-<span class="kw">const</span> user = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/users/1'</span>);
-<span class="fn">log</span>(<span class="str">`User: ${user.data.name}`</span>, <span class="str">'success'</span>);
-
-<span class="cm">// Callback handler (conditional)</span>
-mock.<span class="fn">onPost</span>(<span class="str">'/users'</span>).<span class="fn">reply</span>(config => {
-  <span class="kw">const</span> body = <span class="kw">typeof</span> config.body === <span class="str">'string'</span>
-    ? JSON.<span class="fn">parse</span>(config.body) : config.body;
-  <span class="kw">return</span> body?.role === <span class="str">'admin'</span>
-    ? [<span class="num">403</span>, { error: <span class="str">'Forbidden'</span> }]
-    : [<span class="num">201</span>, { id: <span class="num">42</span>, ...body }];
-});
-
-<span class="kw">try</span> { <span class="kw">await</span> client.<span class="fn">post</span>(<span class="str">'/users'</span>, { name: <span class="str">'Eve'</span>, role: <span class="str">'admin'</span> }); }
-<span class="kw">catch</span> (e) { <span class="fn">log</span>(<span class="str">`Admin blocked: ${e.status}`</span>, <span class="str">'warn'</span>); }
-
-<span class="kw">const</span> ok = <span class="kw">await</span> client.<span class="fn">post</span>(<span class="str">'/users'</span>, { name: <span class="str">'Bob'</span>, role: <span class="str">'user'</span> });
-<span class="fn">log</span>(<span class="str">`User created: id=${ok.data.id}`</span>, <span class="str">'success'</span>);
-
-<span class="cm">// Network error</span>
-mock.<span class="fn">onGet</span>(<span class="str">'/offline'</span>).<span class="fn">networkError</span>();
-<span class="kw">try</span> { <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/offline'</span>); }
-<span class="kw">catch</span> (e) { <span class="fn">log</span>(<span class="str">`NetworkError: ${e instanceof NetworkError}`</span>, <span class="str">'error'</span>); }
-
-<span class="fn">log</span>(<span class="str">`Total requests: ${mock.getHistory().length}`</span>, <span class="str">'info'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('mock')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-mock"></div>Output</div>
-        <div class="output-box" id="output-mock"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── LOGGING ── -->
-    <div id="panel-logger" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Logging</div>
-        <div class="demo-desc">Text and JSON formats, log level filtering, custom prefix, and header redaction.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <div>
+          <h4 class="font-semibold text-white mb-4">License</h4>
+          <p class="text-gray-400 text-sm">reixo is open source and released under the MIT License. You're free to use it in any project, personal or commercial.</p>
         </div>
-        <pre><span class="kw">const</span> { ConsoleLogger, LogLevel } = Reixo;
-
-<span class="cm">// Text logger (default) — check browser DevTools console</span>
-<span class="kw">const</span> textLogger = <span class="kw">new</span> <span class="fn">ConsoleLogger</span>({
-  level: LogLevel.DEBUG,
-  prefix: <span class="str">'[MyApp:HTTP]'</span>,
-  redactHeaders: [<span class="str">'Authorization'</span>, <span class="str">'Cookie'</span>],
-});
-
-textLogger.<span class="fn">debug</span>(<span class="str">'Cache miss'</span>, { url: <span class="str">'/api/users'</span> });
-textLogger.<span class="fn">info</span>(<span class="str">'Request sent'</span>, { method: <span class="str">'GET'</span>, url: <span class="str">'/api/users'</span> });
-textLogger.<span class="fn">warn</span>(<span class="str">'Slow response'</span>, { ms: <span class="num">2400</span> });
-<span class="fn">log</span>(<span class="str">'Text format logged to DevTools console'</span>, <span class="str">'info'</span>);
-
-<span class="cm">// JSON logger — structured for log aggregators</span>
-<span class="kw">const</span> jsonLogger = <span class="kw">new</span> <span class="fn">ConsoleLogger</span>({
-  level: LogLevel.WARN,
-  format: <span class="str">'json'</span>,
-  prefix: <span class="str">'my-service'</span>,
-  redactHeaders: [<span class="str">'Authorization'</span>],
-});
-
-jsonLogger.<span class="fn">debug</span>(<span class="str">'suppressed (below WARN)'</span>);
-jsonLogger.<span class="fn">info</span>(<span class="str">'suppressed (below WARN)'</span>);
-jsonLogger.<span class="fn">warn</span>(<span class="str">'High error rate'</span>, { rate: <span class="num">0.12</span> });
-<span class="fn">log</span>(<span class="str">'JSON format: {timestamp,level,message,meta} in DevTools'</span>, <span class="str">'info'</span>);
-
-<span class="cm">// Header redaction demo</span>
-<span class="kw">const</span> requestMeta = {
-  headers: {
-    authorization: <span class="str">'Bearer super-secret-token'</span>,
-    <span class="str">'content-type'</span>: <span class="str">'application/json'</span>,
-  }
-};
-textLogger.<span class="fn">info</span>(<span class="str">'Outgoing request (auth redacted)'</span>, requestMeta);
-<span class="fn">log</span>(<span class="str">'Check DevTools — authorization header should be [REDACTED]'</span>, <span class="str">'success'</span>);</pre>
       </div>
-      <button class="run-btn" onclick="runDemo('logger')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-logger"></div>Output</div>
-        <div class="output-box" id="output-logger"><span class="output-placeholder">Press Run to execute…</span></div>
+      <div class="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500">
+        <p>reixo · Made with care by webcoderspeed</p>
+        <p>MIT License · 2024</p>
       </div>
     </div>
+  </footer>
 
-    <!-- ── METRICS ── -->
-    <div id="panel-metrics" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Metrics</div>
-        <div class="demo-desc">Track latency, error rates, and throughput with built-in MetricsCollector.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
-  .<span class="fn">withMetrics</span>(<span class="kw">true</span>)
-  .<span class="fn">withRetry</span>(<span class="kw">false</span>)
-  .<span class="fn">build</span>();
-
-<span class="cm">// Make 6 requests (1 will 404)</span>
-<span class="kw">await</span> Promise.<span class="fn">allSettled</span>([
-  client.<span class="fn">get</span>(<span class="str">'/users/1'</span>),
-  client.<span class="fn">get</span>(<span class="str">'/users/2'</span>),
-  client.<span class="fn">get</span>(<span class="str">'/posts/1'</span>),
-  client.<span class="fn">get</span>(<span class="str">'/posts/2'</span>),
-  client.<span class="fn">get</span>(<span class="str">'/todos/1'</span>),
-  client.<span class="fn">get</span>(<span class="str">'/users/9999'</span>),  <span class="cm">// 404</span>
-]);
-
-<span class="kw">const</span> snap = client.metrics.<span class="fn">getSnapshot</span>();
-<span class="fn">log</span>(<span class="str">`Requests : ${snap.requestCount}`</span>);
-<span class="fn">log</span>(<span class="str">`Errors   : ${snap.errorCount}`</span>, snap.errorCount > <span class="num">0</span> ? <span class="str">'warn'</span> : <span class="str">'success'</span>);
-<span class="fn">log</span>(<span class="str">`Avg ms   : ${snap.averageLatency.toFixed(1)}`</span>);
-<span class="fn">log</span>(<span class="str">`Min ms   : ${snap.minLatency}`</span>, <span class="str">'info'</span>);
-<span class="fn">log</span>(<span class="str">`Max ms   : ${snap.maxLatency}`</span>, <span class="str">'info'</span>);
-
-<span class="kw">const</span> recent = client.metrics.<span class="fn">getRecentRequests</span>();
-<span class="fn">log</span>(<span class="str">'\nPer-request breakdown:'</span>, <span class="str">'dim'</span>);
-recent.<span class="fn">forEach</span>(r => {
-  <span class="kw">const</span> icon = r.success ? <span class="str">'✓'</span> : <span class="str">'✗'</span>;
-  <span class="fn">log</span>(<span class="str">`  ${icon} ${r.method} ${r.url} → ${r.status} (${r.duration}ms)`</span>,
-    r.success ? <span class="str">'success'</span> : <span class="str">'error'</span>);
-});</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('metrics')">▶ Run</button>
-
-      <div id="metrics-cards" style="display:none" class="cards">
-        <div class="card"><div class="card-title">Requests</div><div class="card-value" id="m-total">—</div></div>
-        <div class="card"><div class="card-title">Errors</div><div class="card-value red" id="m-errors">—</div></div>
-        <div class="card"><div class="card-title">Avg Latency</div><div class="card-value" id="m-avg">—</div></div>
-        <div class="card"><div class="card-title">Max Latency</div><div class="card-value" id="m-max">—</div></div>
-      </div>
-
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-metrics"></div>Output</div>
-        <div class="output-box" id="output-metrics"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-  </main>
-</div>
-
-<script>
-// ── Utilities ──────────────────────────────────────────────────────────────
-
-function showPanel(id) {
-  document.querySelectorAll('.demo-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-  document.getElementById('panel-' + id)?.classList.add('active');
-  document.querySelector(`[data-panel="${id}"]`)?.classList.add('active');
-}
-
-function setStatus(id, state) {
-  const el = document.getElementById('status-' + id);
-  if (el) { el.className = 'output-status ' + state; }
-}
-
-let _outputTarget = null;
-function log(msg, type = 'log') {
-  if (!_outputTarget) return;
-  const span = document.createElement('span');
-  span.className = 'output-line ' + type;
-  span.textContent = msg;
-  _outputTarget.appendChild(span);
-  _outputTarget.appendChild(document.createTextNode('\n'));
-  _outputTarget.scrollTop = _outputTarget.scrollHeight;
-}
-
-async function runDemo(id) {
-  const box = document.getElementById('output-' + id);
-  if (!box) return;
-  box.innerHTML = '';
-  _outputTarget = box;
-  setStatus(id, 'running');
-
-  const btn = document.querySelector(`#panel-${id} .run-btn`);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Running…'; }
-
-  try {
-    await demos[id]();
-    setStatus(id, 'success');
-  } catch (err) {
-    log('Error: ' + (err?.message || String(err)), 'error');
-    setStatus(id, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '▶ Run'; }
-    _outputTarget = null;
-  }
-}
-
-function copyCode(btn) {
-  const pre = btn.closest('.code-block').querySelector('pre');
-  const text = pre.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-  });
-}
-
-// ── Demo implementations ───────────────────────────────────────────────────
-
-const { HTTPBuilder, HTTPError, TimeoutError, NetworkError, AbortError,
-        CircuitBreaker, CircuitState, CircuitOpenError,
-        ConsoleLogger, LogLevel, MockAdapter,
-        MetricsCollector, poll, withRetry } = Reixo;
-
-const demos = {
-
-  async basic() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withTimeout(10000)
-      .build();
-
-    const user = await client.get('/users/1');
-    log(`User: ${user.data.name} <${user.data.email}>`);
-
-    const post = await client.post('/posts', { title: 'Hello reixo', body: 'First post', userId: 1 });
-    log(`Created post #${post.data.id} (status ${post.status})`);
-
-    const updated = await client.patch('/posts/1', { title: 'Updated title' });
-    log(`Patched: "${updated.data.title}"`);
-
-    const del = await client.delete('/posts/1');
-    log(`Deleted: status ${del.status}`);
-
-    const head = await client.head('/users/1');
-    log(`HEAD /users/1 → ${head.status}`, 'success');
-  },
-
-  async params() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com').build();
-
-    const r1 = await client.get('/posts', { params: { userId: 1, _limit: 3 } });
-    log(`Posts by user 1: ${r1.data.length} results`);
-
-    const url = new URL('https://jsonplaceholder.typicode.com/posts');
-    ['js', 'ts', 'api'].forEach(t => url.searchParams.append('tags', t));
-    log(`Array params URL: ?${url.searchParams.toString()}`);
-
-    const r2 = await client.get('/posts', { params: { _limit: 2, userId: 2 } });
-    log(`Posts by user 2: ids ${r2.data.map(p => p.id).join(', ')}`);
-
-    const r3 = await client.get('/users', {
-      params: { _limit: 5 },
-      paramsSerializer: (p) => Object.entries(p).map(([k,v]) => `${k}=${v}`).join('&')
-    });
-    log(`Custom serializer: ${r3.data.map(u => u.name).join(', ')}`, 'success');
-  },
-
-  async errors() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry(false)
-      .build();
-
-    try {
-      await client.get('/users/9999');
-    } catch (err) {
-      if (err instanceof HTTPError) {
-        log(`HTTPError: ${err.status} ${err.statusText}`, 'error');
-        log(`  URL: ${err.config.url}`, 'dim');
-      }
-    }
-
-    const slow = new HTTPBuilder('https://httpbin.org')
-      .withTimeout(150)
-      .withRetry(false)
-      .build();
-    try {
-      await slow.get('/delay/5');
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        log(`TimeoutError caught: "${err.message}"`, 'warn');
-      } else {
-        log(`Caught (not timeout): ${err?.constructor?.name} — ${err?.message}`, 'warn');
-      }
-    }
-
-    log('Error handling complete', 'success');
-  },
-
-  async cancel() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry(false)
-      .build();
-
-    const { requestId, promise } = client.requestWithId('/todos/1');
-    log(`Started request: ${requestId}`);
-    client.cancel(requestId);
-
-    try {
-      await promise;
-    } catch (err) {
-      if (err instanceof AbortError) log(`Cancelled: ${err.message}`, 'warn');
-      else log(`Error: ${err?.message}`, 'error');
-    }
-
-    const req1 = client.get('/users/1');
-    const req2 = client.get('/users/2');
-    client.cancelAll();
-    const results = await Promise.allSettled([req1, req2]);
-    const cancelled = results.filter(r => r.status === 'rejected').length;
-    log(`cancelAll: ${cancelled} cancelled`, cancelled > 0 ? 'warn' : 'info');
-
-    const handle = client.prefetch('/posts/1');
-    log(`Prefetch completed immediately: ${handle.completed}`);
-    await new Promise(r => setTimeout(r, 300));
-    log(`Prefetch completed after 300ms: ${handle.completed}`, 'success');
-  },
-
-  async retry() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry({
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        backoffFactor: 2,
-        jitter: true,
-        retryCondition: (err) => {
-          if (err?.status >= 400 && err?.status < 500) return false;
-          return true;
+  <script>
+    // Tailwind Config
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            accent: '#6366f1'
+          }
         }
-      })
-      .build();
-
-    const res = await client.get('/users/1');
-    log(`✓ ${res.data.name}`, 'success');
-
-    try {
-      await client.get('/users/9999');
-    } catch (err) {
-      log(`404 not retried: status ${err.status}`, 'warn');
-    }
-
-    let attempts = 0;
-    const result = await withRetry(
-      async () => {
-        attempts++;
-        if (attempts < 3) throw new Error('transient');
-        return 'success';
-      },
-      { maxAttempts: 5, initialDelayMs: 50 }
-    );
-    log(`withRetry: succeeded after ${attempts} attempts: "${result.value}"`, 'success');
-  },
-
-  async circuit() {
-    const cb = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeoutMs: 1000,
-      successThreshold: 1,
-    });
-
-    log(`Initial state: ${cb.state}`);
-
-    for (let i = 0; i < 3; i++) {
-      await cb.execute(async () => { throw new Error('service down'); }).catch(() => {});
-      log(`After failure ${i+1}: ${cb.state}`);
-    }
-
-    try {
-      await cb.execute(async () => 'would succeed');
-    } catch (err) {
-      if (err instanceof CircuitOpenError) {
-        log(`CircuitOpenError caught`, 'error');
       }
-    }
-
-    log('Waiting for reset window (1s)…', 'dim');
-    await new Promise(r => setTimeout(r, 1100));
-
-    const result = await cb.execute(async () => 'recovered!');
-    log(`Recovered: "${result}", state: ${cb.state}`, 'success');
-  },
-
-  async cache() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withCache({ ttl: 30000, strategy: 'cache-first' })
-      .build();
-
-    const r1 = await client.get('/posts/1');
-    log(`First : "${r1.data.title.slice(0, 40)}…"`);
-    log(`  Cache hit: ${r1.cacheMetadata?.hit ?? false}`, 'dim');
-
-    const r2 = await client.get('/posts/1');
-    log(`Second: cache hit = ${r2.cacheMetadata?.hit}`, r2.cacheMetadata?.hit ? 'success' : 'info');
-    if (r2.cacheMetadata) {
-      log(`  age=${r2.cacheMetadata.age}s, ttl=${r2.cacheMetadata.ttl}s`, 'dim');
-    }
-
-    client.invalidateCache('/posts/1');
-    const r3 = await client.get('/posts/1');
-    log(`After invalidate: hit = ${r3.cacheMetadata?.hit ?? false}`);
-
-    const swrClient = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withCache({ ttl: 5000, strategy: 'stale-while-revalidate' })
-      .build();
-    await swrClient.get('/posts/2');
-    const swr = await swrClient.get('/posts/2');
-    log(`SWR strategy: ${swr.cacheMetadata?.strategy ?? 'n/a'}`, 'info');
-  },
-
-  async polling() {
-    let tick = 0;
-    const checkJob = async () => {
-      tick++;
-      const progress = Math.min(tick * 25, 100);
-      log(`  tick ${tick}: progress ${progress}%`, 'dim');
-      return { status: progress >= 100 ? 'done' : 'running', progress };
     };
 
-    const { promise } = poll(checkJob, {
-      interval: 200,
-      until: (r) => r.status === 'done',
-      adaptiveInterval: (r) => r.progress < 75 ? 300 : 100,
-      timeout: 10000,
-    });
-
-    const result = await promise;
-    log(`Job finished: ${result.status} after ${tick} ticks`, 'success');
-
-    tick = 0;
-    const { promise: p2 } = poll(checkJob, { interval: 100, maxAttempts: 2 });
-    await p2.catch(err => log(`maxAttempts: ${err.message}`, 'warn'));
-  },
-
-  async mock() {
-    const mock = new MockAdapter();
-    const client = new HTTPBuilder('https://api.example.com')
-      .withTransport(mock.transport)
-      .withRetry(false)
-      .build();
-
-    mock.onGet('/users/1').reply(200, { id: 1, name: 'Alice' });
-    const user = await client.get('/users/1');
-    log(`User: ${user.data.name}`, 'success');
-
-    mock.onPost('/users').reply(config => {
-      const body = typeof config.body === 'string' ? JSON.parse(config.body) : config.body;
-      return body?.role === 'admin'
-        ? [403, { error: 'Forbidden' }]
-        : [201, { id: 42, ...body }];
-    });
-
-    try {
-      await client.post('/users', { name: 'Eve', role: 'admin' });
-    } catch (e) {
-      log(`Admin blocked: ${e.status}`, 'warn');
+    // Copy to Clipboard
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target.closest('.copy-btn');
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.classList.remove('copied');
+        }, 2000);
+      });
     }
 
-    const ok = await client.post('/users', { name: 'Bob', role: 'user' });
-    log(`User created: id=${ok.data.id}`, 'success');
+    // Tab Switching
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
 
-    mock.onGet('/offline').networkError();
-    try { await client.get('/offline'); }
-    catch (e) { log(`NetworkError: ${e instanceof NetworkError}`, 'error'); }
+      // Remove active from all buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
 
-    log(`Total requests: ${mock.getHistory().length}`, 'info');
-  },
+      // Show selected tab
+      document.getElementById(tabName).classList.add('active');
 
-  async logger() {
-    const textLogger = new ConsoleLogger({
-      level: LogLevel.DEBUG,
-      prefix: '[MyApp:HTTP]',
-      redactHeaders: ['Authorization', 'Cookie'],
+      // Add active to clicked button
+      event.target.classList.add('active');
+
+      // Re-highlight code
+      document.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // Counter Animation
+    function animateCounter(element, target) {
+      const duration = 2000;
+      const start = 0;
+      const increment = target / (duration / 16);
+      let current = start;
+
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          element.textContent = target.toLocaleString();
+          clearInterval(timer);
+        } else {
+          element.textContent = Math.floor(current).toLocaleString();
+        }
+      }, 16);
+    }
+
+    // Intersection Observer for animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+
+          // Trigger counter animation for stat counters
+          if (entry.target.classList.contains('counter')) {
+            const target = parseInt(entry.target.dataset.target);
+            animateCounter(entry.target, target);
+            observer.unobserve(entry.target);
+          }
+
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.1
     });
 
-    textLogger.debug('Cache miss', { url: '/api/users' });
-    textLogger.info('Request sent', { method: 'GET', url: '/api/users' });
-    textLogger.warn('Slow response', { ms: 2400 });
-    log('Text format: logged to DevTools console (F12)', 'info');
-
-    const jsonLogger = new ConsoleLogger({
-      level: LogLevel.WARN,
-      format: 'json',
-      prefix: 'my-service',
+    // Observe all fade-in-up elements
+    document.querySelectorAll('.fade-in-up').forEach(el => {
+      observer.observe(el);
     });
-    jsonLogger.debug('suppressed (below WARN)');
-    jsonLogger.info('suppressed (below WARN)');
-    jsonLogger.warn('High error rate', { rate: 0.12 });
-    log('JSON format: {timestamp,level,message,meta} → DevTools', 'info');
 
-    textLogger.info('Outgoing request (auth → [REDACTED])', {
-      headers: {
-        authorization: 'Bearer super-secret-token',
-        'content-type': 'application/json',
-      }
+    // Observe counters
+    document.querySelectorAll('.counter').forEach(counter => {
+      observer.observe(counter);
     });
-    log('Check DevTools console — auth header should be [REDACTED]', 'success');
-  },
 
-  async metrics() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withMetrics(true)
-      .withRetry(false)
-      .build();
-
-    await Promise.allSettled([
-      client.get('/users/1'),
-      client.get('/users/2'),
-      client.get('/posts/1'),
-      client.get('/posts/2'),
-      client.get('/todos/1'),
-      client.get('/users/9999'),  // 404
-    ]);
-
-    const snap = client.metrics.getSnapshot();
-    log(`Requests : ${snap.requestCount}`);
-    log(`Errors   : ${snap.errorCount}`, snap.errorCount > 0 ? 'warn' : 'success');
-    log(`Avg ms   : ${snap.averageLatency.toFixed(1)}`);
-    log(`Min ms   : ${snap.minLatency}`, 'info');
-    log(`Max ms   : ${snap.maxLatency}`, 'info');
-
-    // Update metric cards
-    document.getElementById('m-total').textContent = snap.requestCount;
-    document.getElementById('m-errors').textContent = snap.errorCount;
-    document.getElementById('m-avg').textContent = snap.averageLatency.toFixed(0) + 'ms';
-    document.getElementById('m-max').textContent = snap.maxLatency + 'ms';
-    document.getElementById('metrics-cards').style.display = 'grid';
-
-    const recent = client.metrics.getRecentRequests();
-    log('\nPer-request:', 'dim');
-    recent.forEach(r => {
-      const icon = r.success ? '✓' : '✗';
-      log(`  ${icon} ${r.method} ${r.url} → ${r.status} (${r.duration}ms)`,
-        r.success ? 'success' : 'error');
-    });
-  },
-};
-</script>
+    // Highlight code blocks
+    hljs.highlightAll();
+  </script>
 </body>
 </html>
