@@ -1,377 +1,362 @@
 # reixo
 
-<p align="center">
-  <strong>The last HTTP client you'll ever install.</strong><br/>
-  TypeScript-first · Zero dependencies · Node.js, Browser, Deno, Bun & Edge
-</p>
-
-<p align="center">
-  <a href="https://www.npmjs.com/package/reixo"><img src="https://img.shields.io/npm/v/reixo" alt="npm version"/></a>
-  <a href="https://www.npmjs.com/package/reixo"><img src="https://img.shields.io/npm/dm/reixo" alt="npm downloads"/></a>
-  <a href="https://bundlephobia.com/package/reixo"><img src="https://img.shields.io/bundlephobia/minzip/reixo" alt="bundle size"/></a>
-  <a href="https://github.com/webcoderspeed/reixo/actions/workflows/ci.yml"><img src="https://github.com/webcoderspeed/reixo/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"/></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.0%2B-blue" alt="TypeScript"/></a>
-</p>
-
----
-
-## Stop installing five packages to do one thing
-
-Most teams end up with something like this in their `package.json`:
-
-```
-axios              → HTTP requests
-axios-retry        → automatic retries
-opossum            → circuit breaking
-swr / react-query  → caching + deduplication
-opentelemetry-*    → distributed tracing
-```
-
-**reixo ships all of that in a single zero-dependency package** — and it's faster than axios to boot.
-
-```bash
-npm install reixo
-```
-
-```typescript
-import { Reixo } from 'reixo';
-
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withRetry({ maxAttempts: 3 })
-  .withCircuitBreaker({ failureThreshold: 5, recoveryTimeout: 30_000 })
-  .withCache({ ttl: 60_000 })
-  .withOpenTelemetry({ serviceName: 'my-service' })
-  .build();
-
-const { data } = await client.get<User[]>('/users');
-```
-
-That's retry + circuit breaker + cache + OTel tracing — in 6 lines, no extra packages.
-
----
-
-## Table of Contents
-
-- [Why reixo?](#why-reixo)
-- [Feature comparison](#feature-comparison)
-- [Performance](#performance)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Core API](#core-api)
-  - [HTTP methods](#http-methods)
-  - [Result API — no-throw error handling](#result-api--no-throw-error-handling)
-  - [Interceptors](#interceptors)
-- [Built-in features](#built-in-features)
-  - [Retries & backoff](#retries--backoff)
-  - [Circuit breaker](#circuit-breaker)
-  - [Request deduplication](#request-deduplication)
-  - [Response caching](#response-caching)
-  - [Auth token refresh](#auth-token-refresh)
-  - [Offline queue](#offline-queue)
-  - [OpenTelemetry tracing](#opentelemetry-tracing)
-  - [Rate limiting](#rate-limiting)
-  - [Server-side rendering](#server-side-rendering)
-  - [Progress tracking](#progress-tracking)
-  - [Request cancellation](#request-cancellation)
-  - [Prefetch](#prefetch)
-  - [Metrics](#metrics)
-  - [Validation](#validation)
-- [Advanced](#advanced)
-  - [Request pipeline / middleware](#request-pipeline--middleware)
-  - [Task queue](#task-queue)
-  - [WebSocket client](#websocket-client)
-  - [SSE client](#sse-client)
-  - [GraphQL client](#graphql-client)
-  - [Mock adapter](#mock-adapter-testing)
-  - [Infinite queries & pagination](#infinite-queries--pagination)
-  - [Suspense support](#suspense-support)
-  - [cURL generation](#curl-generation)
-- [Bundle size](#bundle-size)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
-## Why reixo?
-
-The native `fetch` API is a primitive. `axios` covers the basics but leaves the hard parts — retry backoff, circuit breaking, deduplication, caching, distributed tracing, offline resilience — to a growing list of third-party plugins that you must version, configure, and maintain separately.
-
-reixo is the single package that handles all of it, with:
-
-- ⚡ **Zero dependencies** — no supply-chain risk, tiny bundle
-- 🦺 **TypeScript-first** — full inference, typed errors, typed responses
-- 🔁 **Automatic retries** — configurable backoff with per-URL policy overrides
-- 🔌 **Circuit breaker** — fail fast when downstreams are unhealthy
-- 🧹 **Request deduplication** — collapse concurrent identical GETs to one round-trip
-- 💾 **Response caching** — TTL cache with SWR/stale-while-revalidate strategy
-- 🔑 **Auth token refresh** — single refresh, no duplicate calls, queued replay
-- 📵 **Offline queue** — buffer requests while offline, replay on reconnect
-- 🔍 **OpenTelemetry** — W3C trace headers, no `@opentelemetry/*` packages needed
-- 🚦 **Rate limiting** — client-side token bucket to protect your downstreams
-- 🧪 **Mock adapter** — deterministic mocking for tests, no global patching
-- 🌐 **Universal** — Node.js, browser, Deno, Bun, Cloudflare Workers, and edge runtimes
-
----
-
-## Feature comparison
-
-| Feature                       | **reixo** | axios | got | ky  | fetch |
-| ----------------------------- | :-------: | :---: | :-: | :-: | :---: |
-| TypeScript (built-in)         |    ✅     |  ✅   | ✅  | ✅  |  ⚠️   |
-| Zero dependencies             |    ✅     |  ❌   | ❌  | ❌  |   —   |
-| Automatic retries             |    ✅     |  ❌   | ✅  | ✅  |  ❌   |
-| Circuit breaker               |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Request deduplication         |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Response caching (SWR)        |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Auth token refresh            |    ✅     |  ⚠️   | ❌  | ❌  |  ❌   |
-| Offline queue                 |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Result API (no-throw)         |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| OpenTelemetry (W3C)           |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Rate limiting (client-side)   |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| SSR helpers                   |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| WebSocket client              |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| SSE client                    |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| GraphQL client                |    ✅     |  ❌   | ❌  | ❌  |  ❌   |
-| Mock adapter                  |    ✅     |  ⚠️   | ❌  | ❌  |  ❌   |
-| Browser + Node + Deno + Bun   |    ✅     |  ⚠️   | ❌  | ✅  |  ✅   |
-| Request pipeline / middleware |    ✅     |  ✅   | ✅  | ✅  |  ❌   |
-
-> ⚠️ = requires a separate package or manual implementation
-
----
-
-## Performance
-
-reixo is the **fastest full-featured HTTP client** for JavaScript. It outperforms every mainstream alternative in throughput benchmarks:
-
-| Client     |     ops/sec |                       vs reixo |
-| ---------- | ----------: | -----------------------------: |
-| **reixo**  | **~73,000** |                          **—** |
-| ky         |     ~80,000 | within 10%, far fewer features |
-| node-fetch |     ~60,000 |          reixo **+22% faster** |
-| axios      |     ~50,000 |          reixo **+47% faster** |
-| got        |     ~40,000 |          reixo **+83% faster** |
-
-The ~6µs overhead over bare `fetch` is the **structural floor** for any correct async HTTP client — it covers AbortController lifecycle, retry resolution, deduplication lookup, and two unavoidable async microtask roundtrips. Axios, ky, and got all have the same gap. At real network latencies (10–500ms), it represents less than 0.06% of total request time.
-
-**Hot-path optimisations inside reixo:**
-
-- Base headers pre-normalised once in constructor — zero per-request cost
-- Config spread reduced from 22+ fields to 0–2 fields per request
-- Response interceptors short-circuit synchronously when none registered
-- Progress-handler closures lazily allocated — zero cost when unused (~99% of requests)
-- Event payload objects guarded by `hasListeners()` — zero allocation when no listeners
-- Incremental request IDs replace `crypto.randomUUID()` (~10× cheaper)
-
-To reproduce: `node benchmarks/run.mjs`
-
----
+TypeScript HTTP client built on the Fetch API. Supports Result&lt;T, E&gt; returns, retry with exponential backoff, circuit breaker, request deduplication, offline queue, caching, GraphQL, WebSocket, Server-Sent Events, OpenTelemetry tracing, and more — for Node.js 20+, Bun, Deno, Cloudflare Workers, Vercel Edge Runtime, and browsers.
 
 ## Installation
 
 ```bash
-# npm
 npm install reixo
-
-# pnpm
-pnpm add reixo
-
-# yarn
-yarn add reixo
-
-# bun
-bun add reixo
 ```
 
-**Requirements:** TypeScript 5.0+, Node.js 20+, or any modern browser / Deno / Bun.
+## Contents
+
+- [Quick start](#quick-start)
+- [HTTPClient configuration](#httpclient-configuration)
+- [Making requests](#making-requests)
+- [Result API — no-throw error handling](#result-api--no-throw-error-handling)
+- [Interceptors](#interceptors)
+- [Retry](#retry)
+- [Circuit breaker](#circuit-breaker)
+- [Caching](#caching)
+- [Request deduplication](#request-deduplication)
+- [Rate limiting](#rate-limiting)
+- [Offline queue](#offline-queue)
+- [Progress tracking](#progress-tracking)
+- [Metrics](#metrics)
+- [Request cancellation](#request-cancellation)
+- [Events](#events)
+- [Fluent builder — HTTPBuilder](#fluent-builder--httpbuilder)
+- [Authentication interceptor](#authentication-interceptor)
+- [Trace interceptor](#trace-interceptor)
+- [OpenTelemetry](#opentelemetry)
+- [SSR / edge header forwarding](#ssr--edge-header-forwarding)
+- [GraphQL client](#graphql-client)
+- [WebSocket client](#websocket-client)
+- [Server-Sent Events client](#server-sent-events-client)
+- [Polling](#polling)
+- [Pagination](#pagination)
+- [Infinite query](#infinite-query)
+- [Task queue](#task-queue)
+- [Pipeline](#pipeline)
+- [Resumable file upload](#resumable-file-upload)
+- [Batch processor](#batch-processor)
+- [Batch transport](#batch-transport)
+- [Network recorder](#network-recorder)
+- [Mock adapter](#mock-adapter)
+- [Network monitor](#network-monitor)
+- [Security utilities](#security-utilities)
+- [ConsoleLogger](#consolelogger)
+- [Timing utilities](#timing-utilities)
+- [Runtime detection](#runtime-detection)
+- [Result utilities](#result-utilities)
+- [Error types](#error-types)
+- [Complete configuration reference](#complete-configuration-reference)
 
 ---
 
 ## Quick start
 
-```typescript
-import { Reixo } from 'reixo';
+```ts
+import { HTTPClient } from 'reixo';
 
-// Create a client with a base URL
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withTimeout(10_000)
-  .withRetry({ maxAttempts: 3 })
-  .build();
-
-// GET
-const { data: users } = await client.get<User[]>('/users');
-
-// POST (body is automatically JSON-serialised)
-const { data: created } = await client.post<User>('/users', {
-  name: 'Alice',
-  email: 'alice@example.com',
+const client = new HTTPClient({
+  baseURL: 'https://api.example.com/v1',
+  timeoutMs: 10_000,
+  retry: true, // 3 retries, exponential backoff, retries on 5xx / 429 / 408
 });
 
-// No-throw style — returns Ok | Err, never throws
-const result = await client.tryGet<User>('/users/1');
-if (result.ok) {
-  console.log(result.data.name);
-} else {
-  console.error(result.error.status); // fully typed
-}
-```
-
----
-
-## Core API
-
-### HTTP methods
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com').build();
-
-await client.get<User>('/users/1');
-await client.post<User>('/users', { name: 'Alice' });
-await client.put<User>('/users/1', { name: 'Alice Smith' });
-await client.patch<User>('/users/1', { name: 'Alice S.' });
-await client.delete('/users/1');
-await client.head('/users/1');
-await client.options('/users/1');
-```
-
-Every method returns `Promise<HTTPResponse<T>>`:
-
-```typescript
 const response = await client.get<User>('/users/1');
-
-response.data; // T — the parsed response body
-response.status; // number — HTTP status code
-response.headers; // Headers
-response.config; // the merged request options used
+console.log(response.data); // User
 ```
 
 ---
 
-### Result API — no-throw error handling
+## HTTPClient configuration
 
-The `try*` variants return a typed `Ok | Err` discriminated union. No `try/catch`. No silent errors.
+```ts
+import { HTTPClient, ConsoleLogger, LogLevel } from 'reixo';
 
-```typescript
+const client = new HTTPClient({
+  baseURL: 'https://api.example.com/v1',
+  timeoutMs: 15_000,
+  headers: {
+    Authorization: 'Bearer <token>',
+    Accept: 'application/json',
+  },
+  retry: { maxRetries: 3, backoffFactor: 2, initialDelayMs: 500 },
+  cacheConfig: { ttl: 30_000 },
+  enableDeduplication: true,
+  enableMetrics: true,
+  rateLimit: { requests: 60, interval: 60_000 },
+  circuitBreaker: { failureThreshold: 5, resetTimeoutMs: 30_000 },
+  offlineQueue: true,
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true,
+  logger: new ConsoleLogger(LogLevel.DEBUG),
+});
+```
+
+---
+
+## Making requests
+
+All request methods are generic — the type parameter sets the type of `response.data`.
+
+```ts
+// GET
+const { data } = await client.get<User[]>('/users');
+
+// GET with query parameters
+const { data } = await client.get<User[]>('/users', {
+  params: { role: 'admin', page: 1, limit: 20 },
+});
+// → GET /users?role=admin&page=1&limit=20
+
+// POST
+const { data: created } = await client.post<User>('/users', { name: 'Alice' });
+
+// PUT
+await client.put<User>('/users/1', { name: 'Alice Updated' });
+
+// PATCH
+await client.patch<User>('/users/1', { name: 'Alice Patched' });
+
+// DELETE
+await client.delete('/users/1');
+
+// HEAD / OPTIONS
+await client.head('/users');
+await client.options('/users');
+```
+
+### Per-request options
+
+```ts
+await client.post('/upload', formData, {
+  timeoutMs: 60_000,
+  headers: { 'X-Custom': 'value' },
+  retry: false,
+  signal: abortController.signal,
+  onUploadProgress: ({ loaded, total, progress }) => {
+    console.log(`${Math.round((progress ?? 0) * 100)}%`);
+  },
+});
+```
+
+### FormData helper
+
+```ts
+import { objectToFormData } from 'reixo';
+
+const form = objectToFormData({ name: 'Alice', avatar: fileBlob });
+await client.post('/profile', form);
+```
+
+---
+
+## Result API — no-throw error handling
+
+Use the `try*` methods to receive a `Result<T, E>` instead of throwing on HTTP errors. TypeScript enforces you to handle both branches before accessing the data.
+
+```ts
 const result = await client.tryGet<User>('/users/1');
 
-if (result.ok) {
-  console.log(result.data.name); // User — fully typed
-} else {
-  // result.error is HTTPError with .status, .message, .config
-  if (result.error.status === 404) redirect('/not-found');
-  if (result.error.status === 401) refresh();
+if (!result.ok) {
+  console.error(result.error.status); // fully typed HTTPError
+  return;
 }
+
+console.log(result.data.name); // TypeScript knows data is User here
 ```
 
-All HTTP methods have a `try*` counterpart:
+Available try-methods: `tryGet`, `tryPost`, `tryPut`, `tryPatch`, `tryDelete`, `tryRequest`.
 
-```typescript
-await client.tryGet<T>(url, options?)
-await client.tryPost<T>(url, data?, options?)
-await client.tryPut<T>(url, data?, options?)
-await client.tryPatch<T>(url, data?, options?)
-await client.tryDelete<T>(url, options?)
+---
+
+## Result utilities
+
+```ts
+import { ok, err, toResult, mapResult, unwrap, unwrapOr } from 'reixo';
+
+// Construct
+const success = ok({ id: 1, name: 'Alice' });
+const failure = err(new Error('Something went wrong'));
+
+// Wrap any promise — never throws
+const result = await toResult(client.get<User>('/me'));
+if (!result.ok) handleError(result.error);
+
+// Transform the success value without unwrapping
+const nameResult = mapResult(result, (r) => r.data.name);
+
+// Unwrap — throws if result.ok === false
+const data = unwrap(result);
+
+// Unwrap with fallback — never throws
+const data = unwrapOr(result, defaultUser);
 ```
 
 ---
 
-### Interceptors
+## Interceptors
 
-Intercept and transform requests and responses:
+Interceptors run in push order (request) or reverse push order (response).
 
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .addRequestInterceptor(
-    (config) => {
-      config.headers['Authorization'] = `Bearer ${getToken()}`;
-      return config;
+```ts
+// Request interceptor — inject auth header dynamically
+client.interceptors.request.push({
+  onFulfilled: (config) => ({
+    ...config,
+    headers: { ...config.headers, Authorization: `Bearer ${getToken()}` },
+  }),
+  onRejected: (error) => Promise.reject(error),
+});
+
+// Response interceptor — unwrap a data envelope or log errors
+client.interceptors.response.push({
+  onFulfilled: (response) => {
+    response.data = (response.data as { payload: unknown }).payload;
+    return response;
+  },
+  onRejected: (error) => {
+    console.error('Request failed:', error);
+    return Promise.reject(error);
+  },
+});
+```
+
+---
+
+## Retry
+
+Pass `true` for sensible defaults (3 retries, exponential backoff, retries on 5xx / 429 / 408 and network errors), `false` to disable, or a `RetryOptions` object for full control.
+
+```ts
+const client = new HTTPClient({
+  retry: {
+    maxRetries: 5,
+    initialDelayMs: 500,
+    maxDelayMs: 30_000,
+    backoffFactor: 2,
+    jitter: true, // randomise delays to avoid thundering herd
+    retryCondition: (error) => error.status >= 500,
+    onRetry: (error, attempt) => {
+      console.log(`Retry ${attempt}:`, error.message);
     },
-    (error) => Promise.reject(error)
-  )
-  .addResponseInterceptor(
-    (response) => {
-      console.log(`${response.status} ${response.config.url}`);
-      return response;
+  },
+});
+```
+
+### Per-URL retry policies
+
+The first matching pattern wins, overriding the global `retry` setting.
+
+```ts
+const client = new HTTPClient({
+  retry: true,
+  retryPolicies: [
+    { pattern: /\/auth\//, retry: false }, // never retry auth endpoints
+    { pattern: '/api/upload', retry: { maxRetries: 1 } },
+  ],
+});
+```
+
+### withRetry standalone utility
+
+```ts
+import { withRetry, RetryError } from 'reixo';
+
+const data = await withRetry(() => fetch('/api/data'), {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+});
+```
+
+---
+
+## Circuit breaker
+
+Protects downstream services by stopping requests after a failure threshold is reached, then probing again after a reset timeout. States cycle: `CLOSED` (normal) → `OPEN` (rejecting) → `HALF_OPEN` (probing).
+
+```ts
+import { CircuitBreaker } from 'reixo';
+
+// Inline configuration — creates a CircuitBreaker automatically
+const client = new HTTPClient({
+  circuitBreaker: {
+    failureThreshold: 5, // open after 5 consecutive failures
+    resetTimeoutMs: 30_000, // try again after 30 s
+    halfOpenRetries: 2, // require 2 consecutive successes to close
+    fallback: async () => ({ data: cachedData }), // return when circuit is open
+    onStateChange: (from, to) => {
+      console.log(`Circuit breaker: ${from} → ${to}`);
     },
-    (error) => Promise.reject(error)
-  )
-  .build();
-```
+  },
+});
 
-Interceptors can be `async`. Multiple interceptors are chained in registration order.
-
----
-
-## Built-in features
-
-### Retries & backoff
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withRetry({
-    maxAttempts: 4,
-    delay: 200, // Initial delay in ms
-    backoff: 'exponential', // 'fixed' | 'exponential' | 'linear'
-    retryOn: [408, 429, 500, 502, 503, 504],
-  })
-  .build();
-```
-
-**Per-URL retry overrides** — fine-grained control without multiple clients:
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withRetry({ maxAttempts: 3 })
-  .withRetryPolicies([
-    { pattern: /\/auth\//, retry: false }, // Never retry auth endpoints
-    { pattern: '/api/upload', retry: { maxAttempts: 1 } },
-  ])
-  .build();
+// Shared instance — share state across multiple clients
+const breaker = new CircuitBreaker({ failureThreshold: 3, resetTimeoutMs: 15_000 });
+const clientA = new HTTPClient({ circuitBreaker: breaker });
+const clientB = new HTTPClient({ circuitBreaker: breaker });
 ```
 
 ---
 
-### Circuit breaker
+## Caching
 
-Protect your app when a downstream service degrades. The circuit opens after a threshold of failures and rejects requests immediately — no network round-trip — until the recovery timeout elapses.
+```ts
+import { MemoryAdapter, WebStorageAdapter } from 'reixo';
 
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withCircuitBreaker({
-    failureThreshold: 5, // Open after 5 consecutive failures
-    recoveryTimeout: 30_000, // Try recovery after 30s
-  })
-  .build();
+// In-memory LRU cache with defaults
+const client = new HTTPClient({ cacheConfig: true });
 
-// When circuit is open, requests throw CircuitOpenError immediately
-try {
-  await client.get('/products');
-} catch (err) {
-  if (err instanceof Reixo.CircuitOpenError) {
-    // Show cached data or fallback UI
-  }
-}
+// Full options
+const client = new HTTPClient({
+  cacheConfig: {
+    ttl: 60_000, // ms
+    strategy: 'stale-while-revalidate', // 'cache-first' | 'network-first' | 'stale-while-revalidate'
+    maxSize: 500,
+    storage: new MemoryAdapter(200), // LRU with 200-entry cap
+  },
+});
+
+// localStorage-backed (browser only)
+const client = new HTTPClient({
+  cacheConfig: {
+    ttl: 300_000,
+    storage: new WebStorageAdapter('local'), // 'local' | 'session'
+  },
+});
+
+// Revalidate stale data on window focus or network reconnect
+const client = new HTTPClient({
+  cacheConfig: { ttl: 30_000 },
+  revalidateOnFocus: true,
+  revalidateOnReconnect: true,
+});
 ```
 
-You can share a single circuit breaker across multiple clients:
+### subscribe — observe URL data changes
 
-```typescript
-const breaker = new Reixo.CircuitBreaker({ failureThreshold: 3 });
-const clientA = new Reixo.HTTPClient({ baseURL: '...', circuitBreaker: breaker });
-const clientB = new Reixo.HTTPClient({ baseURL: '...', circuitBreaker: breaker });
+```ts
+// Callback fires whenever the cached value for this URL is revalidated
+const unsubscribe = client.subscribe('/api/users', (data) => {
+  console.log('Users updated:', data);
+});
+
+unsubscribe(); // stop observing
 ```
 
 ---
 
-### Request deduplication
+## Request deduplication
 
-Concurrent identical GET requests collapse to a single network round-trip. All callers receive the same response.
+Multiple simultaneous GET requests to the same URL share one network call. Useful in data-loading patterns where multiple components request the same resource.
 
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com').withDeduplication().build();
+```ts
+const client = new HTTPClient({ enableDeduplication: true });
 
-// Three concurrent calls → one network request, three resolved promises
+// Only one network request is made, all three callers receive the same result
 const [a, b, c] = await Promise.all([
   client.get('/users/1'),
   client.get('/users/1'),
@@ -379,406 +364,1007 @@ const [a, b, c] = await Promise.all([
 ]);
 ```
 
+`buildDedupKey` and `RequestDeduplicator` are also exported for use in custom transports.
+
 ---
 
-### Response caching
+## Rate limiting
 
-In-memory TTL cache with support for `cache-first`, `network-first`, and `stale-while-revalidate` strategies.
+Token-bucket limiter applied globally before every outgoing request. Callers that exceed the limit wait in a FIFO queue.
 
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withCache({ ttl: 60_000, maxSize: 500 })
-  .build();
-
-await client.get('/config'); // Network request, cached
-await client.get('/config'); // Served from cache
-
-// Optimistic update + revalidate
-await client.mutate('/config', { theme: 'dark' }, { revalidate: true });
-
-// Manual invalidation
-await client.invalidate('/config');
-```
-
-**SWR (stale-while-revalidate)** — return stale data instantly, refresh in background:
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withCache({ strategy: 'stale-while-revalidate', ttl: 30_000 })
-  .build();
+```ts
+const client = new HTTPClient({
+  rateLimit: { requests: 60, interval: 60_000 }, // 60 req / min
+});
 ```
 
 ---
 
-### Auth token refresh
+## Offline queue
 
-Single refresh call, no duplicate requests, automatic queued replay:
+Buffers requests made while the device is offline and replays them automatically when connectivity is restored.
 
-```typescript
-import { createAuthInterceptor } from 'reixo';
+```ts
+// In-memory queue with automatic replay
+const client = new HTTPClient({ offlineQueue: true });
 
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .addRequestInterceptor(
-    createAuthInterceptor({
-      getToken: () => localStorage.getItem('access_token'),
-      refreshToken: async () => {
-        const res = await fetch('/auth/refresh', { method: 'POST' });
-        const { accessToken } = await res.json();
-        localStorage.setItem('access_token', accessToken);
-        return accessToken;
-      },
-    }).onFulfilled
-  )
-  .build();
-```
-
-When multiple requests receive a 401 simultaneously, only one refresh is triggered. All other requests are queued and replayed automatically once the new token is available.
-
----
-
-### Offline queue
-
-Buffer requests while the device is offline and replay them automatically when connectivity returns.
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withOfflineQueue({ maxSize: 100 })
-  .build();
-
-// This is queued if offline, and replayed when back online
-await client.post('/events', { type: 'click', target: 'buy-button' });
+// Persistent queue — survives page reloads, auto-pauses when offline
+const client = new HTTPClient({
+  offlineQueue: {
+    concurrency: 3,
+    storage: 'local', // 'memory' | 'local' | 'session' | StorageAdapter
+    storageKey: 'my-queue',
+    syncWithNetwork: true, // auto-pause / resume on network changes
+  },
+});
 ```
 
 ---
 
-### OpenTelemetry tracing
+## Progress tracking
 
-W3C `traceparent`, `tracestate`, and `baggage` headers injected on every request — no `@opentelemetry/*` packages required.
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withOpenTelemetry({
-    serviceName: 'checkout-service',
-    baggage: { 'user.tier': 'premium' },
-  })
-  .build();
-
-// Continue an upstream trace (e.g. from an Express/Next.js handler)
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withOpenTelemetry({ parentContext: extractTraceContext(req) })
-  .build();
-```
-
----
-
-### Rate limiting
-
-Client-side token bucket that queues requests when the rate limit is reached:
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withRateLimit({ requests: 60, interval: 60_000 }) // 60 req/min
-  .build();
-```
-
----
-
-### Server-side rendering
-
-Forward cookies, auth headers, and trace context from incoming requests to your upstream APIs:
-
-```typescript
-import { createSSRClient } from 'reixo';
-
-// Next.js / Nuxt / SvelteKit server handler
-export async function getServerSideProps(context) {
-  const client = createSSRClient('https://api.example.com', context.req);
-  // Automatically forwards: Cookie, Authorization, traceparent, etc.
-  const { data } = await client.get('/user/profile');
-  return { props: { data } };
-}
-```
-
----
-
-### Progress tracking
-
-Track upload and download progress on individual requests or globally:
-
-```typescript
-await client.post('/upload', formData, {
+```ts
+// Per-request upload progress
+await client.post('/upload', fileData, {
   onUploadProgress: ({ loaded, total, progress }) => {
-    console.log(`Upload: ${Math.round(progress * 100)}%`);
+    const pct = Math.round((progress ?? 0) * 100);
+    console.log(`Upload: ${pct}%`);
   },
 });
 
+// Per-request download progress
 await client.get('/large-file', {
   onDownloadProgress: ({ loaded, total }) => {
-    setProgress(loaded / total);
+    console.log(`Downloaded ${loaded} of ${total ?? '?'} bytes`);
   },
 });
-```
 
-Global handlers via the builder:
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withUploadProgress(({ progress }) => updateBar(progress))
-  .withDownloadProgress(({ progress }) => updateBar(progress))
-  .build();
+// Global progress handlers applied to all requests
+const client = new HTTPClient({
+  onUploadProgress: ({ loaded }) => console.log(`+${loaded} bytes uploaded`),
+  onDownloadProgress: ({ progress }) => console.log(progress),
+});
 ```
 
 ---
 
-### Request cancellation
+## Metrics
 
-Cancel individual requests or all in-flight requests at once:
+```ts
+const client = new HTTPClient({
+  enableMetrics: true,
+  onMetricsUpdate: (m) => {
+    console.log(`Requests: ${m.requestCount}, Errors: ${m.errorCount}`);
+  },
+});
 
-```typescript
-// Cancel by ID
-const { requestId, response } = client.requestWithId('/api/data');
-// Component unmounts, user navigates away:
-client.cancel(requestId);
+// Get a snapshot at any time
+const snap = client.getMetrics();
+// snap.requestCount, snap.errorCount, snap.totalLatency,
+// snap.minLatency, snap.maxLatency, snap.averageLatency
+```
 
-// Cancel everything
+---
+
+## Request cancellation
+
+```ts
+// Cancel all in-flight requests (e.g. component unmount)
 client.cancelAll();
 
-// Or use a standard AbortController
+// Cancel a specific request by its ID
+const { requestId, response } = client.requestWithId('/api/data');
+client.cancel(requestId); // returns true if found and cancelled
+
+// Standard AbortSignal
 const controller = new AbortController();
 client.get('/api/data', { signal: controller.signal });
 controller.abort();
+
+// Register cleanup callbacks
+client.onCleanup(() => console.log('cleanup'));
+client.dispose(); // cancels all requests, triggers cleanup callbacks
 ```
 
 ---
 
-### Prefetch
+## Events
 
-Prefetch a resource and store it in the cache before it's needed:
+`HTTPClient` extends `EventEmitter` and emits the following typed events.
 
-```typescript
-// On hover — start fetching before the user clicks
-const handle = client.prefetch('/api/dashboard');
-
-// If the user navigates away before clicking:
-handle.cancel();
-
-// Check whether the response is already cached:
-if (handle.completed) {
-  console.log('Already cached!');
-}
+```ts
+client.on('request:start', ({ url, method, requestId }) => {});
+client.on('response:success', ({ url, method, status, requestId, duration }) => {});
+client.on('response:error', ({ url, method, error, requestId, duration }) => {});
+client.on('upload:progress', ({ url, loaded, total, progress }) => {});
+client.on('download:progress', ({ url, loaded, total, progress }) => {});
+client.on('cache:revalidate', ({ url, key, data }) => {});
+client.on('focus', () => {}); // window focused
+client.on('online', () => {}); // network reconnected
 ```
 
 ---
 
-### Metrics
+## Fluent builder — HTTPBuilder
 
-Collect per-request timing, error rate, and throughput metrics:
+`HTTPBuilder` is a chainable builder that produces an `HTTPClient`. Every `with*` method mirrors a field in `HTTPClientConfig`.
 
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .withMetrics(true, (metrics) => {
-    datadog.gauge('http.error_rate', metrics.errorRate);
-    datadog.gauge('http.p99_latency', metrics.p99);
-  })
-  .build();
+```ts
+import { HTTPBuilder } from 'reixo';
 
-// Access the latest snapshot synchronously
-const snapshot = client.metrics?.getSnapshot();
-```
-
----
-
-### Validation
-
-Validate responses at the type level using any Zod-compatible schema:
-
-```typescript
-import { z } from 'zod';
-
-const UserSchema = z.object({ id: z.number(), name: z.string() });
-
-const { data } = await client.get<z.infer<typeof UserSchema>>('/users/1', {
-  validationSchema: UserSchema,
-});
-// Throws ValidationError if the response doesn't match
-```
-
----
-
-## Advanced
-
-### Request pipeline / middleware
-
-Compose middleware for cross-cutting concerns:
-
-```typescript
-const client = Reixo.HTTPBuilder.create('https://api.example.com')
-  .use(async (req, next) => {
-    req.headers.set('X-Request-Id', crypto.randomUUID());
-    const res = await next(req);
-    console.log(`${req.method} ${req.url} → ${res.status}`);
-    return res;
-  })
+const client = new HTTPBuilder()
+  .withBaseURL('https://api.example.com/v1')
+  .withTimeout(10_000)
+  .withHeaders({ Accept: 'application/json' })
+  .withRetry({ maxRetries: 3, backoffFactor: 2 })
+  .withCache({ ttl: 30_000 })
+  .withRateLimit(60, 60_000)
+  .withCircuitBreaker({ failureThreshold: 5, resetTimeoutMs: 30_000 })
+  .withDeduplication()
+  .withMetrics()
+  .withLogger(new ConsoleLogger(LogLevel.DEBUG))
+  .withOTel({ endpoint: 'https://otel.example.com/v1/traces', serviceName: 'my-api' })
+  .withApiVersion('v2', 'url')
+  .withSSL({ rejectUnauthorized: true, ca: caCert })
+  .withOfflineQueue({ storage: 'local', syncWithNetwork: true })
   .build();
 ```
 
 ---
 
-### Task queue
+## Authentication interceptor
 
-Limit concurrency across a batch of requests:
+Injects a Bearer token on every request and automatically refreshes it when the server returns 401, then retries the original request.
 
-```typescript
-const queue = new Reixo.TaskQueue({ concurrency: 5 });
+```ts
+import { createAuthInterceptor } from 'reixo';
 
-const results = await Promise.all(userIds.map((id) => queue.add(() => client.get(`/users/${id}`))));
-// At most 5 requests in-flight at any time
+createAuthInterceptor(client, {
+  getAccessToken: async () => localStorage.getItem('token') ?? '',
+  refreshTokens: async () => {
+    const res = await fetch('/auth/refresh', { method: 'POST' });
+    const { accessToken } = await res.json();
+    localStorage.setItem('token', accessToken);
+  },
+  onRefreshFailed: (error) => {
+    console.error('Token refresh failed, redirecting to login', error);
+    window.location.href = '/login';
+  },
+});
 ```
 
 ---
 
-### WebSocket client
+## Trace interceptor
 
-Managed WebSocket connections with auto-reconnect and typed events:
+Injects a unique trace ID header into every outgoing request for distributed tracing and log correlation.
 
-```typescript
-const ws = new Reixo.WebSocketClient({
-  url: 'wss://realtime.example.com/events',
-  autoConnect: true,
-  reconnect: { maxAttempts: 10, delay: 1000 },
+```ts
+import { createTraceInterceptor } from 'reixo';
+
+client.interceptors.request.push(
+  createTraceInterceptor({
+    headerName: 'X-Correlation-ID', // default: 'x-request-id'
+    generateId: () => crypto.randomUUID(),
+  })
+);
+
+// Defaults are fine for most cases
+client.interceptors.request.push(createTraceInterceptor());
+```
+
+---
+
+## OpenTelemetry
+
+Zero-dependency W3C Traceparent / OpenTelemetry tracing — no OTEL SDK required.
+
+```ts
+import { HTTPBuilder, formatTraceparent, parseTraceparent } from 'reixo';
+
+const client = new HTTPBuilder()
+  .withOTel({
+    endpoint: 'https://otel-collector.example.com/v1/traces',
+    serviceName: 'my-api',
+    onSpanStart: (span) => {
+      console.log('Span started:', span.traceId);
+    },
+    onSpanEnd: (span, response) => {
+      console.log(`Span ${span.traceId} ended in ${span.duration}ms`);
+    },
+  })
+  .build();
+
+// W3C Traceparent header helpers
+const header = formatTraceparent({
+  traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+  spanId: '00f067aa0ba902b7',
+  flags: '01',
 });
 
-ws.on('message', (data) => console.log('Received:', data));
-ws.send({ type: 'subscribe', channel: 'orders' });
-ws.disconnect();
+const ctx = parseTraceparent('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01');
+// { version: '00', traceId: '...', spanId: '...', flags: '01' }
 ```
 
 ---
 
-### SSE client
+## SSR / edge header forwarding
 
-Typed Server-Sent Events with automatic reconnection:
+Forward select headers (cookies, auth tokens, correlation IDs) from the incoming server request to outgoing upstream calls — works with any framework.
 
-```typescript
-const sse = new Reixo.SSEClient({ url: 'https://api.example.com/stream' });
+```ts
+import { createSSRInterceptor } from 'reixo';
 
-sse.on('update', (event) => console.log(event.data));
-sse.on('error', (err) => console.error(err));
-sse.connect();
+// Next.js App Router
+client.interceptors.request.push(
+  createSSRInterceptor(
+    () => Object.fromEntries(headers()), // next/headers
+    ['Cookie', 'Authorization', 'X-Request-ID'] // optional whitelist; omit to forward all
+  )
+);
+
+// Express
+client.interceptors.request.push(createSSRInterceptor(() => req.headers));
 ```
 
 ---
 
-### GraphQL client
+## GraphQL client
 
-Typed queries and mutations on top of the HTTP client:
+Built on top of `HTTPClient`. Supports queries, mutations, and Automatic Persisted Queries (APQ).
 
-```typescript
-const gql = new Reixo.GraphQLClient({ url: 'https://api.example.com/graphql' });
+```ts
+import { GraphQLClient } from 'reixo';
 
-const { user } = await gql.query<{ user: User }>(
+const gql = new GraphQLClient('https://api.example.com/graphql', {
+  headers: { Authorization: 'Bearer <token>' },
+  enablePersistedQueries: false, // set true to enable APQ
+});
+
+// Query
+const { data, errors } = await gql.query<{ user: User }>(
   `query GetUser($id: ID!) {
     user(id: $id) { id name email }
   }`,
   { id: '1' }
 );
 
-await gql.mutate(`mutation UpdateUser($id: ID!, $name: String!) { ... }`, {
-  id: '1',
-  name: 'Bob',
+// Mutation
+const { data: created } = await gql.mutate<{ createUser: User }>(
+  `mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) { id name }
+  }`,
+  { input: { name: 'Alice', email: 'alice@example.com' } }
+);
+
+// Access the underlying HTTPClient (interceptors, events, etc.)
+gql.client.interceptors.request.push(/* ... */);
+```
+
+---
+
+## WebSocket client
+
+Full-featured WebSocket wrapper with automatic reconnection, heartbeat keep-alive, and typed events.
+
+```ts
+import { WebSocketClient } from 'reixo';
+
+const ws = new WebSocketClient({
+  url: 'wss://api.example.com/ws',
+  protocols: 'json', // or string[] for multiple
+  autoConnect: true, // default: true
+  reconnect: {
+    maxRetries: 10,
+    initialDelayMs: 1_000,
+    maxDelayMs: 30_000,
+    backoffFactor: 2,
+  },
+  heartbeat: {
+    interval: 30_000, // send ping every 30 s
+    message: 'ping', // string or object (auto-JSON-serialised)
+    timeout: 5_000, // close socket if no reply within 5 s
+  },
 });
+
+ws.on('open', (e) => console.log('Connected'));
+ws.on('message', (e) => console.log(JSON.parse(e.data)));
+ws.on('error', (e) => console.error('WS error:', e));
+ws.on('close', (e) => console.log('Closed:', e.code));
+ws.on('reconnect', (n) => console.log(`Reconnect attempt #${n}`));
+ws.on('reconnect:fail', (err) => console.error('Gave up reconnecting:', err));
+
+ws.send('hello');
+ws.sendJson({ type: 'subscribe', channel: 'prices' });
+
+ws.close(1000, 'done');
 ```
 
 ---
 
-### Mock adapter (testing)
+## Server-Sent Events client
 
-Deterministic mocking without patching globals or importing test utilities into production code:
+```ts
+import { SSEClient } from 'reixo';
 
-```typescript
-import { Reixo } from 'reixo';
-
-const client = Reixo.HTTPBuilder.create('https://api.example.com').withMock().build();
-
-client.mock.get('/users/1', { id: 1, name: 'Alice' });
-client.mock.post('/users', (req) => ({ id: 2, ...req.body }));
-
-const { data } = await client.get<User>('/users/1');
-// → { id: 1, name: 'Alice' } — no network call
-```
-
----
-
-### Infinite queries & pagination
-
-Handle cursor-based or page-based pagination with built-in state management:
-
-```typescript
-const query = client.infiniteQuery<Post>('/posts', {
-  getNextPageParam: (lastPage) => lastPage.nextCursor,
-  pageSize: 20,
+const sse = new SSEClient({
+  url: 'https://api.example.com/events',
+  withCredentials: true,
+  reconnect: { maxRetries: 5, initialDelayMs: 1_000 },
+  // headers only work with fetch-based SSE polyfills
+  headers: { Authorization: 'Bearer <token>' },
 });
 
-const firstPage = await query.fetchNextPage();
-const secondPage = await query.fetchNextPage();
-const allPosts = query.data.flat();
+sse.on('open', (e) => console.log('Connected'));
+sse.on('message', (e) => console.log(e.data));
+sse.on('error', (e) => console.error(e));
+sse.on('reconnect', (n) => console.log(`Reconnect attempt #${n}`));
+sse.on('reconnect:fail', (e) => console.error('Gave up:', e));
+
+// Named event types (server sends `event: user.created`)
+sse.addEventListener('user.created', (e) => console.log(JSON.parse(e.data)));
+sse.removeEventListener('user.created', handler);
+
+sse.close();
 ```
 
 ---
 
-### Suspense support
+## Polling
 
-React Suspense-compatible `read()` method — throws a promise while loading, returns data once resolved:
+```ts
+import { poll, PollingController } from 'reixo';
 
-```typescript
-function UserProfile({ id }: { id: string }) {
-  // Throws a Promise (Suspense catches it), returns User when ready
-  const user = client.read<User>(`/users/${id}`);
-  return <div>{user.name}</div>;
+// Simple helper — returns { promise, cancel }
+const { promise, cancel } = poll(() => client.get<JobStatus>('/jobs/42'), {
+  interval: 2_000,
+  until: (res) => res.data.status === 'done',
+  timeout: 120_000,
+});
+
+const result = await promise;
+
+// Adaptive interval — slow then fast as job nears completion
+const { promise } = poll(() => client.get<Job>('/jobs/123'), {
+  interval: 5_000,
+  until: (res) => res.data.status === 'completed',
+  adaptiveInterval: (res) => (res.data.progress < 80 ? 5_000 : 1_000),
+  timeout: 60_000,
+});
+
+// Exponential backoff
+const { promise, cancel } = poll(fetchStatus, {
+  interval: 1_000,
+  backoff: { factor: 1.5, maxInterval: 30_000 },
+  until: (res) => res.data.done,
+});
+
+// Bounded attempts with error handling
+const { promise } = poll(fetchStatus, {
+  interval: 2_000,
+  maxAttempts: 20,
+  onError: (error, attempts) => {
+    if (attempts > 5) return false; // stop polling and re-throw
+    // anything else continues
+  },
+});
+
+// Low-level controller
+const controller = new PollingController(task, options);
+await controller.start();
+controller.stop();
+const signal = controller.signal; // AbortSignal
+```
+
+---
+
+## Pagination
+
+Async generator that automatically fetches subsequent pages.
+
+```ts
+import { paginate } from 'reixo';
+
+for await (const page of paginate<User>(client, '/users', {
+  pageParam: 'page',
+  limitParam: 'limit',
+  limit: 20,
+  initialPage: 1,
+  resultsPath: 'data', // dot-path to the array in the response, e.g. 'meta.items'
+})) {
+  console.log('Page:', page); // User[]
 }
 
-// In your component tree:
-<Suspense fallback={<Spinner />}>
-  <UserProfile id="1" />
-</Suspense>
+// Custom stop condition
+for await (const page of paginate<Post>(client, '/posts', {
+  limit: 50,
+  stopCondition: (response, items, totalFetched) => totalFetched >= 200,
+})) {
+  processPosts(page);
+}
 ```
 
 ---
 
-### cURL generation
+## Infinite query
 
-Generate a cURL command for any request — useful for debugging and sharing with your team:
+Cursor-based or page-number-based infinite scrolling.
 
-```typescript
-const curl = client.generateCurl('/users/1', {
-  method: 'GET',
-  headers: { Authorization: 'Bearer tok' },
+```ts
+import { InfiniteQuery } from 'reixo';
+
+const query = new InfiniteQuery<PostsPage>({
+  client,
+  url: '/posts',
+  initialPageParam: 1,
+  getNextPageParam: (lastPage) => lastPage.nextCursor ?? null,
+  getPreviousPageParam: (firstPage) => firstPage.prevCursor ?? null,
 });
-// → curl -X GET -H 'Authorization: Bearer tok' 'https://api.example.com/users/1'
+
+// Load first page
+await query.fetchNextPage();
+console.log(query.data.pages); // PostsPage[]
+console.log(query.hasNextPage); // boolean
+
+// Keep loading forward
+while (query.hasNextPage) {
+  await query.fetchNextPage();
+}
+
+// Load a previous page (requires getPreviousPageParam)
+if (query.hasPreviousPage) {
+  await query.fetchPreviousPage();
+}
+
+// Status flags
+query.isFetching;
+query.isFetchingNextPage;
+query.isFetchingPreviousPage;
+query.error; // null or the thrown error
+
+// Cancel the in-flight fetch
+query.abort();
+
+// Reset all state
+query.reset();
 ```
 
 ---
 
-## Bundle size
+## Task queue
 
-reixo has **zero runtime dependencies**. Total size at [bundlephobia](https://bundlephobia.com/package/reixo).
+Priority queue with concurrency control, dependency graph, optional persistence, and network-aware auto-pause.
+
+```ts
+import { TaskQueue } from 'reixo';
+
+const queue = new TaskQueue({
+  concurrency: 3,
+  autoStart: true,
+  storage: 'local', // 'memory' | 'local' | 'session' | StorageAdapter
+  storageKey: 'upload-queue',
+  syncWithNetwork: true, // auto-pause when offline, resume when online
+});
+
+// Add tasks
+const result = await queue.add(() => client.post('/upload', file), {
+  priority: 10, // higher number runs first
+  id: 'upload-photo',
+  dependencies: ['auth'], // wait for the 'auth' task to complete first
+  data: { filename: 'photo.jpg' }, // serialisable metadata (persisted)
+});
+
+// Cancel a pending task
+const cancelled = queue.cancel('upload-photo'); // returns boolean
+
+// Pause / resume
+queue.pause();
+queue.resume();
+
+// Wait for all tasks to finish
+await queue.drain();
+
+// Inspect
+console.log(queue.size); // pending tasks
+console.log(queue.active); // running tasks
+console.log(queue.isQueuePaused);
+
+// Async iterator
+for await (const result of queue) {
+  console.log('Task completed:', result);
+  if (doneCondition) break;
+}
+
+// Events
+queue.on('task:start', ({ id }) => {});
+queue.on('task:completed', ({ id, result }) => {});
+queue.on('task:error', ({ id, error }) => {});
+queue.on('task:added', ({ id, priority }) => {});
+queue.on('task:cancelled', ({ id }) => {});
+queue.on('queue:drain', () => {});
+queue.on('queue:paused', () => {});
+queue.on('queue:resumed', () => {});
+queue.on('queue:cleared', () => {});
+queue.on('queue:restored', (metadata) => {
+  // Rebuild task functions from persisted metadata
+});
+```
 
 ---
 
-## Contributing
+## Pipeline
 
-```bash
-git clone https://github.com/webcoderspeed/reixo.git
-cd reixo
-npm install
-npm test          # 323 tests
-npm run build     # CJS + ESM + type declarations
+Chainable, fully type-safe data transformation — synchronous and async.
+
+```ts
+import { Pipeline, AsyncPipeline } from 'reixo';
+
+// Synchronous
+const process = Pipeline.from<string>()
+  .map((s) => s.trim())
+  .map((s) => s.toUpperCase())
+  .tap((s) => console.log('Processing:', s))
+  .map((s) => ({ value: s, length: s.length }));
+
+const result = process.execute('  hello world  ');
+// { value: 'HELLO WORLD', length: 11 }
+
+// Asynchronous
+const fetchAndTransform = AsyncPipeline.from<string>()
+  .map(async (userId) => client.get<User>(`/users/${userId}`))
+  .map((response) => response.data)
+  .tap(async (user) => console.log('Fetched:', user.name));
+
+const user = await fetchAndTransform.execute('42');
 ```
 
-Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
+---
+
+## Resumable file upload
+
+Chunked upload with parallel chunk support, progress tracking, and abort capability.
+
+```ts
+import { ResumableUploader } from 'reixo';
+
+const uploader = new ResumableUploader(client);
+
+const result = await uploader.upload('/upload', file, {
+  chunkSize: 5 * 1024 * 1024, // 5 MB chunks
+  parallel: 3, // upload 3 chunks concurrently
+  onProgress: ({ loaded, total, progress, chunk, totalChunks }) => {
+    console.log(`${Math.round(progress * 100)}% — chunk ${chunk}/${totalChunks}`);
+  },
+});
+
+// Abort mid-upload
+uploader.abort();
+```
+
+---
+
+## Batch processor
+
+Groups many individual async calls into batched executions to reduce round-trips.
+
+```ts
+import { BatchProcessor } from 'reixo';
+
+const batcher = new BatchProcessor<string, User>(
+  async (userIds) => {
+    const res = await client.post<User[]>('/users/batch', { ids: userIds });
+    return res.data;
+  },
+  {
+    maxSize: 50, // flush when 50 items are queued
+    maxDelayMs: 20, // or after 20 ms — whichever comes first
+  }
+);
+
+// Individual callers — automatically batched behind the scenes
+const [alice, bob] = await Promise.all([batcher.add('user-1'), batcher.add('user-2')]);
+```
+
+---
+
+## Batch transport
+
+Wraps any transport function to automatically batch eligible requests.
+
+```ts
+import { createBatchTransport } from 'reixo';
+
+const batchedTransport = createBatchTransport(defaultTransport, {
+  maxSize: 20,
+  maxDelayMs: 50,
+  shouldBatch: (url) => url.startsWith('/api/items'),
+  executeBatch: async (items) => {
+    const res = await fetch('/api/batch', {
+      method: 'POST',
+      body: JSON.stringify(items.map((i) => ({ url: i.url }))),
+    });
+    return res.json(); // must return HTTPResponse[] in same order
+  },
+});
+
+const client = new HTTPClient({ transport: batchedTransport });
+```
+
+---
+
+## Network recorder
+
+Records HTTP traffic during a session — useful for generating test fixtures and debugging.
+
+```ts
+import { NetworkRecorder } from 'reixo';
+
+const recorder = new NetworkRecorder(client); // attaches interceptors automatically
+
+recorder.start();
+
+await client.get('/users');
+await client.post('/users', { name: 'Alice' });
+
+recorder.stop();
+
+const records = recorder.getRecords();
+// [{ id, timestamp, url, method, requestHeaders, requestBody, status, responseBody, duration }, ...]
+
+// Generate test fixture JSON
+const fixtures = recorder.generateFixtures();
+// [{ url, method, status, response }, ...]
+
+recorder.clear();
+
+// Manually inject a fixture
+recorder.record({
+  url: '/users/1',
+  method: 'GET',
+  status: 200,
+  duration: 42,
+  requestHeaders: {},
+  requestBody: null,
+  responseHeaders: {},
+  responseBody: { id: 1, name: 'Alice' },
+});
+```
+
+---
+
+## Mock adapter
+
+Stub HTTP responses in tests without making real network calls.
+
+```ts
+import { MockAdapter } from 'reixo';
+
+const mock = new MockAdapter();
+
+// Static responses
+mock.onGet('/users').reply(200, [{ id: 1, name: 'Alice' }]);
+mock.onPost('/users').reply(201, { id: 2, name: 'Bob' });
+mock.onDelete('/users/1').reply(204);
+
+// Dynamic response
+mock.onGet('/users/:id').reply((config) => {
+  const id = config.url?.split('/').pop();
+  return [200, { id, name: 'User ' + id }];
+});
+
+// Simulate an error
+mock.onGet('/flaky').reply(500, { message: 'Server error' });
+
+// Simulate a network error
+mock.onGet('/offline').networkError();
+
+// Simulate latency
+mock.onGet('/slow').reply(200, data, {}, { latency: 500 });
+
+const client = new HTTPClient({ transport: mock.transport });
+
+// Clear all stubs
+mock.reset();
+```
+
+---
+
+## Network monitor
+
+Reactive online/offline detection. Uses `window` browser events by default; optional active HEAD-ping polling for Node.js or restricted environments.
+
+```ts
+import { NetworkMonitor } from 'reixo';
+
+// Shared singleton
+const monitor = NetworkMonitor.getInstance();
+
+monitor.on('online', () => console.log('Back online'));
+monitor.on('offline', () => console.log('Gone offline'));
+
+console.log(monitor.online); // current status (boolean)
+
+// Active polling — useful in Node.js or behind strict corporate firewalls
+monitor.configure({
+  pingUrl: 'https://health.example.com/ping', // default: '/favicon.ico'
+  checkInterval: 30_000,
+});
+
+// Isolated instance (useful for tests)
+const m = new NetworkMonitor({ checkInterval: 10_000 });
+m.destroy(); // clean up timers and listeners
+NetworkMonitor.resetInstance(); // reset the singleton
+```
+
+---
+
+## Security utilities
+
+Sanitise sensitive headers and body fields before they appear in logs.
+
+```ts
+import { SecurityUtils } from 'reixo';
+
+const safeHeaders = SecurityUtils.sanitizeHeaders({
+  Authorization: 'Bearer eyJhbGciOiJ...',
+  'Content-Type': 'application/json',
+  Cookie: 'session=abc123',
+});
+// { Authorization: '[REDACTED]', 'Content-Type': 'application/json', Cookie: '[REDACTED]' }
+
+const safeBody = SecurityUtils.sanitizeBody({
+  username: 'alice',
+  password: 'secret123',
+  creditCard: '4111111111111111',
+});
+// { username: 'alice', password: '[REDACTED]', creditCard: '[REDACTED]' }
+```
+
+---
+
+## ConsoleLogger
+
+Pluggable logger that implements the `Logger` interface expected by `HTTPClient`.
+
+```ts
+import { ConsoleLogger, LogLevel } from 'reixo';
+
+// Development — human-readable, debug level, redact auth headers
+const logger = new ConsoleLogger({
+  level: LogLevel.DEBUG,
+  format: 'text',
+  prefix: '[MyApp:HTTP]',
+  redactHeaders: ['Authorization', 'Cookie', 'X-Api-Key'],
+});
+
+// Production — structured JSON, warnings and above only
+const logger = new ConsoleLogger({
+  level: LogLevel.WARN,
+  format: 'json',
+  redactHeaders: ['Authorization', 'Cookie'],
+});
+
+// Short form (level only, defaults to text format)
+const logger = new ConsoleLogger(LogLevel.DEBUG);
+
+const client = new HTTPClient({ logger });
+```
+
+Log levels: `NONE = 0`, `ERROR = 1`, `WARN = 2`, `INFO = 3`, `DEBUG = 4`.
+
+---
+
+## Timing utilities
+
+Available as static methods on `HTTPClient` and as standalone named exports.
+
+```ts
+import { debounce, throttle, delay } from 'reixo';
+// or: HTTPClient.debounce, HTTPClient.throttle, HTTPClient.delay
+
+// Debounce — execute at most once per delay window
+const handleSearch = debounce(
+  (query: string) => client.get('/search', { params: { q: query } }),
+  300
+);
+
+// Throttle — execute at most once per interval
+const trackEvent = throttle((event: AnalyticsEvent) => client.post('/analytics', event), 1_000);
+
+// Delay — promisified setTimeout
+await delay(500);
+```
+
+---
+
+## Runtime detection
+
+```ts
+import { detectRuntime, getRuntimeCapabilities, isBrowser, isNode, isEdgeRuntime } from 'reixo';
+
+const runtime = detectRuntime();
+// 'browser' | 'node' | 'bun' | 'deno' | 'workerd' | 'edge-light' | 'fastly' | 'unknown'
+
+const caps = getRuntimeCapabilities();
+// {
+//   name: 'node',
+//   hasFetch: true,
+//   hasStreams: true,
+//   hasCrypto: true,
+//   hasXHR: false,
+//   hasNodeErrorCodes: true,
+//   hasHTTP2: true,
+// }
+
+if (isBrowser()) console.log('Running in a browser');
+if (isNode()) console.log('Running in Node.js');
+if (isEdgeRuntime()) console.log('Running on Cloudflare Workers / Vercel Edge / Fastly');
+```
+
+---
+
+## Error types
+
+```ts
+import { HTTPError, AbortError, ValidationError } from 'reixo';
+
+try {
+  await client.get('/api');
+} catch (error) {
+  if (error instanceof HTTPError) {
+    console.log(error.status); // HTTP status code (number)
+    console.log(error.response); // raw Response object
+    console.log(error.message); // human-readable description
+  }
+  if (error instanceof AbortError) {
+    console.log('Request was cancelled');
+  }
+  if (error instanceof ValidationError) {
+    console.log('Request configuration is invalid:', error.message);
+  }
+}
+```
+
+---
+
+## Complete configuration reference
+
+### HTTPClientConfig
+
+```ts
+interface HTTPClientConfig {
+  // Core
+  baseURL?: string;
+  timeoutMs?: number; // default: 30000
+  headers?: HeadersWithSuggestions;
+  transport?: HTTPRequestFunction;
+  logger?: Logger;
+
+  // Resilience
+  retry?: RetryOptions | boolean; // default: true
+  retryPolicies?: Array<{ pattern: string | RegExp; retry: RetryOptions | boolean }>;
+  circuitBreaker?: CircuitBreakerOptions | CircuitBreaker;
+
+  // Performance
+  rateLimit?: { requests: number; interval: number };
+  cacheConfig?: CacheOptions | boolean;
+  revalidateOnFocus?: boolean; // default: false
+  revalidateOnReconnect?: boolean; // default: false
+  enableDeduplication?: boolean; // default: false
+
+  // Observability
+  enableMetrics?: boolean;
+  onMetricsUpdate?: (metrics: Metrics) => void;
+
+  // Offline
+  offlineQueue?: boolean | PersistentQueueOptions;
+
+  // Progress
+  onUploadProgress?: (p: { loaded: number; total: number | null; progress: number | null }) => void;
+  onDownloadProgress?: (p: {
+    loaded: number;
+    total: number | null;
+    progress: number | null;
+  }) => void;
+
+  // API versioning
+  apiVersion?: string;
+  versioningStrategy?: 'url' | 'header'; // default: 'url'
+  versionHeader?: string; // default: 'Accept-Version'
+
+  // Node.js-specific
+  pool?: ConnectionPoolOptions;
+  ssl?: {
+    rejectUnauthorized?: boolean;
+    ca?: string | Buffer | Array<string | Buffer>;
+    cert?: string | Buffer | Array<string | Buffer>;
+    key?: string | Buffer | Array<string | Buffer>;
+    passphrase?: string;
+  };
+}
+```
+
+### RetryOptions
+
+```ts
+interface RetryOptions {
+  maxRetries?: number; // default: 3
+  initialDelayMs?: number; // default: 1000
+  maxDelayMs?: number; // default: 30000
+  backoffFactor?: number; // default: 2
+  jitter?: boolean; // default: false
+  retryCondition?: (error: HTTPError) => boolean;
+  onRetry?: (error: HTTPError, attempt: number) => void;
+}
+```
+
+### CircuitBreakerOptions
+
+```ts
+interface CircuitBreakerOptions {
+  failureThreshold?: number; // default: 5
+  resetTimeoutMs?: number; // default: 60000
+  halfOpenRetries?: number; // default: 1
+  fallback?: () => Promise<unknown>;
+  onStateChange?: (from: string, to: string) => void;
+}
+```
+
+### CacheOptions
+
+```ts
+interface CacheOptions {
+  ttl?: number; // ms; default: 300000
+  strategy?: 'cache-first' | 'network-first' | 'stale-while-revalidate';
+  maxSize?: number; // max entries; default: 1000
+  storage?: StorageAdapter; // MemoryAdapter | WebStorageAdapter | custom
+}
+```
+
+### PollingOptions
+
+```ts
+interface PollingOptions<T> {
+  interval: number;
+  timeout?: number;
+  maxAttempts?: number;
+  until?: (data: T) => boolean;
+  stopCondition?: (data: T) => boolean; // deprecated, prefer until
+  adaptiveInterval?: (data: T) => number;
+  onError?: (error: unknown, attempts: number) => boolean | void;
+  backoff?: boolean | { factor: number; maxInterval: number };
+}
+```
+
+### WebSocketConfig
+
+```ts
+interface WebSocketConfig {
+  url: string;
+  protocols?: string | string[];
+  reconnect?: boolean | RetryOptions; // true = 5 retries, exponential backoff
+  heartbeat?: {
+    interval: number;
+    message?: string | object; // default: 'ping'
+    timeout?: number;
+  };
+  autoConnect?: boolean; // default: true
+}
+```
+
+### SSEConfig
+
+```ts
+interface SSEConfig {
+  url: string;
+  withCredentials?: boolean; // default: false
+  reconnect?: boolean | RetryOptions; // true = 5 retries, exponential backoff
+  headers?: HeadersRecord; // only supported with fetch-based polyfills
+}
+```
 
 ---
 
 ## License
 
-[MIT](https://opensource.org/licenses/MIT) © [Sanjeev Sharma](https://github.com/webcoderspeed)
+MIT
