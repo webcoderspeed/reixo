@@ -3,6 +3,12 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.2.0](https://github.com/webcoderspeed/reixo/compare/v2.1.17...v2.2.0) (2026-03-14)
+
+### ✨ Features
+
+* expose subpath exports for graphql, ws, sse, and mock ([6de251a](https://github.com/webcoderspeed/reixo/commit/6de251a9e98ee1404dae99871cba66874c947f29))
+
 ## [2.1.17](https://github.com/webcoderspeed/reixo/compare/v2.1.16...v2.1.17) (2026-03-14)
 
 ### 📚 Documentation
