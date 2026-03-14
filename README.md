@@ -184,7 +184,7 @@ yarn add reixo
 bun add reixo
 ```
 
-**Requirements:** TypeScript 5.0+, Node.js 18+, or any modern browser / Deno / Bun.
+**Requirements:** TypeScript 5.0+, Node.js 20+, or any modern browser / Deno / Bun.
 
 ---
 

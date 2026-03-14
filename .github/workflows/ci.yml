@@ -39,7 +39,9 @@ jobs:
         run: npm run typecheck
 
   # ─────────────────────────────────────────────
-  # 2. Tests — Node 18 / 20 / 22 matrix
+  # 2. Tests — Node 20 / 22 matrix
+  # Node 18 dropped: vitest v4 depends on rolldown which requires
+  # node:util.styleText (Node ≥ 20.12). Node 18 reached EOL Apr 2025.
   # ─────────────────────────────────────────────
   test:
     name: Test (Node ${{ matrix.node-version }})
@@ -48,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['18', '20', '22']
+        node-version: ['20', '22']
 
     steps:
       - name: Checkout
