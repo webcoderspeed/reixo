@@ -61,9 +61,29 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
       "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./graphql": {
+      "types": "./dist/graphql.d.ts",
+      "import": "./dist/graphql.mjs",
+      "require": "./dist/graphql.js"
+    },
+    "./ws": {
+      "types": "./dist/ws.d.ts",
+      "import": "./dist/ws.mjs",
+      "require": "./dist/ws.js"
+    },
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "import": "./dist/sse.mjs",
+      "require": "./dist/sse.js"
+    },
+    "./mock": {
+      "types": "./dist/mock.d.ts",
+      "import": "./dist/mock.mjs",
+      "require": "./dist/mock.js"
     },
     "./package.json": "./package.json"
   },
