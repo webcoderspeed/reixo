@@ -1,391 +1,595 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reixo — Interactive Playground</title>
-  <script src="dist/reixo.js"></script>
-  <style>
-    :root {
-      --bg: #0f1117;
-      --surface: #1a1d2e;
-      --surface2: #242741;
-      --border: #2e3250;
-      --accent: #6366f1;
-      --accent2: #818cf8;
-      --green: #22c55e;
-      --red: #ef4444;
-      --yellow: #eab308;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --code-bg: #0d0f1a;
-      --radius: 8px;
-      --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reixo — Interactive Playground</title>
+    <script src="dist/reixo.js"></script>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --surface: #1a1d2e;
+        --surface2: #242741;
+        --border: #2e3250;
+        --accent: #6366f1;
+        --accent2: #818cf8;
+        --green: #22c55e;
+        --red: #ef4444;
+        --yellow: #eab308;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --code-bg: #0d0f1a;
+        --radius: 8px;
+        --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+      }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      min-height: 100vh;
-    }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
 
-    /* ── Header ── */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 56px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .logo { display: flex; align-items: center; gap: 10px; }
-    .logo-mark {
-      width: 28px; height: 28px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 13px; color: white;
-    }
-    .logo-text { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-    .logo-badge {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px 10px;
-      font-size: 11px;
-      color: var(--muted);
-    }
-    header nav { display: flex; gap: 16px; align-items: center; }
-    header nav a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 13px;
-      transition: color 0.15s;
-    }
-    header nav a:hover { color: var(--text); }
+      /* ── Header ── */
+      header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .logo-mark {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+        color: white;
+      }
+      .logo-text {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+      .logo-badge {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      header nav {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      header nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 13px;
+        transition: color 0.15s;
+      }
+      header nav a:hover {
+        color: var(--text);
+      }
 
-    /* ── Layout ── */
-    .layout {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      min-height: calc(100vh - 56px);
-    }
+      /* ── Layout ── */
+      .layout {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        min-height: calc(100vh - 56px);
+      }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 16px 0;
-      position: sticky;
-      top: 56px;
-      height: calc(100vh - 56px);
-      overflow-y: auto;
-    }
-    .sidebar-section {
-      padding: 4px 16px 8px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--muted);
-      font-weight: 600;
-    }
-    .sidebar-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      cursor: pointer;
-      border-radius: 0;
-      color: var(--muted);
-      font-size: 13px;
-      transition: all 0.12s;
-      border-left: 2px solid transparent;
-    }
-    .sidebar-item:hover { background: var(--surface2); color: var(--text); }
-    .sidebar-item.active {
-      background: rgba(99,102,241,0.12);
-      color: var(--accent2);
-      border-left-color: var(--accent);
-    }
-    .sidebar-item .icon { font-size: 15px; width: 20px; text-align: center; }
+      /* ── Sidebar ── */
+      .sidebar {
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 16px 0;
+        position: sticky;
+        top: 56px;
+        height: calc(100vh - 56px);
+        overflow-y: auto;
+      }
+      .sidebar-section {
+        padding: 4px 16px 8px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        cursor: pointer;
+        border-radius: 0;
+        color: var(--muted);
+        font-size: 13px;
+        transition: all 0.12s;
+        border-left: 2px solid transparent;
+      }
+      .sidebar-item:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
+      .sidebar-item.active {
+        background: rgba(99, 102, 241, 0.12);
+        color: var(--accent2);
+        border-left-color: var(--accent);
+      }
+      .sidebar-item .icon {
+        font-size: 15px;
+        width: 20px;
+        text-align: center;
+      }
 
-    /* ── Main content ── */
-    main { overflow-y: auto; }
+      /* ── Main content ── */
+      main {
+        overflow-y: auto;
+      }
 
-    /* ── Demo panel ── */
-    .demo-panel { display: none; padding: 28px; max-width: 900px; }
-    .demo-panel.active { display: block; }
+      /* ── Demo panel ── */
+      .demo-panel {
+        display: none;
+        padding: 28px;
+        max-width: 900px;
+      }
+      .demo-panel.active {
+        display: block;
+      }
 
-    .demo-header { margin-bottom: 20px; }
-    .demo-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .demo-desc { color: var(--muted); font-size: 13px; line-height: 1.6; }
+      .demo-header {
+        margin-bottom: 20px;
+      }
+      .demo-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .demo-desc {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
 
-    /* ── Code block ── */
-    .code-block {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-    .code-header {
-      background: var(--surface2);
-      padding: 8px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    .code-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
-    .copy-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 3px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.12s;
-    }
-    .copy-btn:hover { background: var(--surface); color: var(--text); }
-    pre {
-      padding: 16px;
-      overflow-x: auto;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      line-height: 1.7;
-      color: #c9d1d9;
-    }
+      /* ── Code block ── */
+      .code-block {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .code-header {
+        background: var(--surface2);
+        padding: 8px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+      }
+      .code-label {
+        font-size: 11px;
+        color: var(--muted);
+        font-family: var(--font-mono);
+      }
+      .copy-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .copy-btn:hover {
+        background: var(--surface);
+        color: var(--text);
+      }
+      pre {
+        padding: 16px;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        line-height: 1.7;
+        color: #c9d1d9;
+      }
 
-    /* ── Run button ── */
-    .run-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: var(--radius);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.15s;
-      margin-bottom: 16px;
-    }
-    .run-btn:hover { background: #5457e5; }
-    .run-btn:disabled { background: var(--border); cursor: not-allowed; }
+      /* ── Run button ── */
+      .run-btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s;
+        margin-bottom: 16px;
+      }
+      .run-btn:hover {
+        background: #5457e5;
+      }
+      .run-btn:disabled {
+        background: var(--border);
+        cursor: not-allowed;
+      }
 
-    /* ── Output ── */
-    .output-section { margin-top: 8px; }
-    .output-label {
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .output-status {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--border);
-    }
-    .output-status.running { background: var(--yellow); animation: pulse 1s infinite; }
-    .output-status.success { background: var(--green); }
-    .output-status.error   { background: var(--red); }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .output-box {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.8;
-      min-height: 80px;
-      max-height: 360px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .output-line { display: block; }
-    .output-line.log   { color: #c9d1d9; }
-    .output-line.info  { color: var(--accent2); }
-    .output-line.warn  { color: var(--yellow); }
-    .output-line.error { color: var(--red); }
-    .output-line.success { color: var(--green); }
-    .output-line.dim   { color: var(--muted); }
-    .output-placeholder { color: var(--muted); font-style: italic; }
+      /* ── Output ── */
+      .output-section {
+        margin-top: 8px;
+      }
+      .output-label {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .output-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border);
+      }
+      .output-status.running {
+        background: var(--yellow);
+        animation: pulse 1s infinite;
+      }
+      .output-status.success {
+        background: var(--green);
+      }
+      .output-status.error {
+        background: var(--red);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      .output-box {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 1.8;
+        min-height: 80px;
+        max-height: 360px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .output-line {
+        display: block;
+      }
+      .output-line.log {
+        color: #c9d1d9;
+      }
+      .output-line.info {
+        color: var(--accent2);
+      }
+      .output-line.warn {
+        color: var(--yellow);
+      }
+      .output-line.error {
+        color: var(--red);
+      }
+      .output-line.success {
+        color: var(--green);
+      }
+      .output-line.dim {
+        color: var(--muted);
+      }
+      .output-placeholder {
+        color: var(--muted);
+        font-style: italic;
+      }
 
-    /* ── Cards ── */
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-    }
-    .card-title { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .card-value { font-size: 22px; font-weight: 700; color: var(--text); }
-    .card-value.green { color: var(--green); }
-    .card-value.red   { color: var(--red); }
+      /* ── Cards ── */
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .card {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+      }
+      .card-title {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .card-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .card-value.green {
+        color: var(--green);
+      }
+      .card-value.red {
+        color: var(--red);
+      }
 
-    /* ── Divider ── */
-    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+      /* ── Divider ── */
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 24px 0;
+      }
 
-    /* ── Home hero ── */
-    .hero {
-      padding: 48px 28px;
-      max-width: 680px;
-    }
-    .hero h1 { font-size: 32px; font-weight: 800; margin-bottom: 12px; }
-    .hero p  { color: var(--muted); font-size: 15px; line-height: 1.7; margin-bottom: 24px; }
-    .hero-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 32px; }
-    .feat {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      display: flex; align-items: flex-start; gap: 10px;
-    }
-    .feat-icon { font-size: 18px; }
-    .feat-text strong { display: block; font-size: 12px; margin-bottom: 2px; }
-    .feat-text span { font-size: 11px; color: var(--muted); }
-    .start-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: var(--radius);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .start-btn:hover { background: #5457e5; }
+      /* ── Home hero ── */
+      .hero {
+        padding: 48px 28px;
+        max-width: 680px;
+      }
+      .hero h1 {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .hero p {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+        margin-bottom: 24px;
+      }
+      .hero-features {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 32px;
+      }
+      .feat {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .feat-icon {
+        font-size: 18px;
+      }
+      .feat-text strong {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+      .feat-text span {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .start-btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: var(--radius);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .start-btn:hover {
+        background: #5457e5;
+      }
 
-    /* ── Syntax highlight tokens ── */
-    .kw  { color: #ff7b72; }
-    .fn  { color: #d2a8ff; }
-    .str { color: #a5d6ff; }
-    .num { color: #79c0ff; }
-    .cm  { color: #8b949e; font-style: italic; }
-    .obj { color: #ffa657; }
-  </style>
-</head>
-<body>
+      /* ── Syntax highlight tokens ── */
+      .kw {
+        color: #ff7b72;
+      }
+      .fn {
+        color: #d2a8ff;
+      }
+      .str {
+        color: #a5d6ff;
+      }
+      .num {
+        color: #79c0ff;
+      }
+      .cm {
+        color: #8b949e;
+        font-style: italic;
+      }
+      .obj {
+        color: #ffa657;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <div class="logo-mark">R</div>
+        <span class="logo-text">reixo</span>
+        <span class="logo-badge">Playground</span>
+      </div>
+      <nav>
+        <a href="https://github.com/webcoderspeed/reixo" target="_blank">GitHub</a>
+        <a href="https://www.npmjs.com/package/reixo" target="_blank">npm</a>
+        <a href="https://github.com/webcoderspeed/reixo/tree/main/examples" target="_blank"
+          >Examples</a
+        >
+      </nav>
+    </header>
 
-<header>
-  <div class="logo">
-    <div class="logo-mark">R</div>
-    <span class="logo-text">reixo</span>
-    <span class="logo-badge">Playground</span>
-  </div>
-  <nav>
-    <a href="https://github.com/webcoderspeed/reixo" target="_blank">GitHub</a>
-    <a href="https://www.npmjs.com/package/reixo" target="_blank">npm</a>
-    <a href="https://github.com/webcoderspeed/reixo/tree/main/examples" target="_blank">Examples</a>
-  </nav>
-</header>
-
-<div class="layout">
-  <aside class="sidebar">
-    <div class="sidebar-section">Overview</div>
-    <div class="sidebar-item active" onclick="showPanel('home')" data-panel="home">
-      <span class="icon">🏠</span> Home
-    </div>
-
-    <div class="sidebar-section" style="margin-top:8px">Core</div>
-    <div class="sidebar-item" onclick="showPanel('basic')" data-panel="basic">
-      <span class="icon">📡</span> HTTP Requests
-    </div>
-    <div class="sidebar-item" onclick="showPanel('params')" data-panel="params">
-      <span class="icon">🔗</span> Query Params
-    </div>
-    <div class="sidebar-item" onclick="showPanel('errors')" data-panel="errors">
-      <span class="icon">⚠️</span> Error Handling
-    </div>
-    <div class="sidebar-item" onclick="showPanel('cancel')" data-panel="cancel">
-      <span class="icon">🛑</span> Cancellation
-    </div>
-
-    <div class="sidebar-section" style="margin-top:8px">Resilience</div>
-    <div class="sidebar-item" onclick="showPanel('retry')" data-panel="retry">
-      <span class="icon">🔄</span> Retry
-    </div>
-    <div class="sidebar-item" onclick="showPanel('circuit')" data-panel="circuit">
-      <span class="icon">⚡</span> Circuit Breaker
-    </div>
-
-    <div class="sidebar-section" style="margin-top:8px">Performance</div>
-    <div class="sidebar-item" onclick="showPanel('cache')" data-panel="cache">
-      <span class="icon">💾</span> Caching
-    </div>
-    <div class="sidebar-item" onclick="showPanel('polling')" data-panel="polling">
-      <span class="icon">🔁</span> Polling
-    </div>
-
-    <div class="sidebar-section" style="margin-top:8px">Developer Tools</div>
-    <div class="sidebar-item" onclick="showPanel('mock')" data-panel="mock">
-      <span class="icon">🎭</span> MockAdapter
-    </div>
-    <div class="sidebar-item" onclick="showPanel('logger')" data-panel="logger">
-      <span class="icon">📋</span> Logging
-    </div>
-    <div class="sidebar-item" onclick="showPanel('metrics')" data-panel="metrics">
-      <span class="icon">📊</span> Metrics
-    </div>
-  </aside>
-
-  <main id="main-content">
-
-    <!-- ── HOME ── -->
-    <div id="panel-home" class="demo-panel active">
-      <div class="hero">
-        <h1>reixo playground</h1>
-        <p>An interactive demo environment for the <strong>reixo</strong> HTTP client library. Every example runs live in your browser against <a href="https://jsonplaceholder.typicode.com" style="color:var(--accent2)">JSONPlaceholder</a> — a free, public REST API.</p>
-
-        <div class="hero-features">
-          <div class="feat"><span class="feat-icon">🔌</span><div class="feat-text"><strong>Zero dependencies</strong><span>Fetch API, no axios, no bloat</span></div></div>
-          <div class="feat"><span class="feat-icon">🎯</span><div class="feat-text"><strong>Fully typed</strong><span>Zero <code>any</code> policy throughout</span></div></div>
-          <div class="feat"><span class="feat-icon">🔄</span><div class="feat-text"><strong>Smart retry</strong><span>Exponential backoff + jitter</span></div></div>
-          <div class="feat"><span class="feat-icon">⚡</span><div class="feat-text"><strong>Circuit breaker</strong><span>Fail-fast with auto-recovery</span></div></div>
-          <div class="feat"><span class="feat-icon">💾</span><div class="feat-text"><strong>Response cache</strong><span>cache-first, SWR, network-first</span></div></div>
-          <div class="feat"><span class="feat-icon">🛑</span><div class="feat-text"><strong>Cancellation</strong><span>Per-request and bulk cancel</span></div></div>
-          <div class="feat"><span class="feat-icon">🎭</span><div class="feat-text"><strong>MockAdapter</strong><span>Test without a real server</span></div></div>
-          <div class="feat"><span class="feat-icon">📋</span><div class="feat-text"><strong>Structured logging</strong><span>JSON format + header redaction</span></div></div>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">Overview</div>
+        <div class="sidebar-item active" onclick="showPanel('home')" data-panel="home">
+          <span class="icon">🏠</span> Home
         </div>
 
-        <button class="start-btn" onclick="showPanel('basic')">Try the first demo →</button>
-      </div>
-    </div>
-
-    <!-- ── BASIC REQUESTS ── -->
-    <div id="panel-basic" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">HTTP Requests</div>
-        <div class="demo-desc">GET, POST, PUT, PATCH, DELETE with typed responses using JSONPlaceholder.</div>
-      </div>
-
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <div class="sidebar-section" style="margin-top: 8px">Core</div>
+        <div class="sidebar-item" onclick="showPanel('basic')" data-panel="basic">
+          <span class="icon">📡</span> HTTP Requests
         </div>
-        <pre><span class="cm">// Build a typed client</span>
+        <div class="sidebar-item" onclick="showPanel('params')" data-panel="params">
+          <span class="icon">🔗</span> Query Params
+        </div>
+        <div class="sidebar-item" onclick="showPanel('errors')" data-panel="errors">
+          <span class="icon">⚠️</span> Error Handling
+        </div>
+        <div class="sidebar-item" onclick="showPanel('cancel')" data-panel="cancel">
+          <span class="icon">🛑</span> Cancellation
+        </div>
+
+        <div class="sidebar-section" style="margin-top: 8px">Resilience</div>
+        <div class="sidebar-item" onclick="showPanel('retry')" data-panel="retry">
+          <span class="icon">🔄</span> Retry
+        </div>
+        <div class="sidebar-item" onclick="showPanel('circuit')" data-panel="circuit">
+          <span class="icon">⚡</span> Circuit Breaker
+        </div>
+
+        <div class="sidebar-section" style="margin-top: 8px">Performance</div>
+        <div class="sidebar-item" onclick="showPanel('cache')" data-panel="cache">
+          <span class="icon">💾</span> Caching
+        </div>
+        <div class="sidebar-item" onclick="showPanel('polling')" data-panel="polling">
+          <span class="icon">🔁</span> Polling
+        </div>
+
+        <div class="sidebar-section" style="margin-top: 8px">Developer Tools</div>
+        <div class="sidebar-item" onclick="showPanel('mock')" data-panel="mock">
+          <span class="icon">🎭</span> MockAdapter
+        </div>
+        <div class="sidebar-item" onclick="showPanel('logger')" data-panel="logger">
+          <span class="icon">📋</span> Logging
+        </div>
+        <div class="sidebar-item" onclick="showPanel('metrics')" data-panel="metrics">
+          <span class="icon">📊</span> Metrics
+        </div>
+      </aside>
+
+      <main id="main-content">
+        <!-- ── HOME ── -->
+        <div id="panel-home" class="demo-panel active">
+          <div class="hero">
+            <h1>reixo playground</h1>
+            <p>
+              An interactive demo environment for the <strong>reixo</strong> HTTP client library.
+              Every example runs live in your browser against
+              <a href="https://jsonplaceholder.typicode.com" style="color: var(--accent2)"
+                >JSONPlaceholder</a
+              >
+              — a free, public REST API.
+            </p>
+
+            <div class="hero-features">
+              <div class="feat">
+                <span class="feat-icon">🔌</span>
+                <div class="feat-text">
+                  <strong>Zero dependencies</strong><span>Fetch API, no axios, no bloat</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">🎯</span>
+                <div class="feat-text">
+                  <strong>Fully typed</strong><span>Zero <code>any</code> policy throughout</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">🔄</span>
+                <div class="feat-text">
+                  <strong>Smart retry</strong><span>Exponential backoff + jitter</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">⚡</span>
+                <div class="feat-text">
+                  <strong>Circuit breaker</strong><span>Fail-fast with auto-recovery</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">💾</span>
+                <div class="feat-text">
+                  <strong>Response cache</strong><span>cache-first, SWR, network-first</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">🛑</span>
+                <div class="feat-text">
+                  <strong>Cancellation</strong><span>Per-request and bulk cancel</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">🎭</span>
+                <div class="feat-text">
+                  <strong>MockAdapter</strong><span>Test without a real server</span>
+                </div>
+              </div>
+              <div class="feat">
+                <span class="feat-icon">📋</span>
+                <div class="feat-text">
+                  <strong>Structured logging</strong><span>JSON format + header redaction</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="start-btn" onclick="showPanel('basic')">Try the first demo →</button>
+          </div>
+        </div>
+
+        <!-- ── BASIC REQUESTS ── -->
+        <div id="panel-basic" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">HTTP Requests</div>
+            <div class="demo-desc">
+              GET, POST, PUT, PATCH, DELETE with typed responses using JSONPlaceholder.
+            </div>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="cm">// Build a typed client</span>
 <span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">Reixo</span>.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withTimeout</span>(<span class="num">10000</span>)
   .<span class="fn">build</span>();
@@ -413,31 +617,35 @@
 <span class="cm">// HEAD (check resource existence)</span>
 <span class="kw">const</span> head = <span class="kw">await</span> client.<span class="fn">head</span>(<span class="str">'/users/1'</span>);
 <span class="fn">log</span>(<span class="str">`HEAD /users/1 → ${head.status}`</span>);</pre>
-      </div>
+          </div>
 
-      <button class="run-btn" onclick="runDemo('basic')">▶ Run</button>
+          <button class="run-btn" onclick="runDemo('basic')">▶ Run</button>
 
-      <div class="output-section">
-        <div class="output-label">
-          <div class="output-status" id="status-basic"></div>
-          Output
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-basic"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-basic">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <div class="output-box" id="output-basic"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
 
-    <!-- ── QUERY PARAMS ── -->
-    <div id="panel-params" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Query Parameters</div>
-        <div class="demo-desc">Flat values, arrays, nested objects, and custom serializers.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">Reixo</span>.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>).<span class="fn">build</span>();
+        <!-- ── QUERY PARAMS ── -->
+        <div id="panel-params" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Query Parameters</div>
+            <div class="demo-desc">
+              Flat values, arrays, nested objects, and custom serializers.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">Reixo</span>.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>).<span class="fn">build</span>();
 
 <span class="cm">// Flat key=value</span>
 <span class="kw">const</span> r1 = <span class="kw">await</span> client.<span class="fn">get</span>(<span class="str">'/posts'</span>, {
@@ -463,26 +671,33 @@
     .<span class="fn">map</span>(([k,v]) => <span class="str">`${k}=${v}`</span>).<span class="fn">join</span>(<span class="str">'&amp;'</span>)
 });
 <span class="fn">log</span>(<span class="str">`Custom serializer: ${r3.data.map(u => u.name).join(', ')}`</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('params')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-params"></div>Output</div>
-        <div class="output-box" id="output-params"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── ERROR HANDLING ── -->
-    <div id="panel-errors" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Error Handling</div>
-        <div class="demo-desc">HTTPError, NetworkError, TimeoutError — all with instanceof checks.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('params')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-params"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-params">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, HTTPError, TimeoutError, NetworkError } = Reixo;
+
+        <!-- ── ERROR HANDLING ── -->
+        <div id="panel-errors" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Error Handling</div>
+            <div class="demo-desc">
+              HTTPError, NetworkError, TimeoutError — all with instanceof checks.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { HTTPBuilder, HTTPError, TimeoutError, NetworkError } = Reixo;
 
 <span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withRetry</span>(<span class="kw">false</span>)
@@ -514,26 +729,34 @@
 }
 
 <span class="fn">log</span>(<span class="str">'Error handling complete'</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('errors')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-errors"></div>Output</div>
-        <div class="output-box" id="output-errors"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── CANCELLATION ── -->
-    <div id="panel-cancel" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Request Cancellation</div>
-        <div class="demo-desc">Cancel individual requests by ID, cancel all in-flight requests, and use prefetch handles.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('errors')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-errors"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-errors">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, AbortError } = Reixo;
+
+        <!-- ── CANCELLATION ── -->
+        <div id="panel-cancel" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Request Cancellation</div>
+            <div class="demo-desc">
+              Cancel individual requests by ID, cancel all in-flight requests, and use prefetch
+              handles.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { HTTPBuilder, AbortError } = Reixo;
 
 <span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withRetry</span>(<span class="kw">false</span>)
@@ -565,26 +788,34 @@ client.<span class="fn">cancelAll</span>();
 <span class="fn">log</span>(<span class="str">`Prefetch completed: ${handle.completed}`</span>);
 <span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">200</span>));
 <span class="fn">log</span>(<span class="str">`Prefetch completed after wait: ${handle.completed}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('cancel')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-cancel"></div>Output</div>
-        <div class="output-box" id="output-cancel"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── RETRY ── -->
-    <div id="panel-retry" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Retry</div>
-        <div class="demo-desc">Exponential backoff with jitter, selective retry conditions, and RetryError inspection.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('cancel')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-cancel"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-cancel">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { HTTPBuilder } = Reixo;
+
+        <!-- ── RETRY ── -->
+        <div id="panel-retry" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Retry</div>
+            <div class="demo-desc">
+              Exponential backoff with jitter, selective retry conditions, and RetryError
+              inspection.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { HTTPBuilder } = Reixo;
 
 <span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withRetry</span>({
@@ -623,26 +854,33 @@ client.<span class="fn">cancelAll</span>();
   { maxAttempts: <span class="num">5</span>, initialDelayMs: <span class="num">50</span> }
 );
 <span class="fn">log</span>(<span class="str">`withRetry succeeded after ${attempts} attempts: ${result.value}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('retry')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-retry"></div>Output</div>
-        <div class="output-box" id="output-retry"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── CIRCUIT BREAKER ── -->
-    <div id="panel-circuit" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Circuit Breaker</div>
-        <div class="demo-desc">Fail-fast with automatic CLOSED → OPEN → HALF_OPEN → CLOSED state machine.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('retry')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-retry"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-retry">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { CircuitBreaker, CircuitState, CircuitOpenError } = Reixo;
+
+        <!-- ── CIRCUIT BREAKER ── -->
+        <div id="panel-circuit" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Circuit Breaker</div>
+            <div class="demo-desc">
+              Fail-fast with automatic CLOSED → OPEN → HALF_OPEN → CLOSED state machine.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { CircuitBreaker, CircuitState, CircuitOpenError } = Reixo;
 
 <span class="kw">const</span> cb = <span class="kw">new</span> <span class="fn">CircuitBreaker</span>({
   failureThreshold: <span class="num">3</span>,   <span class="cm">// Open after 3 consecutive failures</span>
@@ -672,26 +910,33 @@ client.<span class="fn">cancelAll</span>();
 <span class="kw">await</span> <span class="kw">new</span> <span class="fn">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">1100</span>));
 <span class="kw">const</span> result = <span class="kw">await</span> cb.<span class="fn">execute</span>(<span class="kw">async</span> () => <span class="str">'recovered!'</span>);
 <span class="fn">log</span>(<span class="str">`Recovered: "${result}", state: ${cb.state}`</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('circuit')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-circuit"></div>Output</div>
-        <div class="output-box" id="output-circuit"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── CACHING ── -->
-    <div id="panel-cache" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Response Caching</div>
-        <div class="demo-desc">cache-first, stale-while-revalidate, cache metadata, and manual invalidation.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('circuit')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-circuit"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-circuit">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
+
+        <!-- ── CACHING ── -->
+        <div id="panel-cache" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Response Caching</div>
+            <div class="demo-desc">
+              cache-first, stale-while-revalidate, cache metadata, and manual invalidation.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withCache</span>({ ttl: <span class="num">30000</span>, strategy: <span class="str">'cache-first'</span> })
   .<span class="fn">build</span>();
 
@@ -719,26 +964,33 @@ client.<span class="fn">invalidateCache</span>(<span class="str">'/posts/1'</spa
 <span class="kw">await</span> swrClient.<span class="fn">get</span>(<span class="str">'/posts/2'</span>); <span class="cm">// prime cache</span>
 <span class="kw">const</span> swr = <span class="kw">await</span> swrClient.<span class="fn">get</span>(<span class="str">'/posts/2'</span>);
 <span class="fn">log</span>(<span class="str">`SWR strategy: ${swr.cacheMetadata?.strategy}`</span>, <span class="str">'info'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('cache')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-cache"></div>Output</div>
-        <div class="output-box" id="output-cache"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── POLLING ── -->
-    <div id="panel-polling" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Polling</div>
-        <div class="demo-desc">Poll until a condition is met, with adaptive intervals and timeout protection.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('cache')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-cache"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-cache">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { poll } = Reixo;
+
+        <!-- ── POLLING ── -->
+        <div id="panel-polling" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Polling</div>
+            <div class="demo-desc">
+              Poll until a condition is met, with adaptive intervals and timeout protection.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { poll } = Reixo;
 
 <span class="cm">// Simulate a job that finishes after 4 ticks</span>
 <span class="kw">let</span> tick = <span class="num">0</span>;
@@ -769,26 +1021,34 @@ tick = <span class="num">0</span>;
   maxAttempts: <span class="num">2</span>,  <span class="cm">// will fail — not enough attempts</span>
 });
 <span class="kw">await</span> p2.<span class="fn">catch</span>(err => <span class="fn">log</span>(<span class="str">`maxAttempts: ${err.message}`</span>, <span class="str">'warn'</span>));</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('polling')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-polling"></div>Output</div>
-        <div class="output-box" id="output-polling"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── MOCK ADAPTER ── -->
-    <div id="panel-mock" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">MockAdapter</div>
-        <div class="demo-desc">Test your code without a real server — fixed replies, callback handlers, delays, and error simulation.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('polling')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-polling"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-polling">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { HTTPBuilder, MockAdapter, HTTPError, NetworkError } = Reixo;
+
+        <!-- ── MOCK ADAPTER ── -->
+        <div id="panel-mock" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">MockAdapter</div>
+            <div class="demo-desc">
+              Test your code without a real server — fixed replies, callback handlers, delays, and
+              error simulation.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { HTTPBuilder, MockAdapter, HTTPError, NetworkError } = Reixo;
 
 <span class="kw">const</span> mock = <span class="kw">new</span> <span class="fn">MockAdapter</span>();
 <span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HTTPBuilder</span>(<span class="str">'https://api.example.com'</span>)
@@ -822,26 +1082,33 @@ mock.<span class="fn">onGet</span>(<span class="str">'/offline'</span>).<span cl
 <span class="kw">catch</span> (e) { <span class="fn">log</span>(<span class="str">`NetworkError: ${e instanceof NetworkError}`</span>, <span class="str">'error'</span>); }
 
 <span class="fn">log</span>(<span class="str">`Total requests: ${mock.getHistory().length}`</span>, <span class="str">'info'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('mock')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-mock"></div>Output</div>
-        <div class="output-box" id="output-mock"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── LOGGING ── -->
-    <div id="panel-logger" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Logging</div>
-        <div class="demo-desc">Text and JSON formats, log level filtering, custom prefix, and header redaction.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('mock')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-mock"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-mock">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> { ConsoleLogger, LogLevel } = Reixo;
+
+        <!-- ── LOGGING ── -->
+        <div id="panel-logger" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Logging</div>
+            <div class="demo-desc">
+              Text and JSON formats, log level filtering, custom prefix, and header redaction.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> { ConsoleLogger, LogLevel } = Reixo;
 
 <span class="cm">// Text logger (default) — check browser DevTools console</span>
 <span class="kw">const</span> textLogger = <span class="kw">new</span> <span class="fn">ConsoleLogger</span>({
@@ -877,26 +1144,33 @@ jsonLogger.<span class="fn">warn</span>(<span class="str">'High error rate'</spa
 };
 textLogger.<span class="fn">info</span>(<span class="str">'Outgoing request (auth redacted)'</span>, requestMeta);
 <span class="fn">log</span>(<span class="str">'Check DevTools — authorization header should be [REDACTED]'</span>, <span class="str">'success'</span>);</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('logger')">▶ Run</button>
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-logger"></div>Output</div>
-        <div class="output-box" id="output-logger"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
-    </div>
-
-    <!-- ── METRICS ── -->
-    <div id="panel-metrics" class="demo-panel">
-      <div class="demo-header">
-        <div class="demo-title">Metrics</div>
-        <div class="demo-desc">Track latency, error rates, and throughput with built-in MetricsCollector.</div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
-          <span class="code-label">JavaScript</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('logger')">▶ Run</button>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-logger"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-logger">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
         </div>
-        <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
+
+        <!-- ── METRICS ── -->
+        <div id="panel-metrics" class="demo-panel">
+          <div class="demo-header">
+            <div class="demo-title">Metrics</div>
+            <div class="demo-desc">
+              Track latency, error rates, and throughput with built-in MetricsCollector.
+            </div>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-label">JavaScript</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><span class="kw">const</span> client = <span class="kw">new</span> Reixo.<span class="fn">HTTPBuilder</span>(<span class="str">'https://jsonplaceholder.typicode.com'</span>)
   .<span class="fn">withMetrics</span>(<span class="kw">true</span>)
   .<span class="fn">withRetry</span>(<span class="kw">false</span>)
   .<span class="fn">build</span>();
@@ -925,410 +1199,466 @@ recent.<span class="fn">forEach</span>(r => {
   <span class="fn">log</span>(<span class="str">`  ${icon} ${r.method} ${r.url} → ${r.status} (${r.duration}ms)`</span>,
     r.success ? <span class="str">'success'</span> : <span class="str">'error'</span>);
 });</pre>
-      </div>
-      <button class="run-btn" onclick="runDemo('metrics')">▶ Run</button>
+          </div>
+          <button class="run-btn" onclick="runDemo('metrics')">▶ Run</button>
 
-      <div id="metrics-cards" style="display:none" class="cards">
-        <div class="card"><div class="card-title">Requests</div><div class="card-value" id="m-total">—</div></div>
-        <div class="card"><div class="card-title">Errors</div><div class="card-value red" id="m-errors">—</div></div>
-        <div class="card"><div class="card-title">Avg Latency</div><div class="card-value" id="m-avg">—</div></div>
-        <div class="card"><div class="card-title">Max Latency</div><div class="card-value" id="m-max">—</div></div>
-      </div>
+          <div id="metrics-cards" style="display: none" class="cards">
+            <div class="card">
+              <div class="card-title">Requests</div>
+              <div class="card-value" id="m-total">—</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Errors</div>
+              <div class="card-value red" id="m-errors">—</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Avg Latency</div>
+              <div class="card-value" id="m-avg">—</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Max Latency</div>
+              <div class="card-value" id="m-max">—</div>
+            </div>
+          </div>
 
-      <div class="output-section">
-        <div class="output-label"><div class="output-status" id="status-metrics"></div>Output</div>
-        <div class="output-box" id="output-metrics"><span class="output-placeholder">Press Run to execute…</span></div>
-      </div>
+          <div class="output-section">
+            <div class="output-label">
+              <div class="output-status" id="status-metrics"></div>
+              Output
+            </div>
+            <div class="output-box" id="output-metrics">
+              <span class="output-placeholder">Press Run to execute…</span>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
-  </main>
-</div>
+    <script>
+      // ── Utilities ──────────────────────────────────────────────────────────────
 
-<script>
-// ── Utilities ──────────────────────────────────────────────────────────────
-
-function showPanel(id) {
-  document.querySelectorAll('.demo-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-  document.getElementById('panel-' + id)?.classList.add('active');
-  document.querySelector(`[data-panel="${id}"]`)?.classList.add('active');
-}
-
-function setStatus(id, state) {
-  const el = document.getElementById('status-' + id);
-  if (el) { el.className = 'output-status ' + state; }
-}
-
-let _outputTarget = null;
-function log(msg, type = 'log') {
-  if (!_outputTarget) return;
-  const span = document.createElement('span');
-  span.className = 'output-line ' + type;
-  span.textContent = msg;
-  _outputTarget.appendChild(span);
-  _outputTarget.appendChild(document.createTextNode('\n'));
-  _outputTarget.scrollTop = _outputTarget.scrollHeight;
-}
-
-async function runDemo(id) {
-  const box = document.getElementById('output-' + id);
-  if (!box) return;
-  box.innerHTML = '';
-  _outputTarget = box;
-  setStatus(id, 'running');
-
-  const btn = document.querySelector(`#panel-${id} .run-btn`);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Running…'; }
-
-  try {
-    await demos[id]();
-    setStatus(id, 'success');
-  } catch (err) {
-    log('Error: ' + (err?.message || String(err)), 'error');
-    setStatus(id, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '▶ Run'; }
-    _outputTarget = null;
-  }
-}
-
-function copyCode(btn) {
-  const pre = btn.closest('.code-block').querySelector('pre');
-  const text = pre.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-  });
-}
-
-// ── Demo implementations ───────────────────────────────────────────────────
-
-const { HTTPBuilder, HTTPError, TimeoutError, NetworkError, AbortError,
-        CircuitBreaker, CircuitState, CircuitOpenError,
-        ConsoleLogger, LogLevel, MockAdapter,
-        MetricsCollector, poll, withRetry } = Reixo;
-
-const demos = {
-
-  async basic() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withTimeout(10000)
-      .build();
-
-    const user = await client.get('/users/1');
-    log(`User: ${user.data.name} <${user.data.email}>`);
-
-    const post = await client.post('/posts', { title: 'Hello reixo', body: 'First post', userId: 1 });
-    log(`Created post #${post.data.id} (status ${post.status})`);
-
-    const updated = await client.patch('/posts/1', { title: 'Updated title' });
-    log(`Patched: "${updated.data.title}"`);
-
-    const del = await client.delete('/posts/1');
-    log(`Deleted: status ${del.status}`);
-
-    const head = await client.head('/users/1');
-    log(`HEAD /users/1 → ${head.status}`, 'success');
-  },
-
-  async params() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com').build();
-
-    const r1 = await client.get('/posts', { params: { userId: 1, _limit: 3 } });
-    log(`Posts by user 1: ${r1.data.length} results`);
-
-    const url = new URL('https://jsonplaceholder.typicode.com/posts');
-    ['js', 'ts', 'api'].forEach(t => url.searchParams.append('tags', t));
-    log(`Array params URL: ?${url.searchParams.toString()}`);
-
-    const r2 = await client.get('/posts', { params: { _limit: 2, userId: 2 } });
-    log(`Posts by user 2: ids ${r2.data.map(p => p.id).join(', ')}`);
-
-    const r3 = await client.get('/users', {
-      params: { _limit: 5 },
-      paramsSerializer: (p) => Object.entries(p).map(([k,v]) => `${k}=${v}`).join('&')
-    });
-    log(`Custom serializer: ${r3.data.map(u => u.name).join(', ')}`, 'success');
-  },
-
-  async errors() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry(false)
-      .build();
-
-    try {
-      await client.get('/users/9999');
-    } catch (err) {
-      if (err instanceof HTTPError) {
-        log(`HTTPError: ${err.status} ${err.statusText}`, 'error');
-        log(`  URL: ${err.config.url}`, 'dim');
+      function showPanel(id) {
+        document.querySelectorAll('.demo-panel').forEach((p) => p.classList.remove('active'));
+        document.querySelectorAll('.sidebar-item').forEach((i) => i.classList.remove('active'));
+        document.getElementById('panel-' + id)?.classList.add('active');
+        document.querySelector(`[data-panel="${id}"]`)?.classList.add('active');
       }
-    }
 
-    const slow = new HTTPBuilder('https://httpbin.org')
-      .withTimeout(150)
-      .withRetry(false)
-      .build();
-    try {
-      await slow.get('/delay/5');
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        log(`TimeoutError caught: "${err.message}"`, 'warn');
-      } else {
-        log(`Caught (not timeout): ${err?.constructor?.name} — ${err?.message}`, 'warn');
-      }
-    }
-
-    log('Error handling complete', 'success');
-  },
-
-  async cancel() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry(false)
-      .build();
-
-    const { requestId, promise } = client.requestWithId('/todos/1');
-    log(`Started request: ${requestId}`);
-    client.cancel(requestId);
-
-    try {
-      await promise;
-    } catch (err) {
-      if (err instanceof AbortError) log(`Cancelled: ${err.message}`, 'warn');
-      else log(`Error: ${err?.message}`, 'error');
-    }
-
-    const req1 = client.get('/users/1');
-    const req2 = client.get('/users/2');
-    client.cancelAll();
-    const results = await Promise.allSettled([req1, req2]);
-    const cancelled = results.filter(r => r.status === 'rejected').length;
-    log(`cancelAll: ${cancelled} cancelled`, cancelled > 0 ? 'warn' : 'info');
-
-    const handle = client.prefetch('/posts/1');
-    log(`Prefetch completed immediately: ${handle.completed}`);
-    await new Promise(r => setTimeout(r, 300));
-    log(`Prefetch completed after 300ms: ${handle.completed}`, 'success');
-  },
-
-  async retry() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withRetry({
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        backoffFactor: 2,
-        jitter: true,
-        retryCondition: (err) => {
-          if (err?.status >= 400 && err?.status < 500) return false;
-          return true;
+      function setStatus(id, state) {
+        const el = document.getElementById('status-' + id);
+        if (el) {
+          el.className = 'output-status ' + state;
         }
-      })
-      .build();
-
-    const res = await client.get('/users/1');
-    log(`✓ ${res.data.name}`, 'success');
-
-    try {
-      await client.get('/users/9999');
-    } catch (err) {
-      log(`404 not retried: status ${err.status}`, 'warn');
-    }
-
-    let attempts = 0;
-    const result = await withRetry(
-      async () => {
-        attempts++;
-        if (attempts < 3) throw new Error('transient');
-        return 'success';
-      },
-      { maxAttempts: 5, initialDelayMs: 50 }
-    );
-    log(`withRetry: succeeded after ${attempts} attempts: "${result.value}"`, 'success');
-  },
-
-  async circuit() {
-    const cb = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeoutMs: 1000,
-      successThreshold: 1,
-    });
-
-    log(`Initial state: ${cb.state}`);
-
-    for (let i = 0; i < 3; i++) {
-      await cb.execute(async () => { throw new Error('service down'); }).catch(() => {});
-      log(`After failure ${i+1}: ${cb.state}`);
-    }
-
-    try {
-      await cb.execute(async () => 'would succeed');
-    } catch (err) {
-      if (err instanceof CircuitOpenError) {
-        log(`CircuitOpenError caught`, 'error');
       }
-    }
 
-    log('Waiting for reset window (1s)…', 'dim');
-    await new Promise(r => setTimeout(r, 1100));
-
-    const result = await cb.execute(async () => 'recovered!');
-    log(`Recovered: "${result}", state: ${cb.state}`, 'success');
-  },
-
-  async cache() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withCache({ ttl: 30000, strategy: 'cache-first' })
-      .build();
-
-    const r1 = await client.get('/posts/1');
-    log(`First : "${r1.data.title.slice(0, 40)}…"`);
-    log(`  Cache hit: ${r1.cacheMetadata?.hit ?? false}`, 'dim');
-
-    const r2 = await client.get('/posts/1');
-    log(`Second: cache hit = ${r2.cacheMetadata?.hit}`, r2.cacheMetadata?.hit ? 'success' : 'info');
-    if (r2.cacheMetadata) {
-      log(`  age=${r2.cacheMetadata.age}s, ttl=${r2.cacheMetadata.ttl}s`, 'dim');
-    }
-
-    client.invalidateCache('/posts/1');
-    const r3 = await client.get('/posts/1');
-    log(`After invalidate: hit = ${r3.cacheMetadata?.hit ?? false}`);
-
-    const swrClient = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withCache({ ttl: 5000, strategy: 'stale-while-revalidate' })
-      .build();
-    await swrClient.get('/posts/2');
-    const swr = await swrClient.get('/posts/2');
-    log(`SWR strategy: ${swr.cacheMetadata?.strategy ?? 'n/a'}`, 'info');
-  },
-
-  async polling() {
-    let tick = 0;
-    const checkJob = async () => {
-      tick++;
-      const progress = Math.min(tick * 25, 100);
-      log(`  tick ${tick}: progress ${progress}%`, 'dim');
-      return { status: progress >= 100 ? 'done' : 'running', progress };
-    };
-
-    const { promise } = poll(checkJob, {
-      interval: 200,
-      until: (r) => r.status === 'done',
-      adaptiveInterval: (r) => r.progress < 75 ? 300 : 100,
-      timeout: 10000,
-    });
-
-    const result = await promise;
-    log(`Job finished: ${result.status} after ${tick} ticks`, 'success');
-
-    tick = 0;
-    const { promise: p2 } = poll(checkJob, { interval: 100, maxAttempts: 2 });
-    await p2.catch(err => log(`maxAttempts: ${err.message}`, 'warn'));
-  },
-
-  async mock() {
-    const mock = new MockAdapter();
-    const client = new HTTPBuilder('https://api.example.com')
-      .withTransport(mock.transport)
-      .withRetry(false)
-      .build();
-
-    mock.onGet('/users/1').reply(200, { id: 1, name: 'Alice' });
-    const user = await client.get('/users/1');
-    log(`User: ${user.data.name}`, 'success');
-
-    mock.onPost('/users').reply(config => {
-      const body = typeof config.body === 'string' ? JSON.parse(config.body) : config.body;
-      return body?.role === 'admin'
-        ? [403, { error: 'Forbidden' }]
-        : [201, { id: 42, ...body }];
-    });
-
-    try {
-      await client.post('/users', { name: 'Eve', role: 'admin' });
-    } catch (e) {
-      log(`Admin blocked: ${e.status}`, 'warn');
-    }
-
-    const ok = await client.post('/users', { name: 'Bob', role: 'user' });
-    log(`User created: id=${ok.data.id}`, 'success');
-
-    mock.onGet('/offline').networkError();
-    try { await client.get('/offline'); }
-    catch (e) { log(`NetworkError: ${e instanceof NetworkError}`, 'error'); }
-
-    log(`Total requests: ${mock.getHistory().length}`, 'info');
-  },
-
-  async logger() {
-    const textLogger = new ConsoleLogger({
-      level: LogLevel.DEBUG,
-      prefix: '[MyApp:HTTP]',
-      redactHeaders: ['Authorization', 'Cookie'],
-    });
-
-    textLogger.debug('Cache miss', { url: '/api/users' });
-    textLogger.info('Request sent', { method: 'GET', url: '/api/users' });
-    textLogger.warn('Slow response', { ms: 2400 });
-    log('Text format: logged to DevTools console (F12)', 'info');
-
-    const jsonLogger = new ConsoleLogger({
-      level: LogLevel.WARN,
-      format: 'json',
-      prefix: 'my-service',
-    });
-    jsonLogger.debug('suppressed (below WARN)');
-    jsonLogger.info('suppressed (below WARN)');
-    jsonLogger.warn('High error rate', { rate: 0.12 });
-    log('JSON format: {timestamp,level,message,meta} → DevTools', 'info');
-
-    textLogger.info('Outgoing request (auth → [REDACTED])', {
-      headers: {
-        authorization: 'Bearer super-secret-token',
-        'content-type': 'application/json',
+      let _outputTarget = null;
+      function log(msg, type = 'log') {
+        if (!_outputTarget) return;
+        const span = document.createElement('span');
+        span.className = 'output-line ' + type;
+        span.textContent = msg;
+        _outputTarget.appendChild(span);
+        _outputTarget.appendChild(document.createTextNode('\n'));
+        _outputTarget.scrollTop = _outputTarget.scrollHeight;
       }
-    });
-    log('Check DevTools console — auth header should be [REDACTED]', 'success');
-  },
 
-  async metrics() {
-    const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
-      .withMetrics(true)
-      .withRetry(false)
-      .build();
+      async function runDemo(id) {
+        const box = document.getElementById('output-' + id);
+        if (!box) return;
+        box.innerHTML = '';
+        _outputTarget = box;
+        setStatus(id, 'running');
 
-    await Promise.allSettled([
-      client.get('/users/1'),
-      client.get('/users/2'),
-      client.get('/posts/1'),
-      client.get('/posts/2'),
-      client.get('/todos/1'),
-      client.get('/users/9999'),  // 404
-    ]);
+        const btn = document.querySelector(`#panel-${id} .run-btn`);
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = '⏳ Running…';
+        }
 
-    const snap = client.metrics.getSnapshot();
-    log(`Requests : ${snap.requestCount}`);
-    log(`Errors   : ${snap.errorCount}`, snap.errorCount > 0 ? 'warn' : 'success');
-    log(`Avg ms   : ${snap.averageLatency.toFixed(1)}`);
-    log(`Min ms   : ${snap.minLatency}`, 'info');
-    log(`Max ms   : ${snap.maxLatency}`, 'info');
+        try {
+          await demos[id]();
+          setStatus(id, 'success');
+        } catch (err) {
+          log('Error: ' + (err?.message || String(err)), 'error');
+          setStatus(id, 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '▶ Run';
+          }
+          _outputTarget = null;
+        }
+      }
 
-    // Update metric cards
-    document.getElementById('m-total').textContent = snap.requestCount;
-    document.getElementById('m-errors').textContent = snap.errorCount;
-    document.getElementById('m-avg').textContent = snap.averageLatency.toFixed(0) + 'ms';
-    document.getElementById('m-max').textContent = snap.maxLatency + 'ms';
-    document.getElementById('metrics-cards').style.display = 'grid';
+      function copyCode(btn) {
+        const pre = btn.closest('.code-block').querySelector('pre');
+        const text = pre.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+          }, 1500);
+        });
+      }
 
-    const recent = client.metrics.getRecentRequests();
-    log('\nPer-request:', 'dim');
-    recent.forEach(r => {
-      const icon = r.success ? '✓' : '✗';
-      log(`  ${icon} ${r.method} ${r.url} → ${r.status} (${r.duration}ms)`,
-        r.success ? 'success' : 'error');
-    });
-  },
-};
-</script>
-</body>
+      // ── Demo implementations ───────────────────────────────────────────────────
+
+      const {
+        HTTPBuilder,
+        HTTPError,
+        TimeoutError,
+        NetworkError,
+        AbortError,
+        CircuitBreaker,
+        CircuitState,
+        CircuitOpenError,
+        ConsoleLogger,
+        LogLevel,
+        MockAdapter,
+        MetricsCollector,
+        poll,
+        withRetry,
+      } = Reixo;
+
+      const demos = {
+        async basic() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withTimeout(10000)
+            .build();
+
+          const user = await client.get('/users/1');
+          log(`User: ${user.data.name} <${user.data.email}>`);
+
+          const post = await client.post('/posts', {
+            title: 'Hello reixo',
+            body: 'First post',
+            userId: 1,
+          });
+          log(`Created post #${post.data.id} (status ${post.status})`);
+
+          const updated = await client.patch('/posts/1', { title: 'Updated title' });
+          log(`Patched: "${updated.data.title}"`);
+
+          const del = await client.delete('/posts/1');
+          log(`Deleted: status ${del.status}`);
+
+          const head = await client.head('/users/1');
+          log(`HEAD /users/1 → ${head.status}`, 'success');
+        },
+
+        async params() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com').build();
+
+          const r1 = await client.get('/posts', { params: { userId: 1, _limit: 3 } });
+          log(`Posts by user 1: ${r1.data.length} results`);
+
+          const url = new URL('https://jsonplaceholder.typicode.com/posts');
+          ['js', 'ts', 'api'].forEach((t) => url.searchParams.append('tags', t));
+          log(`Array params URL: ?${url.searchParams.toString()}`);
+
+          const r2 = await client.get('/posts', { params: { _limit: 2, userId: 2 } });
+          log(`Posts by user 2: ids ${r2.data.map((p) => p.id).join(', ')}`);
+
+          const r3 = await client.get('/users', {
+            params: { _limit: 5 },
+            paramsSerializer: (p) =>
+              Object.entries(p)
+                .map(([k, v]) => `${k}=${v}`)
+                .join('&'),
+          });
+          log(`Custom serializer: ${r3.data.map((u) => u.name).join(', ')}`, 'success');
+        },
+
+        async errors() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withRetry(false)
+            .build();
+
+          try {
+            await client.get('/users/9999');
+          } catch (err) {
+            if (err instanceof HTTPError) {
+              log(`HTTPError: ${err.status} ${err.statusText}`, 'error');
+              log(`  URL: ${err.config.url}`, 'dim');
+            }
+          }
+
+          const slow = new HTTPBuilder('https://httpbin.org')
+            .withTimeout(150)
+            .withRetry(false)
+            .build();
+          try {
+            await slow.get('/delay/5');
+          } catch (err) {
+            if (err instanceof TimeoutError) {
+              log(`TimeoutError caught: "${err.message}"`, 'warn');
+            } else {
+              log(`Caught (not timeout): ${err?.constructor?.name} — ${err?.message}`, 'warn');
+            }
+          }
+
+          log('Error handling complete', 'success');
+        },
+
+        async cancel() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withRetry(false)
+            .build();
+
+          const { requestId, promise } = client.requestWithId('/todos/1');
+          log(`Started request: ${requestId}`);
+          client.cancel(requestId);
+
+          try {
+            await promise;
+          } catch (err) {
+            if (err instanceof AbortError) log(`Cancelled: ${err.message}`, 'warn');
+            else log(`Error: ${err?.message}`, 'error');
+          }
+
+          const req1 = client.get('/users/1');
+          const req2 = client.get('/users/2');
+          client.cancelAll();
+          const results = await Promise.allSettled([req1, req2]);
+          const cancelled = results.filter((r) => r.status === 'rejected').length;
+          log(`cancelAll: ${cancelled} cancelled`, cancelled > 0 ? 'warn' : 'info');
+
+          const handle = client.prefetch('/posts/1');
+          log(`Prefetch completed immediately: ${handle.completed}`);
+          await new Promise((r) => setTimeout(r, 300));
+          log(`Prefetch completed after 300ms: ${handle.completed}`, 'success');
+        },
+
+        async retry() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withRetry({
+              maxAttempts: 3,
+              initialDelayMs: 100,
+              backoffFactor: 2,
+              jitter: true,
+              retryCondition: (err) => {
+                if (err?.status >= 400 && err?.status < 500) return false;
+                return true;
+              },
+            })
+            .build();
+
+          const res = await client.get('/users/1');
+          log(`✓ ${res.data.name}`, 'success');
+
+          try {
+            await client.get('/users/9999');
+          } catch (err) {
+            log(`404 not retried: status ${err.status}`, 'warn');
+          }
+
+          let attempts = 0;
+          const result = await withRetry(
+            async () => {
+              attempts++;
+              if (attempts < 3) throw new Error('transient');
+              return 'success';
+            },
+            { maxAttempts: 5, initialDelayMs: 50 }
+          );
+          log(`withRetry: succeeded after ${attempts} attempts: "${result.value}"`, 'success');
+        },
+
+        async circuit() {
+          const cb = new CircuitBreaker({
+            failureThreshold: 3,
+            resetTimeoutMs: 1000,
+            successThreshold: 1,
+          });
+
+          log(`Initial state: ${cb.state}`);
+
+          for (let i = 0; i < 3; i++) {
+            await cb
+              .execute(async () => {
+                throw new Error('service down');
+              })
+              .catch(() => {});
+            log(`After failure ${i + 1}: ${cb.state}`);
+          }
+
+          try {
+            await cb.execute(async () => 'would succeed');
+          } catch (err) {
+            if (err instanceof CircuitOpenError) {
+              log(`CircuitOpenError caught`, 'error');
+            }
+          }
+
+          log('Waiting for reset window (1s)…', 'dim');
+          await new Promise((r) => setTimeout(r, 1100));
+
+          const result = await cb.execute(async () => 'recovered!');
+          log(`Recovered: "${result}", state: ${cb.state}`, 'success');
+        },
+
+        async cache() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withCache({ ttl: 30000, strategy: 'cache-first' })
+            .build();
+
+          const r1 = await client.get('/posts/1');
+          log(`First : "${r1.data.title.slice(0, 40)}…"`);
+          log(`  Cache hit: ${r1.cacheMetadata?.hit ?? false}`, 'dim');
+
+          const r2 = await client.get('/posts/1');
+          log(
+            `Second: cache hit = ${r2.cacheMetadata?.hit}`,
+            r2.cacheMetadata?.hit ? 'success' : 'info'
+          );
+          if (r2.cacheMetadata) {
+            log(`  age=${r2.cacheMetadata.age}s, ttl=${r2.cacheMetadata.ttl}s`, 'dim');
+          }
+
+          client.invalidateCache('/posts/1');
+          const r3 = await client.get('/posts/1');
+          log(`After invalidate: hit = ${r3.cacheMetadata?.hit ?? false}`);
+
+          const swrClient = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withCache({ ttl: 5000, strategy: 'stale-while-revalidate' })
+            .build();
+          await swrClient.get('/posts/2');
+          const swr = await swrClient.get('/posts/2');
+          log(`SWR strategy: ${swr.cacheMetadata?.strategy ?? 'n/a'}`, 'info');
+        },
+
+        async polling() {
+          let tick = 0;
+          const checkJob = async () => {
+            tick++;
+            const progress = Math.min(tick * 25, 100);
+            log(`  tick ${tick}: progress ${progress}%`, 'dim');
+            return { status: progress >= 100 ? 'done' : 'running', progress };
+          };
+
+          const { promise } = poll(checkJob, {
+            interval: 200,
+            until: (r) => r.status === 'done',
+            adaptiveInterval: (r) => (r.progress < 75 ? 300 : 100),
+            timeout: 10000,
+          });
+
+          const result = await promise;
+          log(`Job finished: ${result.status} after ${tick} ticks`, 'success');
+
+          tick = 0;
+          const { promise: p2 } = poll(checkJob, { interval: 100, maxAttempts: 2 });
+          await p2.catch((err) => log(`maxAttempts: ${err.message}`, 'warn'));
+        },
+
+        async mock() {
+          const mock = new MockAdapter();
+          const client = new HTTPBuilder('https://api.example.com')
+            .withTransport(mock.transport)
+            .withRetry(false)
+            .build();
+
+          mock.onGet('/users/1').reply(200, { id: 1, name: 'Alice' });
+          const user = await client.get('/users/1');
+          log(`User: ${user.data.name}`, 'success');
+
+          mock.onPost('/users').reply((config) => {
+            const body = typeof config.body === 'string' ? JSON.parse(config.body) : config.body;
+            return body?.role === 'admin'
+              ? [403, { error: 'Forbidden' }]
+              : [201, { id: 42, ...body }];
+          });
+
+          try {
+            await client.post('/users', { name: 'Eve', role: 'admin' });
+          } catch (e) {
+            log(`Admin blocked: ${e.status}`, 'warn');
+          }
+
+          const ok = await client.post('/users', { name: 'Bob', role: 'user' });
+          log(`User created: id=${ok.data.id}`, 'success');
+
+          mock.onGet('/offline').networkError();
+          try {
+            await client.get('/offline');
+          } catch (e) {
+            log(`NetworkError: ${e instanceof NetworkError}`, 'error');
+          }
+
+          log(`Total requests: ${mock.getHistory().length}`, 'info');
+        },
+
+        async logger() {
+          const textLogger = new ConsoleLogger({
+            level: LogLevel.DEBUG,
+            prefix: '[MyApp:HTTP]',
+            redactHeaders: ['Authorization', 'Cookie'],
+          });
+
+          textLogger.debug('Cache miss', { url: '/api/users' });
+          textLogger.info('Request sent', { method: 'GET', url: '/api/users' });
+          textLogger.warn('Slow response', { ms: 2400 });
+          log('Text format: logged to DevTools console (F12)', 'info');
+
+          const jsonLogger = new ConsoleLogger({
+            level: LogLevel.WARN,
+            format: 'json',
+            prefix: 'my-service',
+          });
+          jsonLogger.debug('suppressed (below WARN)');
+          jsonLogger.info('suppressed (below WARN)');
+          jsonLogger.warn('High error rate', { rate: 0.12 });
+          log('JSON format: {timestamp,level,message,meta} → DevTools', 'info');
+
+          textLogger.info('Outgoing request (auth → [REDACTED])', {
+            headers: {
+              authorization: 'Bearer super-secret-token',
+              'content-type': 'application/json',
+            },
+          });
+          log('Check DevTools console — auth header should be [REDACTED]', 'success');
+        },
+
+        async metrics() {
+          const client = new HTTPBuilder('https://jsonplaceholder.typicode.com')
+            .withMetrics(true)
+            .withRetry(false)
+            .build();
+
+          await Promise.allSettled([
+            client.get('/users/1'),
+            client.get('/users/2'),
+            client.get('/posts/1'),
+            client.get('/posts/2'),
+            client.get('/todos/1'),
+            client.get('/users/9999'), // 404
+          ]);
+
+          const snap = client.metrics.getSnapshot();
+          log(`Requests : ${snap.requestCount}`);
+          log(`Errors   : ${snap.errorCount}`, snap.errorCount > 0 ? 'warn' : 'success');
+          log(`Avg ms   : ${snap.averageLatency.toFixed(1)}`);
+          log(`Min ms   : ${snap.minLatency}`, 'info');
+          log(`Max ms   : ${snap.maxLatency}`, 'info');
+
+          // Update metric cards
+          document.getElementById('m-total').textContent = snap.requestCount;
+          document.getElementById('m-errors').textContent = snap.errorCount;
+          document.getElementById('m-avg').textContent = snap.averageLatency.toFixed(0) + 'ms';
+          document.getElementById('m-max').textContent = snap.maxLatency + 'ms';
+          document.getElementById('metrics-cards').style.display = 'grid';
+
+          const recent = client.metrics.getRecentRequests();
+          log('\nPer-request:', 'dim');
+          recent.forEach((r) => {
+            const icon = r.success ? '✓' : '✗';
+            log(
+              `  ${icon} ${r.method} ${r.url} → ${r.status} (${r.duration}ms)`,
+              r.success ? 'success' : 'error'
+            );
+          });
+        },
+      };
+    </script>
+  </body>
 </html>
