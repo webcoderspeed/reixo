@@ -19,10 +19,11 @@ jobs:
   #
   # Strategy:
   #   a) Auto-fix  — run format + lint:fix so trivial style drift never
-  #                  blocks a PR.  Any changes are committed back to the
-  #                  branch (same-repo PRs + direct pushes only; fork PRs
-  #                  gracefully skip the commit step).
-  #   b) Hard gate — lint:check catches errors that can't be auto-fixed
+  #                  blocks a PR.
+  #   b) Commit-back — ONLY on pull_request events (not push to main).
+  #                  Committing back on a direct push to main would advance
+  #                  origin/main past github.sha and break the release job.
+  #   c) Hard gate — lint:check catches errors that can't be auto-fixed
   #                  (real code issues), typecheck catches type errors.
   #                  These still fail the build as intended.
   # ─────────────────────────────────────────────────────────
@@ -50,7 +51,8 @@ jobs:
       - name: Auto-fix formatting & lint
         run: npm run format && npm run lint:fix
 
-      - name: Commit auto-fixes (if any)
+      - name: Commit auto-fixes (PRs only)
+        if: github.event_name == 'pull_request'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'style: auto-fix formatting and lint [skip ci]'
@@ -184,6 +186,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # Fast-forward local main to the current tip of origin/main.
+      # Guards against "local branch is behind the remote" skips if any
+      # commit lands on main after github.sha was captured.
+      - name: Sync with remote
+        run: git fetch origin && git reset --hard origin/main
 
       - name: Install dependencies
         run: npm install
