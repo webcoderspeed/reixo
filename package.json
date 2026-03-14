@@ -89,7 +89,7 @@
     "typecheck": "tsc --noEmit",
     "demo": "npx tsx examples/demo.ts",
     "benchmark": "npx tsx benchmarks/suite.ts",
-    "prepublishOnly": "npm run build && npm run test && npm run lint:check && npm run typecheck",
+    "prepublishOnly": "npm run build && npm run test && npm run lint && npm run lint:check && npm run typecheck",
     "prepare": "husky install",
     "commit": "cz",
     "lint:fix": "eslint . --fix"

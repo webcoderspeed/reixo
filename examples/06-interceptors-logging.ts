@@ -1,6 +1,6 @@
+import type { HTTPOptions, HTTPResponse } from '../src';
 import { Reixo } from '../src';
 import { ConsoleLogger, LogLevel } from '../src/utils/logger';
-import type { HTTPOptions, HTTPResponse } from '../src';
 
 /**
  * Example 6: Interceptors & Logging

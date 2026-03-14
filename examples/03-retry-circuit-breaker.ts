@@ -8,12 +8,12 @@
  */
 
 import {
+  CircuitBreaker,
+  CircuitOpenError,
   HTTPBuilder,
   HTTPError,
   NetworkError,
   RetryError,
-  CircuitOpenError,
-  CircuitBreaker,
   withRetry,
 } from '../src';
 

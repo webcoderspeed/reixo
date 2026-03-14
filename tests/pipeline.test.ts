@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { Pipeline, AsyncPipeline } from '../src/utils/pipeline';
+import { describe, expect, it } from 'vitest';
+
+import { AsyncPipeline, Pipeline } from '../src/utils/pipeline';
 
 describe('Pipeline', () => {
   it('should transform data sequentially', () => {

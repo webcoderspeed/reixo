@@ -7,8 +7,8 @@
  * Run: npx tsx examples/05-interceptors.ts
  */
 
-import { HTTPBuilder, HTTPError, createAuthInterceptor } from '../src';
 import type { HTTPOptions, HTTPResponse } from '../src';
+import { createAuthInterceptor, HTTPBuilder, HTTPError } from '../src';
 
 // Simulated token store
 let accessToken = 'initial-valid-token';

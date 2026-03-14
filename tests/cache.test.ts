@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { CacheManager } from '../src/utils/cache';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
+import { CacheManager } from '../src/utils/cache';
 import * as httpUtils from '../src/utils/http';
 
 describe('CacheManager', () => {

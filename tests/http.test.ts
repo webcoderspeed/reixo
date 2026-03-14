@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder, HTTPClientConfig } from '../src/core/http-client';
-import { HTTPError, http, HTTPResponse } from '../src/utils/http';
+import { http, HTTPError, HTTPResponse } from '../src/utils/http';
 
 // Mock fetch
 const fetchMock = vi.fn();
@@ -37,7 +38,7 @@ describe('HTTPClient', () => {
   beforeEach(() => {
     fetchMock.mockReset();
     // Reset XMLHttpRequest
-    vi.stubGlobal('XMLHttpRequest', undefined);
+    vi.stubGlobal('XMLHttpRequest');
 
     // Default success response
     fetchMock.mockResolvedValue({
@@ -479,8 +480,8 @@ describe('HTTPClient', () => {
 
     it('should handle interceptors with missing handlers', async () => {
       const client = HTTPBuilder.create('https://api.test')
-        .addRequestInterceptor(undefined, undefined) // Should be ignored or safe
-        .addResponseInterceptor(undefined, undefined) // Should be ignored or safe
+        .addRequestInterceptor() // Should be ignored or safe
+        .addResponseInterceptor() // Should be ignored or safe
         .build();
 
       fetchMock.mockResolvedValue(mockFetchResponse(true, 200, {}));

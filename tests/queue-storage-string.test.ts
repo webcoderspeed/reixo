@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { MemoryAdapter, WebStorageAdapter } from '../src/utils/cache';
 import { TaskQueue } from '../src/utils/queue';
-import { WebStorageAdapter, MemoryAdapter } from '../src/utils/cache';
 
 describe('TaskQueue Storage Configuration', () => {
   const mockStorage = {

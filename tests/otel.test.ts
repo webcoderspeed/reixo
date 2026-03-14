@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { parseTraceparent, formatTraceparent, createOTelInterceptor } from '../src/utils/otel';
+import { describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder } from '../src/index';
+import { createOTelInterceptor, formatTraceparent, parseTraceparent } from '../src/utils/otel';
 
 describe('OTel / W3C Trace Context', () => {
   describe('parseTraceparent()', () => {
@@ -14,7 +15,7 @@ describe('OTel / W3C Trace Context', () => {
 
     it('returns null for null/undefined input', () => {
       expect(parseTraceparent(null)).toBeNull();
-      expect(parseTraceparent(undefined)).toBeNull();
+      expect(parseTraceparent()).toBeNull();
     });
 
     it('returns null for malformed traceparent', () => {

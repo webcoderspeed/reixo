@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { paginate } from '../src/utils/pagination';
+import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
 import { HTTPOptions } from '../src/utils/http';
+import { paginate } from '../src/utils/pagination';
 
 // Mock HTTPClient
 vi.mock('../src/core/http-client', () => {

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { CircuitBreaker, CircuitState } from '../src/utils/circuit-breaker';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
+import { CircuitBreaker, CircuitState } from '../src/utils/circuit-breaker';
 import * as httpUtils from '../src/utils/http';
 import { HTTPResponse } from '../src/utils/http';
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { withRetry } from '../src/utils/retry';
 
 describe('Retry Utility', () => {

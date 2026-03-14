@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ok, err, toResult, mapResult, unwrap, unwrapOr } from '../src/types/result';
+import { describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder, HTTPError } from '../src/index';
+import { err, mapResult, ok, toResult, unwrap, unwrapOr } from '../src/types/result';
 
 describe('Result<T, E>', () => {
   describe('ok / err constructors', () => {

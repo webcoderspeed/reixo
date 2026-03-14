@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HTTPBuilder } from '../src/core/http-client';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { GraphQLClient } from '../src/core/graphql-client';
-import { generateKey } from '../src/utils/keys';
+import { HTTPBuilder } from '../src/core/http-client';
 import { sha256, simpleHash } from '../src/utils/hash';
+import { generateKey } from '../src/utils/keys';
 
 // Mock fetch
 const fetchMock = vi.fn();

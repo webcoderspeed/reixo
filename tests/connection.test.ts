@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ConnectionPool } from '../src/utils/connection';
 import * as https from 'https';
+import { describe, expect, it, vi } from 'vitest';
+
+import { ConnectionPool } from '../src/utils/connection';
 
 // Mock https module
 vi.mock('https', () => ({

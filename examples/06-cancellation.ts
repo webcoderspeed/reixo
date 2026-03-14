@@ -7,7 +7,7 @@
  * Run: npx tsx examples/06-cancellation.ts
  */
 
-import { HTTPBuilder, AbortError } from '../src';
+import { AbortError, HTTPBuilder } from '../src';
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));

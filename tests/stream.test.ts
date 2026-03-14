@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HTTPClient } from '../src/core/http-client';
 import { ReadableStream } from 'stream/web';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { HTTPClient } from '../src/core/http-client';
 
 describe('HTTPClient Stream Support', () => {
   let client: HTTPClient;

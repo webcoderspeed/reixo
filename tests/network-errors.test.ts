@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
-  isTransientNetworkError,
-  isTimeoutError,
-  isDnsError,
   classifyNetworkError,
+  isDnsError,
+  isTimeoutError,
+  isTransientNetworkError,
   TRANSIENT_NETWORK_CODES,
 } from '../src/utils/network-errors';
 
@@ -47,7 +48,7 @@ describe('network-errors', () => {
       expect(isTransientNetworkError(new TypeError('Type mismatch'))).toBe(false);
       expect(isTransientNetworkError(new RangeError('Out of bounds'))).toBe(false);
       expect(isTransientNetworkError(null)).toBe(false);
-      expect(isTransientNetworkError(undefined)).toBe(false);
+      expect(isTransientNetworkError()).toBe(false);
       expect(isTransientNetworkError('string error')).toBe(false);
       expect(isTransientNetworkError(42)).toBe(false);
     });

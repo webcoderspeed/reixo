@@ -1,4 +1,5 @@
 import { Bench } from 'tinybench';
+
 import { Reixo } from '../src/index';
 
 // Define minimal interfaces for Mocks

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
 import * as httpUtils from '../src/utils/http';
-import { MetricsCollector } from '../src/utils/metrics';
 import { HTTPResponse } from '../src/utils/http';
+import { MetricsCollector } from '../src/utils/metrics';
 
 describe('MetricsCollector', () => {
   it('should track successful requests', async () => {

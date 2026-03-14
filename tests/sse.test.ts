@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { SSEClient } from '../src/core/sse-client';
 
 // Mock EventSource
@@ -44,7 +45,7 @@ class MockEventSource {
     if (type === 'message' && this.onmessage) this.onmessage(event as MessageEvent);
     if (type === 'error' && this.onerror) this.onerror(event);
     if (this.listeners[type]) {
-      this.listeners[type].forEach((l) => l(event));
+      for (const l of this.listeners[type]) l(event);
     }
   }
 }

@@ -10,8 +10,8 @@
  * Run:  npx tsx examples/14-metrics.ts
  */
 
-import { HTTPBuilder, MockAdapter, MetricsCollector, NetworkRecorder } from '../src';
-import type { HTTPResponse, HeadersRecord, JsonValue, MockResponseData } from '../src';
+import type { HeadersRecord, HTTPResponse, JsonValue, MockResponseData } from '../src';
+import { HTTPBuilder, MetricsCollector, MockAdapter, NetworkRecorder } from '../src';
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Enable built-in metrics via withMetrics()

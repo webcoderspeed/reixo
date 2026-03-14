@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder } from '../src/core/http-client';
-import { NetworkMonitor } from '../src/utils/network';
 import { MemoryAdapter } from '../src/utils/cache';
+import { NetworkMonitor } from '../src/utils/network';
 import { PersistentQueueOptions } from '../src/utils/queue';
 
 // Mock fetch (remove problematic window declarations for Node.js environment)

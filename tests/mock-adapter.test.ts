@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { MockAdapter } from '../src/utils/mock-adapter';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
+import { MockAdapter } from '../src/utils/mock-adapter';
 
 describe('MockAdapter', () => {
   let mock: MockAdapter;

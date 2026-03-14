@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
   detectRuntime,
   getRuntimeCapabilities,
   isBrowser,
-  isNode,
   isEdgeRuntime,
+  isNode,
 } from '../src/utils/runtime';
 
 describe('runtime detection', () => {

@@ -10,16 +10,16 @@
  */
 
 import {
-  HTTPBuilder,
-  ok,
   err,
-  toResult,
-  mapResult,
-  unwrap,
-  unwrapOr,
-  type Result,
+  HTTPBuilder,
   type HTTPError,
   type HTTPResponse,
+  mapResult,
+  ok,
+  type Result,
+  toResult,
+  unwrap,
+  unwrapOr,
 } from '../src/index';
 
 // ---------------------------------------------------------------------------

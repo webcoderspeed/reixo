@@ -66,7 +66,7 @@ async function runGraphQLDemo() {
 
     if (result.data && result.data.dragon) {
       console.log('✅ Dragon:', result.data.dragon.name);
-      console.log('📝 Description:', result.data.dragon.description.substring(0, 50) + '...');
+      console.log('📝 Description:', result.data.dragon.description.slice(0, 50) + '...');
     } else {
       console.log('❌ No dragon data returned.');
       if (result.errors) {

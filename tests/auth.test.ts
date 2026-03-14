@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
 import { createAuthInterceptor } from '../src/utils/auth';
 import { HTTPError } from '../src/utils/http';

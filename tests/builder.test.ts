@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder } from '../src/core/http-client';
 import { MemoryAdapter } from '../src/utils/cache';
 

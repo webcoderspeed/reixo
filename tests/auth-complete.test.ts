@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
-import { createAuthInterceptor, AuthConfig } from '../src/utils/auth';
+import { AuthConfig, createAuthInterceptor } from '../src/utils/auth';
 
 // Mock fetch
 const fetchMock = vi.fn();

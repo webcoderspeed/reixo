@@ -66,9 +66,9 @@ async function runCachingDemo() {
     pageCount++;
     console.log(`Page ${pageCount}: Fetched ${pageItems.length} items`);
     // Process items...
-    pageItems.forEach((item) => {
+    for (const item of pageItems) {
       console.log(` - ${item.id}: ${item.name}`);
-    });
+    }
   }
 
   console.log(`\n✅ Pagination Finished. Total pages: ${pageCount}`);

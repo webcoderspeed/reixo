@@ -54,7 +54,7 @@ async function runQueueDemo() {
   // Actually Reixo queue stores closures in memory, but only metadata in storage.
   // For true persistence, you would need a way to reconstruct tasks from metadata.
 
-  tasks.forEach((t) => {
+  for (const t of tasks) {
     queue.add(
       async () => {
         // delay is not available from Reixo namespace, use setTimeout instead
@@ -63,7 +63,7 @@ async function runQueueDemo() {
       },
       { id: t.id, priority: t.priority }
     );
-  });
+  }
 
   // 4. Simulate Network Offline/Online
   console.log('\n--- Simulating Offline Mode ---');

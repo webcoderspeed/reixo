@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { debounce, throttle, delay } from '../src/utils/timing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { debounce, delay, throttle } from '../src/utils/timing';
 
 describe('Timing Utils', () => {
   beforeEach(() => {

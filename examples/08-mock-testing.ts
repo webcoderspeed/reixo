@@ -8,8 +8,8 @@
  * Run:  npx tsx examples/08-mock-testing.ts
  */
 
-import { HTTPBuilder, MockAdapter, HTTPError, NetworkError, TimeoutError } from '../src';
 import type { HTTPOptions, MockResponseData } from '../src';
+import { HTTPBuilder, HTTPError, MockAdapter, NetworkError, TimeoutError } from '../src';
 
 // ---------------------------------------------------------------------------
 // Service under test

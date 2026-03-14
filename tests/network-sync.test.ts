@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { TaskQueue } from '../src/utils/queue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { NetworkMonitor } from '../src/utils/network';
+import { TaskQueue } from '../src/utils/queue';
 
 describe('TaskQueue Network Sync', () => {
   beforeEach(() => {

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TaskQueue } from '../src/utils/queue';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { MemoryAdapter } from '../src/utils/cache';
+import { TaskQueue } from '../src/utils/queue';
 
 describe('Persistent TaskQueue', () => {
   let storage: MemoryAdapter;

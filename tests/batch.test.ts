@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { BatchProcessor } from '../src/utils/batch';
 
 describe('BatchProcessor', () => {

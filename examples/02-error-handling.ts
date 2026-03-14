@@ -8,12 +8,12 @@
  */
 
 import {
+  AbortError,
+  CircuitOpenError,
   HTTPBuilder,
   HTTPError,
   NetworkError,
   TimeoutError,
-  AbortError,
-  CircuitOpenError,
 } from '../src';
 
 function classify(err: unknown): string {

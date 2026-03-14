@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { createTraceInterceptor } from '../src/utils/tracing';
+import { describe, expect, it } from 'vitest';
+
 import { HTTPOptions } from '../src/utils/http';
+import { createTraceInterceptor } from '../src/utils/tracing';
 
 describe('Distributed Tracing', () => {
   it('should inject trace ID if missing', () => {

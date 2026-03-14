@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPBuilder } from '../src/core/http-client';
 
 const fetchMock = vi.fn();
@@ -157,7 +158,7 @@ describe('SWR and Prefetch Strategies', () => {
       // Trigger focus
       const focusHandlers = windowEvents['focus'];
       expect(focusHandlers).toBeDefined();
-      focusHandlers.forEach((handler) => handler());
+      for (const handler of focusHandlers) handler();
 
       await vi.waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith('https://api.test/focus-data', expect.anything());
@@ -185,7 +186,7 @@ describe('SWR and Prefetch Strategies', () => {
       // Trigger online
       const onlineHandlers = windowEvents['online'];
       expect(onlineHandlers).toBeDefined();
-      onlineHandlers.forEach((handler) => handler());
+      for (const handler of onlineHandlers) handler();
 
       await vi.waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith('https://api.test/online-data', expect.anything());

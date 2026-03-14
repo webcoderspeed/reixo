@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createSSRInterceptor } from '../src/utils/ssr';
+import { describe, expect, it, vi } from 'vitest';
+
 import { HTTPOptions } from '../src/utils/http';
+import { createSSRInterceptor } from '../src/utils/ssr';
 
 describe('SSR Header Forwarding', () => {
   it('should forward headers from provider', async () => {
@@ -73,7 +74,7 @@ describe('SSR Header Forwarding', () => {
 
     expect(result.headers).toEqual({ Accept: 'application/json' });
     expect(consoleSpy).toHaveBeenCalledWith(
-      '[Reixo] SSR Header Forwarding failed:',
+      '[reixo] SSR Header Forwarding failed:',
       expect.any(Error)
     );
 

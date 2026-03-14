@@ -10,7 +10,7 @@
  * Run:  npx tsx examples/09-logging.ts
  */
 
-import { HTTPBuilder, MockAdapter, ConsoleLogger, LogLevel } from '../src';
+import { ConsoleLogger, HTTPBuilder, LogLevel, MockAdapter } from '../src';
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Default text logger (INFO level)

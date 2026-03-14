@@ -11,8 +11,8 @@
  * Run:  npx tsx examples/13-offline-queue.ts
  */
 
-import { HTTPBuilder, MockAdapter } from '../src';
 import type { MockResponseData } from '../src';
+import { HTTPBuilder, MockAdapter } from '../src';
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Basic offline queue setup

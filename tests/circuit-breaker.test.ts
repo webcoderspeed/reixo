@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { CircuitBreaker, CircuitState } from '../src/utils/circuit-breaker';
 
 const createBreaker = (options = {}) =>

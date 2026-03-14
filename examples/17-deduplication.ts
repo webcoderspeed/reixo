@@ -14,7 +14,7 @@
  *  - Runtime diagnostics via dedup.stats()
  */
 
-import { HTTPBuilder, RequestDeduplicator, buildDedupKey, DEDUP_SAFE_METHODS } from '../src/index';
+import { buildDedupKey, DEDUP_SAFE_METHODS, HTTPBuilder, RequestDeduplicator } from '../src/index';
 
 // ---------------------------------------------------------------------------
 // 1. Built-in deduplication via HTTPBuilder
@@ -154,9 +154,9 @@ async function demonstrateErrorPropagation() {
   );
 
   console.log(`3 callers → failingFetch called: ${calls} time (all share the same rejection)`);
-  results.forEach((r, i) => {
+  for (const [i, r] of results.entries()) {
     if (r.status === 'fulfilled') console.log(`  Caller ${i + 1}:`, r.value);
-  });
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createBatchTransport, BatchRequestItem } from '../src/utils/batch-transport';
+import { describe, expect, it, vi } from 'vitest';
+
+import { BatchRequestItem, createBatchTransport } from '../src/utils/batch-transport';
 import { HTTPResponse } from '../src/utils/http';
 
 describe('Batch Transport', () => {

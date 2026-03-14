@@ -1,4 +1,5 @@
 import { Bench } from 'tinybench';
+
 import { Reixo } from '../src/index';
 
 const bench = new Bench({ time: 1000 });

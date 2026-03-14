@@ -12,7 +12,7 @@
  *  - Low-level helpers: parseTraceparent / formatTraceparent
  */
 
-import { HTTPBuilder, parseTraceparent, formatTraceparent, type SpanContext } from '../src/index';
+import { formatTraceparent, HTTPBuilder, parseTraceparent, type SpanContext } from '../src/index';
 
 // ---------------------------------------------------------------------------
 // 1. Zero-config — every request gets a fresh W3C traceparent
@@ -155,11 +155,11 @@ async function main() {
   await traced.get('/posts/1');
   await traced.get('/posts/2');
   console.log('\n4. Captured spans:');
-  spans.forEach((span) => {
+  for (const span of spans) {
     const ms = span.endMs ? span.endMs - span.startMs : '?';
     console.log(`   [${span.method}] ${span.url} → HTTP ${span.status ?? '?'} in ${ms}ms`);
     console.log(`   traceId: ${span.traceId.slice(0, 16)}…  spanId: ${span.spanId}`);
-  });
+  }
 
   // 5. Low-level helpers
   console.log('\n5. Low-level helpers:');

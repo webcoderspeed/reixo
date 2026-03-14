@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ConsoleLogger, LogLevel } from '../src/utils/logger';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HTTPClient } from '../src/core/http-client';
+import { ConsoleLogger, LogLevel } from '../src/utils/logger';
 import { MockAdapter } from '../src/utils/mock-adapter';
 
 describe('ConsoleLogger', () => {
