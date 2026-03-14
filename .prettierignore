@@ -1,0 +1,21 @@
+# Build outputs
+dist/
+release/
+coverage/
+
+# Dependencies
+node_modules/
+
+# Dev / demo / perf — not library code
+playground/
+examples/
+benchmarks/
+
+# Docs and scratch
+docs/
+todos/
+
+# Generated files
+**/*.d.ts
+tsup.config.bundled_*.mjs
+CHANGELOG.md
