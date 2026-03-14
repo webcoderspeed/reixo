@@ -1,6 +1,6 @@
 {
   "name": "reixo",
-  "version": "2.1.9",
+  "version": "2.1.10",
   "description": "TypeScript HTTP client with Result<T,E> returns, zero-dep OpenTelemetry tracing, request deduplication, retry, circuit breaker, offline queue, and GraphQL — for Node.js, Bun, Deno, and browsers",
   "keywords": [
     "http",

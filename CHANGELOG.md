@@ -3,6 +3,12 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.1.10](https://github.com/webcoderspeed/reixo/compare/v2.1.9...v2.1.10) (2026-03-14)
+
+### ⚡ Performance
+
+* further optimize hot path with slim config and fast interceptors ([3b16f1e](https://github.com/webcoderspeed/reixo/commit/3b16f1ec2b57d45cf01863cda7abf55b222154cf))
+
 ## [2.1.9](https://github.com/webcoderspeed/reixo/compare/v2.1.8...v2.1.9) (2026-03-14)
 
 ### ⚡ Performance
