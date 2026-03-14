@@ -3,6 +3,12 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.2.1](https://github.com/webcoderspeed/reixo/compare/v2.2.0...v2.2.1) (2026-03-14)
+
+### 📚 Documentation
+
+* update landing page version to v2.2.0 and enhance metadata ([b93b91e](https://github.com/webcoderspeed/reixo/commit/b93b91ea09ad5b8aff338ba3bb6a231e28da5f58))
+
 ## [2.2.0](https://github.com/webcoderspeed/reixo/compare/v2.1.17...v2.2.0) (2026-03-14)
 
 ### ✨ Features
