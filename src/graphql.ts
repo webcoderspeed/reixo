@@ -15,8 +15,8 @@
  * });
  */
 
-export type { GraphQLClientConfig, GraphQLResponse } from './core/graphql-client';
-export { GraphQLClient, GraphQLError } from './core/graphql-client';
+export type { GraphQLClientConfig, GraphQLError, GraphQLResponse } from './core/graphql-client';
+export { GraphQLClient } from './core/graphql-client';
 
 import type { GraphQLClientConfig } from './core/graphql-client';
 import { GraphQLClient } from './core/graphql-client';

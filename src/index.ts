@@ -1,5 +1,6 @@
 // Core public API - these are the main exports users should use
-export { GraphQLClient, GraphQLError, GraphQLResponse } from './core/graphql-client';
+export type { GraphQLError, GraphQLResponse } from './core/graphql-client';
+export { GraphQLClient } from './core/graphql-client';
 export { HTTPBuilder, HTTPClient } from './core/http-client';
 export { SSEClient } from './core/sse-client';
 export { WebSocketClient } from './core/websocket-client';

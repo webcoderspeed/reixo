@@ -60,30 +60,55 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "default": "./dist/index.js"
     },
     "./graphql": {
-      "types": "./dist/graphql.d.ts",
-      "import": "./dist/graphql.mjs",
-      "require": "./dist/graphql.js"
+      "import": {
+        "types": "./dist/graphql.d.mts",
+        "default": "./dist/graphql.mjs"
+      },
+      "require": {
+        "types": "./dist/graphql.d.ts",
+        "default": "./dist/graphql.js"
+      }
     },
     "./ws": {
-      "types": "./dist/ws.d.ts",
-      "import": "./dist/ws.mjs",
-      "require": "./dist/ws.js"
+      "import": {
+        "types": "./dist/ws.d.mts",
+        "default": "./dist/ws.mjs"
+      },
+      "require": {
+        "types": "./dist/ws.d.ts",
+        "default": "./dist/ws.js"
+      }
     },
     "./sse": {
-      "types": "./dist/sse.d.ts",
-      "import": "./dist/sse.mjs",
-      "require": "./dist/sse.js"
+      "import": {
+        "types": "./dist/sse.d.mts",
+        "default": "./dist/sse.mjs"
+      },
+      "require": {
+        "types": "./dist/sse.d.ts",
+        "default": "./dist/sse.js"
+      }
     },
     "./mock": {
-      "types": "./dist/mock.d.ts",
-      "import": "./dist/mock.mjs",
-      "require": "./dist/mock.js"
+      "import": {
+        "types": "./dist/mock.d.mts",
+        "default": "./dist/mock.mjs"
+      },
+      "require": {
+        "types": "./dist/mock.d.ts",
+        "default": "./dist/mock.js"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -178,7 +203,7 @@
     "@size-limit/preset-small-lib": "^11.0.0",
     "size-limit": "^11.0.0",
     "tinybench": "^6.0.0",
-    "tsdown": "^0.12.0",
+    "tsdown": "^0.15.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
