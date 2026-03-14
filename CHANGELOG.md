@@ -3,6 +3,12 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.2.2](https://github.com/webcoderspeed/reixo/compare/v2.2.1...v2.2.2) (2026-03-14)
+
+### 📚 Documentation
+
+* add dynamic npm version and github star count fetching ([1a5b390](https://github.com/webcoderspeed/reixo/commit/1a5b390d94e9f1d3df7ad55fab66614658cfb087))
+
 ## [2.2.1](https://github.com/webcoderspeed/reixo/compare/v2.2.0...v2.2.1) (2026-03-14)
 
 ### 📚 Documentation
