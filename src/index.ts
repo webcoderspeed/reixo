@@ -93,6 +93,8 @@ export const Reixo = {
 export type {
   BodyData,
   HTTPClientConfig,
+  // Expose the transport function signature so users can implement custom transports
+  HTTPRequestFunction,
   JsonArray,
   JsonObject,
   // Strict body / meta types
@@ -126,6 +128,7 @@ export type { MockResponseData } from './utils/mock-adapter';
 export type { TransformFn } from './utils/pipeline';
 export type { PollingOptions } from './utils/polling';
 export type { PersistentQueueOptions, QueueEvents } from './utils/queue';
+export { QueueFullError } from './utils/queue';
 export type { RecordedRequest } from './utils/recorder';
 export type { TracingConfig } from './utils/tracing';
 // New next-gen types

@@ -23,8 +23,8 @@ export interface ConnectionPoolOptions {
  * In browser environments, this class effectively does nothing as browsers manage their own pooling.
  */
 export class ConnectionPool {
-  private httpAgent?: HttpAgent;
-  private httpsAgent?: HttpsAgent;
+  private httpAgent: HttpAgent | undefined;
+  private httpsAgent: HttpsAgent | undefined;
   private options: ConnectionPoolOptions;
 
   constructor(options: ConnectionPoolOptions = {}) {

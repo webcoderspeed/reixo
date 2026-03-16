@@ -17,7 +17,7 @@ export type QueueEvents = {
   ];
   'task:start': [{ id: string }];
   'task:completed': [{ id: string; result: unknown }];
-  'task:error': [{ id: string; error: unknown }];
+  'task:error': [{ id: string; error: Error }];
   'task:added': [{ id: string; priority?: number }];
   'task:cancelled': [{ id: string }];
   'queue:paused': [];
@@ -25,6 +25,14 @@ export type QueueEvents = {
   'queue:cleared': [];
   'queue:drain': [];
 };
+
+/** Thrown by `TaskQueue.add()` when `maxQueueSize` has been reached. */
+export class QueueFullError extends Error {
+  constructor(maxSize: number) {
+    super(`Queue is full (maxQueueSize: ${maxSize}). Try again after pending tasks complete.`);
+    this.name = 'QueueFullError';
+  }
+}
 
 /**
  * Manages concurrent execution of async tasks with priority and dependencies.
@@ -37,6 +45,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
   private isPaused = false;
   private readonly concurrency: number;
   private readonly autoStart: boolean;
+  private readonly maxQueueSize: number;
   private readonly storage?: StorageAdapter;
   private readonly storageKey: string;
   private readonly networkMonitor?: NetworkMonitor;
@@ -48,6 +57,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     super();
     this.concurrency = options.concurrency || 3;
     this.autoStart = options.autoStart ?? true;
+    this.maxQueueSize = options.maxQueueSize ?? Infinity;
 
     if (typeof options.storage === 'string') {
       if (options.storage === 'local' || options.storage === 'session') {
@@ -127,6 +137,12 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
     return new Promise((resolve, reject) => {
       const id = options.id || crypto.randomUUID();
 
+      // Backpressure: reject if the pending queue has hit its size limit
+      if (this.queue.length >= this.maxQueueSize) {
+        reject(new QueueFullError(this.maxQueueSize));
+        return;
+      }
+
       // Check for duplicates
       const existingPending = this.queue.find((t) => t.id === id);
       const existingActive = this.activeTaskIds.has(id);
@@ -147,7 +163,8 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
             resolve(result);
             return result;
           } catch (error) {
-            this.emit('task:error', { id, error });
+            const err = error instanceof Error ? error : new Error(String(error));
+            this.emit('task:error', { id, error: err });
             reject(error);
             throw error;
           }

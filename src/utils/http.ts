@@ -316,7 +316,7 @@ export class NetworkError extends Error {
   constructor(message: string, cause?: Error) {
     super(message);
     this.name = 'NetworkError';
-    this.cause = cause;
+    if (cause !== undefined) this.cause = cause;
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, NetworkError);
     }

@@ -191,8 +191,17 @@ const client = new HTTPClient({
   retry: true, // 3 retries, exponential backoff, retries on 5xx / 429 / 408
 });
 
-const response = await client.get<User>('/users/1');
-console.log(response.data); // User
+// ✅ Recommended — Result<T,E> API: no try/catch, fully typed errors
+const result = await client.tryGet<User>('/users/1');
+if (!result.ok) {
+  console.error(result.error.status, result.error.message); // fully typed HTTPError
+  return;
+}
+console.log(result.data.name); // TypeScript knows the shape here
+
+// You can also use the throwing style if you prefer
+// const response = await client.get<User>('/users/1');
+// console.log(response.data);
 ```
 
 ---

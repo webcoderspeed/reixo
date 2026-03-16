@@ -91,6 +91,14 @@ export interface QueueOptions {
    * rejected with a timeout error.
    */
   timeoutMs?: number;
+
+  /**
+   * Maximum number of tasks that may sit in the pending queue at any time.
+   * `add()` rejects with a `QueueFullError` once this limit is reached.
+   * Prevents unbounded memory growth when producers outpace consumers.
+   * @default Infinity (no limit)
+   */
+  maxQueueSize?: number;
 }
 
 /** A unit of work managed by the offline task queue. */
