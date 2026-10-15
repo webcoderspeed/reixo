@@ -940,7 +940,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     this.setQueryData(url, newData, options.params);
 
     if (options.revalidate) {
-      const reqOptions: HTTPOptions = { params: options.params };
+      const reqOptions: HTTPOptions =
+        options.params !== undefined ? { params: options.params } : {};
       if (reqOptions.cacheConfig && typeof reqOptions.cacheConfig === 'object') {
         reqOptions.cacheConfig.strategy = 'network-only';
       } else {
@@ -1261,7 +1262,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       const initialOptions: HTTPOptions = {
         url,
         ...this._baseTransportOpts,
-        retry: retryOptions,
+        ...(retryOptions !== undefined ? { retry: retryOptions } : {}),
         ...options,
         headers: mergedHeaders,
         signal: abortController.signal,
@@ -1505,7 +1506,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   private _serializeBody(
     data: BodyData | undefined,
     options?: HTTPOptions
-  ): { body: BodyInit | undefined; headers: HeadersRecord } {
+  ): { body: BodyInit | null; headers: HeadersRecord } {
     // Normalise incoming headers to a plain mutable object — no unsafe casts
     const headers: HeadersRecord = { ...normalizeHeaders(options?.headers) } as HeadersRecord;
 
@@ -1537,7 +1538,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       }
     }
 
-    let serializedBody: BodyInit | undefined;
+    let serializedBody: BodyInit | null = null;
     if (isFormData) {
       serializedBody = body;
     } else if (data) {
@@ -1673,9 +1674,10 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     } catch (e) {
       if (e instanceof HTTPError) return err(e);
       // Wrap non-HTTPError throws (network errors, timeouts) into an HTTPError
-      const wrapped = new HTTPError(e instanceof Error ? e.message : String(e), {
-        config: options,
-      });
+      const wrapped = new HTTPError(
+        e instanceof Error ? e.message : String(e),
+        options !== undefined ? { config: options } : {}
+      );
       return err(wrapped);
     }
   }
@@ -1881,7 +1883,10 @@ export class HTTPBuilder {
     onFulfilled?: (config: HTTPOptions) => HTTPOptions | Promise<HTTPOptions>,
     onRejected?: RequestInterceptor['onRejected']
   ): this {
-    this.requestInterceptors.push({ onFulfilled, onRejected });
+    this.requestInterceptors.push({
+      ...(onFulfilled !== undefined ? { onFulfilled } : {}),
+      ...(onRejected !== undefined ? { onRejected } : {}),
+    });
     return this;
   }
 
@@ -1891,7 +1896,10 @@ export class HTTPBuilder {
     ) => HTTPResponse<unknown> | Promise<HTTPResponse<unknown>>,
     onRejected?: ResponseInterceptor['onRejected']
   ): this {
-    this.responseInterceptors.push({ onFulfilled, onRejected });
+    this.responseInterceptors.push({
+      ...(onFulfilled !== undefined ? { onFulfilled } : {}),
+      ...(onRejected !== undefined ? { onRejected } : {}),
+    });
     return this;
   }
 
