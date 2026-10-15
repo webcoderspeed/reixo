@@ -3,6 +3,12 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.3.2](https://github.com/webcoderspeed/reixo/compare/v2.3.1...v2.3.2) (2026-10-15)
+
+### 📚 Documentation
+
+* correct which clients read proxy env vars ([f021ba9](https://github.com/webcoderspeed/reixo/commit/f021ba9686ebb4183d895bf00a4fbbd53e41ac12))
+
 ## [2.3.1](https://github.com/webcoderspeed/reixo/compare/v2.3.0...v2.3.1) (2026-10-15)
 
 ### 📚 Documentation
