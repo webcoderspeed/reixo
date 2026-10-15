@@ -87,6 +87,9 @@ console.log(result.data.name); // TypeScript knows the type here
 - [Progress tracking](#progress-tracking)
 - [Metrics](#metrics)
 - [Request cancellation](#request-cancellation)
+- [Proxy (Node.js)](#proxy-nodejs)
+  - [Why `HTTPS_PROXY` alone doesn't work with fetch in Node](#why-https_proxy-alone-doesnt-work-with-fetch-in-node)
+- [Connection pooling & TLS (Node.js)](#connection-pooling--tls-nodejs)
 - [Events](#events)
 - [Fluent builder — HTTPBuilder](#fluent-builder--httpbuilder)
 - [Authentication interceptor](#authentication-interceptor)
@@ -176,7 +179,11 @@ bun add reixo
 
 **Platforms:** Node.js 20+ · Bun · Deno · Cloudflare Workers · Vercel Edge Runtime · Browsers
 
-No peer dependencies required.
+No peer dependencies required. The one optional peer is [`undici`](https://www.npmjs.com/package/undici) (`>= 6.14`), needed only for [`proxy`, `pool` and `ssl`](#proxy-nodejs) in Node.js:
+
+```bash
+npm install undici   # only if you use proxy / pool / ssl in Node.js
+```
 
 ---
 
@@ -600,6 +607,117 @@ controller.abort();
 client.onCleanup(() => console.log('cleanup'));
 client.dispose(); // cancels all requests, triggers cleanup callbacks
 ```
+
+---
+
+## Proxy (Node.js)
+
+Route requests through an HTTP(S) forward proxy. **Opt-in**: without the `proxy` option reixo never uses a proxy, even when `HTTPS_PROXY` is set.
+
+In Node.js this needs the optional `undici` peer (`npm i undici`). It is loaded lazily, only when a proxy, `pool`, `ssl` or `dispatcher` is in use, and is never part of browser bundles.
+
+```typescript
+import { HTTPClient } from 'reixo';
+
+// 1. From the environment: HTTPS_PROXY / HTTP_PROXY / NO_PROXY (+ lowercase variants)
+const client = new HTTPClient({ baseURL: 'https://api.example.com', proxy: 'env' });
+
+// 2. One proxy for everything (credentials become a Proxy-Authorization header)
+new HTTPClient({ proxy: 'http://user:pass@proxy.internal:3128' });
+
+// 3. Explicit config
+new HTTPClient({
+  proxy: {
+    httpsProxy: 'http://proxy.internal:3128', // https:// targets, tunnelled via CONNECT
+    httpProxy: 'http://proxy.internal:3128', // http:// targets (defaults to httpsProxy)
+    noProxy: 'localhost,127.0.0.1,.svc.cluster.local', // NO_PROXY semantics
+  },
+});
+
+// 4. Per-request override: bypass the client proxy for one call…
+await client.get('http://metadata.internal/health', { proxy: false });
+// …or use a different proxy
+await client.get('/report', { proxy: 'http://reports-proxy:3128' });
+```
+
+**`'env'` details**
+
+- The variables are read **once, when the client is created**, not per request.
+- For each variable the uppercase name wins over the lowercase one (`HTTPS_PROXY` over `https_proxy`). Empty values count as unset.
+- `HTTPS_PROXY` applies to `https://` targets and `HTTP_PROXY` to `http://` targets. Like undici's `EnvHttpProxyAgent`, `https://` targets fall back to `HTTP_PROXY` when only that is set.
+- `NO_PROXY` supports `*`, `host`, `.domain` / `*.domain` (matching the domain and its subdomains) and `host:port`. CIDR ranges are not supported.
+
+**Custom dispatcher (escape hatch)**
+
+Pass any pre-built undici `Dispatcher` (`Agent`, `ProxyAgent`, `EnvHttpProxyAgent`, `MockAgent`, …). It is handed to `fetch` unchanged, and `proxy` / `pool` / `ssl` are ignored:
+
+```typescript
+import { MockAgent, ProxyAgent } from 'undici';
+
+new HTTPClient({ dispatcher: new ProxyAgent({ uri: 'http://proxy:3128', proxyTls: { ca } }) });
+
+// Per request (takes precedence over everything else)
+const mock = new MockAgent();
+await client.get('/users', { dispatcher: mock });
+```
+
+Resolution order per request: `options.dispatcher` → `options.proxy` → `config.dispatcher` → `config.proxy` → `pool`/`ssl` dispatcher → none. Custom `transport` functions receive the resolved `dispatcher` in their options, typed on `HTTPOptions`, so no casts are needed.
+
+**Errors.** A failure at the proxy itself is reported with the proxy's origin. Credentials are never included in errors or logs (see `redactProxyUrl`):
+
+| Situation                                        | Error                                                                                                    | Retried?  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | --------- |
+| Proxy unreachable (ECONNREFUSED, DNS, …)         | `NetworkError`: `Proxy http://proxy:3128 is unreachable (ECONNREFUSED)`                                  | yes       |
+| Proxy rejects CONNECT, e.g. `407`                | `HTTPError` with `status: 407`: `Proxy http://proxy:3128 rejected CONNECT to api.example.com:443: 407 …` | no (4xx)  |
+| Proxy rejects CONNECT with `502` / `503` / `504` | `HTTPError` with that status                                                                             | yes (5xx) |
+| Upstream failure through the tunnel              | `NetworkError`: `Network request to … via proxy http://proxy:3128 failed (…)`                            | yes       |
+
+Retry, timeouts, circuit breaker, deduplication, interceptors, metrics and OpenTelemetry behave exactly as without a proxy.
+
+**Other runtimes**
+
+| Runtime                   | Behaviour                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| Node.js                   | undici `EnvHttpProxyAgent` (requires `undici`)                                |
+| Bun                       | Native `fetch(url, { proxy })`. reixo applies `noProxy` itself                |
+| Deno                      | `Deno.createHttpClient({ proxy })`, when available                            |
+| Browsers / Workers / Edge | Ignored with a single warning. Browsers cannot choose a proxy from JavaScript |
+
+### Why `HTTPS_PROXY` alone doesn't work with fetch in Node
+
+`axios` and `got` pick up `HTTP_PROXY` / `HTTPS_PROXY` automatically. The global `fetch` in Node.js (undici) **does not**: it ignores those variables unless the process is started with `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`, and those flags only exist on recent Node versions (≥ 24). So when you move from axios to a fetch-based client behind a corporate or Kubernetes egress proxy, traffic silently bypasses the proxy, or fails if direct egress is blocked.
+
+With reixo, set `proxy: 'env'` to get the axios behaviour back:
+
+```typescript
+new HTTPClient({ proxy: 'env' }); // + npm i undici
+```
+
+---
+
+## Connection pooling & TLS (Node.js)
+
+`pool` and `ssl` configure the underlying undici `Agent` (requires `undici`). When a proxy is also configured, the TLS options apply to both the upstream connection and the proxy hop.
+
+```typescript
+new HTTPClient({
+  pool: {
+    maxSockets: 50, // → undici `connections` (per origin)
+    keepAlive: true, // `false` disables connection reuse
+    keepAliveMsecs: 1000, // TCP keep-alive probe delay
+  },
+  ssl: {
+    ca: fs.readFileSync('corp-root-ca.pem'), // trust a private CA
+    cert: fs.readFileSync('client.pem'), // mutual TLS
+    key: fs.readFileSync('client-key.pem'),
+    rejectUnauthorized: true,
+  },
+});
+```
+
+> **Fixed in 2.3.0.** Up to 2.2.x, `pool` and `ssl` built `node:http(s)` agents that `fetch` silently ignored, so they had no effect in Node.js. They now take effect.
+>
+> **Deprecated:** the per-request `agent` option. `fetch` has never accepted `http.Agent` / `https.Agent`. reixo now ignores it with a one-time warning. Use `pool` / `ssl`, `proxy`, or `dispatcher` instead.
 
 ---
 
@@ -1406,8 +1524,10 @@ interface HTTPClientConfig {
   versioningStrategy?: 'url' | 'header'; // default: 'url'
   versionHeader?: string; // default: 'Accept-Version'
 
-  // Node.js-specific
-  pool?: ConnectionPoolOptions;
+  // Node.js-specific (proxy also works on Bun / Deno). Requires the optional `undici` peer in Node.
+  proxy?: 'env' | string | ProxyConfig | false; // default: undefined (no proxy)
+  dispatcher?: unknown; // pre-built undici Dispatcher, passed to fetch unchanged
+  pool?: ConnectionPoolOptions; // maxSockets, keepAlive, keepAliveMsecs
   ssl?: {
     rejectUnauthorized?: boolean;
     ca?: string | Buffer | Array<string | Buffer>;
