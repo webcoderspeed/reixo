@@ -3,6 +3,20 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.3.0](https://github.com/webcoderspeed/reixo/compare/v2.2.2...v2.3.0) (2026-10-15)
+
+### ✨ Features
+
+* **proxy:** add proxy and dispatcher options; make pool/ssl effective in Node ([2b6438d](https://github.com/webcoderspeed/reixo/commit/2b6438d4e41d74de22d871ee9675c0c37383578e))
+
+### 🐛 Bug Fixes
+
+* **types:** satisfy exactOptionalPropertyTypes ([5317834](https://github.com/webcoderspeed/reixo/commit/531783414f2ed7d17f5ebd93fccd570574086345))
+
+### 📚 Documentation
+
+* document proxy, dispatcher, pool/ssl fix and agent deprecation ([92a0600](https://github.com/webcoderspeed/reixo/commit/92a06006758eb6bc21a0480fb903c5f3b17b2894))
+
 ## [2.3.0] — Unreleased
 
 ### ✨ Features
