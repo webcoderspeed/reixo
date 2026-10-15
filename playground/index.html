@@ -195,7 +195,7 @@ const api = createClient({ baseURL: 'https://api.example.com' });
 const result = await api.tryGet&lt;User&gt;('/users/42');
 
 if (result.ok) {
-  console.log(result.data.name);    // ✓ User — fully typed
+  console.log(result.data.data.name); // ✓ User — fully typed
 } else {
   console.error(result.error.code); // ✓ NetworkError | HttpError
 }
@@ -453,7 +453,7 @@ const api = createClient({
 
 // GET — typed, never throws
 const result = await api.tryGet&lt;User&gt;('/users/1');
-if (result.ok) console.log(result.data.name);
+if (result.ok) console.log(result.data.data.name);
 
 // POST
 const post = await api.tryPost&lt;Post&gt;('/posts', {
