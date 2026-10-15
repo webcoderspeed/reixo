@@ -182,7 +182,7 @@ jobs:
       contents: write # push release tag + chore(release) commit
       issues: write # comment on released issues
       pull-requests: write # comment on released PRs
-      id-token: write # npm provenance attestation
+      id-token: write # npm trusted publishing (OIDC) + provenance attestation
 
     steps:
       - name: Checkout (full history)
@@ -194,8 +194,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
           cache: 'npm'
+
+      # Trusted publishing (OIDC) requires npm >= 11.5.1; Node 22 ships npm 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
 
       # Fast-forward local main to the current tip of origin/main.
       # Guards against "local branch is behind the remote" skips if any
@@ -209,9 +214,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # No NPM_TOKEN: publishing authenticates via OIDC trusted publishing.
+      # Requires a trusted publisher for `reixo` on npmjs.com pointing at
+      # this repository and ci.yml.
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: npx semantic-release
