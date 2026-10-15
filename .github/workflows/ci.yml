@@ -189,7 +189,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          # main only accepts pushes through a PR; the deploy key is on the
+          # ruleset bypass list so the chore(release) commit and tag can land.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -221,4 +223,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-        run: npx semantic-release
+        run: npx semantic-release --repository-url git@github.com:webcoderspeed/reixo.git
