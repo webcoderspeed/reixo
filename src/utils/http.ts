@@ -439,10 +439,10 @@ export class CircuitOpenError extends Error {
  */
 
 export class HTTPError extends Error {
-  public readonly status?: number | undefined;
-  public readonly statusText?: string | undefined;
-  public readonly config?: HTTPOptions | undefined;
-  public readonly response?: Response | undefined;
+  public readonly status?: number;
+  public readonly statusText?: string;
+  public readonly config?: HTTPOptions;
+  public readonly response?: Response;
 
   constructor(
     message: string,
@@ -714,7 +714,7 @@ export async function http<T = unknown>(
           if (responseType === 'arraybuffer') {
             return allChunks.buffer;
           } else if (responseType === 'blob') {
-            return new Blob([allChunks], { type: contentType || '' });
+            return new Blob([allChunks], { type: contentType || undefined });
           } else {
             // Default to text/json
             const text = new TextDecoder('utf-8').decode(allChunks);

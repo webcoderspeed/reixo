@@ -46,7 +46,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
   private readonly concurrency: number;
   private readonly autoStart: boolean;
   private readonly maxQueueSize: number;
-  private readonly storage: StorageAdapter | undefined;
+  private readonly storage?: StorageAdapter;
   private readonly storageKey: string;
   private readonly networkMonitor?: NetworkMonitor;
 
@@ -152,7 +152,6 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
         return;
       }
 
-      const priority = options.priority || 0;
       const task: QueueTask<unknown> = {
         id,
         task: async () => {
@@ -170,8 +169,8 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
             throw error;
           }
         },
-        priority,
-        ...(options.dependencies !== undefined ? { dependencies: options.dependencies } : {}),
+        priority: options.priority || 0,
+        dependencies: options.dependencies,
         data: options.data,
       };
 
@@ -184,7 +183,7 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
 
       this.sortQueue();
       this.saveQueue();
-      this.emit('task:added', { id, priority });
+      this.emit('task:added', { id, priority: task.priority });
 
       if (this.autoStart && !this.isPaused) {
         this.processNext();
@@ -309,13 +308,12 @@ export class TaskQueue extends EventEmitter<QueueEvents> {
   private applyPriorityInheritance(task: QueueTask<unknown>): void {
     if (!task.dependencies) return;
 
-    const priority = task.priority || 0;
     for (const depId of task.dependencies) {
       const depTask = this.queue.find((t) => t.id === depId);
       if (depTask) {
         // If dependent task has lower priority, boost it
-        if ((depTask.priority || 0) < priority) {
-          depTask.priority = priority;
+        if ((depTask.priority || 0) < (task.priority || 0)) {
+          depTask.priority = task.priority;
           // Recursively apply to its dependencies
           this.applyPriorityInheritance(depTask);
         }

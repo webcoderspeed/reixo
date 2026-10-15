@@ -75,7 +75,7 @@ export class GraphQLClient {
     const response = await this.httpClient.post<GraphQLResponse<T>>(
       '', // Post to baseURL directly
       body,
-      headers !== undefined ? { headers } : {}
+      { headers }
     );
 
     return response.data;
@@ -98,7 +98,7 @@ export class GraphQLClient {
         ...(variables !== undefined ? { variables } : {}),
       };
       const response = await this.httpClient.post<GraphQLResponse<T>>('', hashOnlyBody, {
-        ...(headers !== undefined ? { headers } : {}),
+        headers,
         // Don't retry automatically on 4xx/5xx for this specific optimization flow
         // unless it's a network error, but we want to handle the specific GraphQL error manually
         retry: false,
@@ -135,11 +135,7 @@ export class GraphQLClient {
           extensions,
           ...(variables !== undefined ? { variables } : {}),
         };
-        const response = await this.httpClient.post<GraphQLResponse<T>>(
-          '',
-          fullBody,
-          headers !== undefined ? { headers } : {}
-        );
+        const response = await this.httpClient.post<GraphQLResponse<T>>('', fullBody, { headers });
         return response.data;
       }
 
