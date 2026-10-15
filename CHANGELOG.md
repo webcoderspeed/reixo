@@ -3,6 +3,13 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.3.1](https://github.com/webcoderspeed/reixo/compare/v2.3.0...v2.3.1) (2026-10-15)
+
+### 📚 Documentation
+
+* correct competitor claims in the comparisons ([53ed662](https://github.com/webcoderspeed/reixo/commit/53ed662a2a8fad04ec9a8abf07501036b580b783))
+* use reixo as the orval mutator ([48ccfad](https://github.com/webcoderspeed/reixo/commit/48ccfada467deb2da40bd9b192b329edc01314b2))
+
 ## [2.3.0](https://github.com/webcoderspeed/reixo/compare/v2.2.2...v2.3.0) (2026-10-15)
 
 ### ✨ Features
