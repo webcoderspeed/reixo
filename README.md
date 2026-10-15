@@ -686,7 +686,7 @@ Retry, timeouts, circuit breaker, deduplication, interceptors, metrics and OpenT
 
 ### Why `HTTPS_PROXY` alone doesn't work with fetch in Node
 
-`axios` and `got` pick up `HTTP_PROXY` / `HTTPS_PROXY` automatically. The global `fetch` in Node.js (undici) **does not**: it ignores those variables unless the process is started with `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`, and those flags only exist on recent Node versions (≥ 24). So when you move from axios to a fetch-based client behind a corporate or Kubernetes egress proxy, traffic silently bypasses the proxy, or fails if direct egress is blocked.
+`axios` picks up `HTTP_PROXY` / `HTTPS_PROXY` automatically. The global `fetch` in Node.js (undici) **does not**: it ignores those variables unless the process is started with `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`, which only exist on Node 22.21+ and 24+ (`got` needs a proxy agent such as `hpagent` either way). So when you move from axios to a fetch-based client behind a corporate or Kubernetes egress proxy, traffic silently bypasses the proxy, or fails if direct egress is blocked.
 
 With reixo, set `proxy: 'env'` to get the axios behaviour back:
 
