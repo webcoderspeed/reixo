@@ -78,7 +78,7 @@ export class SSEClient extends EventEmitter<SSEEvents> {
       // Note: Native EventSource only supports second argument as object with withCredentials
       // Custom headers usually require a polyfill or fetch-based implementation
       // Here we assume standard EventSource API
-      const options = { withCredentials: this.config.withCredentials };
+      const options = { withCredentials: this.config.withCredentials ?? false };
       this.eventSource = new EventSource(this.config.url, options);
       this.setupListeners();
     } catch (error) {

@@ -208,11 +208,12 @@ export function createOTelInterceptor(config: OTelConfig = {}) {
       // The incoming span becomes the parent; we generate a new child span ID
       const newSpanId = randomSpanId();
 
+      const traceState = upstreamCtx?.traceState ?? parentContext?.traceState;
       const spanCtx: SpanContext = {
         traceId,
         spanId: newSpanId,
         traceFlags,
-        traceState: upstreamCtx?.traceState ?? parentContext?.traceState,
+        ...(traceState !== undefined ? { traceState } : {}),
       };
 
       const newHeaders: HeadersRecord = {
