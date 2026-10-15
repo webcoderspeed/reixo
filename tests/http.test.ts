@@ -405,13 +405,22 @@ describe('HTTPClient', () => {
       // or by mocking the internal request execution if possible.
       // A better way is to verify that the passed option wraps the original and emits event.
 
+      // reixo-only options are no longer forwarded to fetch(), so capture the
+      // wrapped handler from the request pipeline instead.
+      let options: any;
+      client.interceptors.request.push({
+        onFulfilled: (config) => {
+          options = config;
+          return config;
+        },
+      });
+      client._rebuildPerfCaches();
+
       await client.get('/download', {
         onDownloadProgress: onDownloadProgressSpy,
       });
 
-      // Get the call arguments to fetch
-      const callArgs = fetchMock.mock.calls[0];
-      const options = callArgs[1];
+      expect(fetchMock.mock.calls[0][1]).not.toHaveProperty('onDownloadProgress');
 
       // Simulate progress event
       options.onDownloadProgress({ loaded: 50, total: 100, progress: 50 });
