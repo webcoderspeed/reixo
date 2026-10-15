@@ -52,14 +52,14 @@ import { HTTPClient } from 'reixo';
 const client = new HTTPClient({
   baseURL: 'https://api.example.com/v1',
   retry: true, // 3 retries, exponential backoff, 5xx / 429 / 408
-  circuitBreaker: true, // open after 5 failures, reset after 30 s
+  circuitBreaker: { failureThreshold: 5, resetTimeoutMs: 30_000 },
   cacheConfig: true, // in-memory LRU, 5 min TTL
   enableDeduplication: true,
 });
 
 const result = await client.tryGet<User>('/users/1');
 if (!result.ok) return handleError(result.error); // fully typed HTTPError
-console.log(result.data.name); // TypeScript knows the type here
+console.log(result.data.data.name); // result.data is the response, .data is the User
 ```
 
 ---
@@ -205,7 +205,7 @@ if (!result.ok) {
   console.error(result.error.status, result.error.message); // fully typed HTTPError
   return;
 }
-console.log(result.data.name); // TypeScript knows the shape here
+console.log(result.data.data.name); // result.data is the response, .data is the User
 
 // You can also use the throwing style if you prefer
 // const response = await client.get<User>('/users/1');
@@ -309,7 +309,7 @@ if (!result.ok) {
   return;
 }
 
-console.log(result.data.name); // TypeScript knows data is User here
+console.log(result.data.data.name); // result.data is the response, .data is the User
 ```
 
 Available try-methods: `tryGet`, `tryPost`, `tryPut`, `tryPatch`, `tryDelete`, `tryRequest`.
