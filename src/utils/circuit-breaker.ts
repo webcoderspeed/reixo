@@ -28,8 +28,8 @@ export class CircuitBreaker {
   private readonly failureThreshold: number;
   private readonly resetTimeoutMs: number;
   private readonly halfOpenRetries: number;
-  private readonly fallback: (() => unknown) | undefined;
-  private readonly onStateChange: ((state: CircuitState) => void) | undefined;
+  private readonly fallback?: () => unknown;
+  private readonly onStateChange?: (state: CircuitState) => void;
 
   constructor(options: CircuitBreakerOptions = {}) {
     this.failureThreshold = options.failureThreshold || 5;

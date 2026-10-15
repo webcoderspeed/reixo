@@ -3,30 +3,6 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
-## [2.3.0] — Unreleased
-
-### ✨ Features
-
-* **proxy:** first-class HTTP(S) proxy support via a new `proxy` option on `HTTPClientConfig` and per request on `HTTPOptions`: `'env'` (HTTPS_PROXY / HTTP_PROXY / NO_PROXY, read once at client creation), a proxy URL, a `ProxyConfig` object, or `false` to bypass. It is opt-in, so behaviour without the option is unchanged. Node.js uses undici's `EnvHttpProxyAgent`, Bun uses native `fetch({ proxy })` and Deno uses `Deno.createHttpClient`. Browsers and edge runtimes ignore the option with a single warning.
-* **dispatcher:** new `dispatcher` option (client and per request) that passes a pre-built undici `Dispatcher` (`Agent`, `ProxyAgent`, `MockAgent`, …) to `fetch` unchanged. It is typed on `HTTPOptions`, so custom transports no longer need casts.
-* Proxy failures are reported distinctly: an unreachable proxy throws `NetworkError`, and a rejected CONNECT throws `HTTPError` with the proxy's status. A `407` is not retried. Proxy credentials are never included in errors or logs. `redactProxyUrl()` is exported.
-* New exports: `ProxyConfig`, `ProxyOption`, `TLSOptions`, `redactProxyUrl`, and `HTTPBuilder#withProxy()`.
-* `undici` (`>= 6.14.0`) is an **optional** peer dependency. It is loaded lazily, and only when `proxy`, `pool`, `ssl` or `dispatcher` is used. reixo still has zero runtime dependencies, and undici is never part of browser bundles.
-
-### 🐛 Bug Fixes
-
-* **node:** `pool` (`maxSockets`, `keepAlive`, `keepAliveMsecs`) and `ssl` (`ca`, `cert`, `key`, `passphrase`, `rejectUnauthorized`) now take effect in Node.js. Previously they built `node:http(s)` agents that `fetch` silently ignored. They are now translated into an undici `Agent`, and the TLS options are also applied to the proxy hop.
-* reixo-only request options (`proxy`, `dispatcher`, `agent`, `cacheConfig`, `validationSchema`, `responseType`, progress callbacks, …) are no longer forwarded to `fetch()`. Unknown keys are still forwarded, as before.
-
-### ⚠️ Deprecated
-
-* The per-request `agent` option. `fetch` has never accepted `http.Agent` / `https.Agent`. It is now ignored with a one-time warning. Use `pool` / `ssl`, `proxy`, or `dispatcher`.
-
-### 🔭 Under consideration for 3.0
-
-* Make `proxy: 'env'` the default, matching axios. This was not done in 2.3.0 because it would silently re-route traffic for existing users who have `HTTPS_PROXY` set.
-* `retry.methods`: by default, only retry idempotent methods (POST/PATCH are currently retried on 5xx/429/408/network errors).
-
 ## [2.2.2](https://github.com/webcoderspeed/reixo/compare/v2.2.1...v2.2.2) (2026-03-14)
 
 ### 📚 Documentation

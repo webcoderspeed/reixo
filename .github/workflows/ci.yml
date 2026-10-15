@@ -68,9 +68,7 @@ jobs:
         run: npm run typecheck
 
   # ─────────────────────────────────────────────────────────
-  # 2. Tests — Node 20 / 22 / 24 matrix
-  # 24 is included because it bundles undici 7 (20/22 bundle undici 6) — the
-  # proxy tests verify user-installed undici dispatchers work with each.
+  # 2. Tests — Node 20 / 22 matrix
   # Node 18 dropped: vitest v4 depends on rolldown which requires
   # node:util.styleText (Node ≥ 20.12). Node 18 reached EOL Apr 2025.
   # ─────────────────────────────────────────────────────────
@@ -81,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['20', '22', '24']
+        node-version: ['20', '22']
 
     steps:
       - name: Checkout
@@ -138,10 +136,6 @@ jobs:
           (test -f dist/index.d.ts || test -f dist/index.d.mts) \
             || (echo "dist/index.d.ts (or .d.mts) missing" && exit 1)
           echo "All dist artifacts present"
-
-      # undici is an optional peer dep — it must never be bundled or imported eagerly.
-      - name: Verify undici is only loaded lazily
-        run: npm run check:bundle
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
