@@ -115,6 +115,7 @@ console.log(result.data.name); // TypeScript knows the type here
 - [Timing utilities](#timing-utilities)
 - [Runtime detection](#runtime-detection)
 - [Error types](#error-types)
+- [OpenAPI code generation (orval)](#openapi-code-generation-orval)
 - [Complete configuration reference](#complete-configuration-reference)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1476,6 +1477,68 @@ try {
   }
 }
 ```
+
+---
+
+## OpenAPI code generation (orval)
+
+[orval](https://orval.dev) turns an OpenAPI spec into typed functions and hands every request to a "mutator". Make reixo the mutator and each generated call gets retry, circuit breaking, caching, dedup and tracing from one shared client.
+
+```typescript
+// orval.config.ts
+import { defineConfig } from 'orval';
+
+export default defineConfig({
+  api: {
+    input: './openapi.yaml',
+    output: {
+      target: './src/api/generated.ts',
+      httpClient: 'axios', // 'fetch' works too; the mutator is the same
+      override: {
+        mutator: { path: './src/api/reixo-instance.ts', name: 'reixoInstance' },
+      },
+    },
+  },
+});
+```
+
+```typescript
+// src/api/reixo-instance.ts
+import { HTTPClient, type HTTPMethod, type HTTPOptions } from 'reixo';
+
+export const client = new HTTPClient({ baseURL: 'https://api.example.com', retry: true });
+
+type OrvalRequest = {
+  url: string;
+  method: HTTPMethod;
+  params?: HTTPOptions['params'];
+  data?: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+};
+
+export const reixoInstance = async <T>(
+  { url, method, params, data, headers, signal }: OrvalRequest,
+  options?: HTTPOptions
+): Promise<T> => {
+  const body =
+    data === undefined || data instanceof FormData || typeof data === 'string'
+      ? data
+      : JSON.stringify(data);
+
+  const response = await client.request<T>(url, {
+    ...options,
+    method,
+    ...(params && { params }),
+    ...(headers && { headers: { ...headers, ...options?.headers } }),
+    ...(signal && { signal }),
+    ...(body !== undefined && { body }),
+  });
+  return response.data;
+};
+```
+
+Generated functions then take reixo options as their last argument, e.g. `listPets({ limit: 5 }, { timeoutMs: 2000 })`. Tested with orval 8.43; see [`examples/18-openapi-orval.ts`](examples/18-openapi-orval.ts).
 
 ---
 
