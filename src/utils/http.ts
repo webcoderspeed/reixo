@@ -2,7 +2,6 @@ import type { RetryOptions } from '../types';
 import type { HeadersWithSuggestions } from '../types/http-well-known';
 import type { CacheOptions } from './cache';
 import { isTransientNetworkError } from './network-errors';
-import type { ProxyOption } from './proxy';
 import { RetryError, withRetry } from './retry';
 
 /**
@@ -126,33 +125,8 @@ export interface HTTPOptions extends Omit<RequestInit, 'method' | 'headers'> {
    */
   cacheConfig?: CacheOptions | boolean;
 
-  /**
-   * @deprecated `fetch` never accepted Node.js `http.Agent` / `https.Agent`, so this
-   * option has always been a no-op. It is now ignored with a one-time warning.
-   * Use the client's `pool` / `ssl` options, `proxy`, or `dispatcher` instead.
-   */
+  /** Node.js `http.Agent` / `https.Agent` for keep-alive and connection pooling. */
   agent?: unknown;
-
-  /**
-   * Route this request through an HTTP(S) proxy (Node.js, Bun, Deno).
-   * Overrides the client-level `proxy`.
-   * - `'env'`  — HTTPS_PROXY / HTTP_PROXY / NO_PROXY (and lowercase variants)
-   * - string   — proxy URL, e.g. `'http://user:pass@proxy.internal:3128'`
-   * - object   — explicit {@link ProxyConfig}
-   * - `false`  — force a direct connection, bypassing a client-level proxy
-   *
-   * In Node.js this requires the optional `undici` peer dependency.
-   */
-  proxy?: ProxyOption;
-
-  /**
-   * Escape hatch: a pre-built undici `Dispatcher` (`Agent`, `ProxyAgent`,
-   * `EnvHttpProxyAgent`, `MockAgent`, …) passed to `fetch` unchanged.
-   * Takes precedence over `proxy` and the client's `pool` / `ssl`.
-   * Typed as `unknown` to keep reixo free of an undici type dependency; it is
-   * validated at runtime (must have a `dispatch()` method).
-   */
-  dispatcher?: unknown;
 
   /** @internal Marks a request as a retry attempt to prevent duplicate queuing. */
   _retry?: boolean;
@@ -494,20 +468,6 @@ function serializeParams(params: ParamsValue): string {
     .join('&');
 }
 
-/** `HTTPOptions` keys that only reixo understands — removed before calling fetch(). */
-const REIXO_ONLY_KEYS = [
-  'url',
-  'cacheConfig',
-  '_retry',
-  'responseType',
-  'onDownloadProgress',
-  'onUploadProgress',
-  'validationSchema',
-  'useFormData',
-  'taskPriority',
-  'deduplicate',
-] as const;
-
 export async function http<T = unknown>(
   url: string,
   options: HTTPOptions = {}
@@ -520,16 +480,8 @@ export async function http<T = unknown>(
     baseURL,
     params,
     paramsSerializer,
-    proxy,
-    dispatcher,
-    agent,
-    ...rest
+    ...requestInit
   } = options;
-
-  // Strip reixo-only keys so they never reach fetch(). Unknown keys are still
-  // forwarded unchanged for backward compatibility.
-  const requestInit: Omit<HTTPOptions, (typeof REIXO_ONLY_KEYS)[number]> = { ...rest };
-  for (const key of REIXO_ONLY_KEYS) delete (requestInit as Record<string, unknown>)[key];
 
   // Normalize slashes: strip trailing slash from baseURL and leading slash from url
   // to prevent "https://api.example.comusers" type bugs when baseURL has no trailing slash
@@ -550,18 +502,6 @@ export async function http<T = unknown>(
 
   const separator = baseUrlWithUrl.includes('?') ? '&' : '?';
   const fullUrl = params ? `${baseUrlWithUrl}${separator}${query}` : baseUrlWithUrl;
-
-  // Proxy / dispatcher resolution — skipped entirely (no undici import, no extra
-  // await) unless one of these options is present.
-  let fetchExtras: Record<string, unknown> | undefined;
-  let proxyVia: string | undefined;
-  let proxyModule: typeof import('./proxy-dispatch') | undefined;
-  if (proxy !== undefined || dispatcher !== undefined || agent !== undefined) {
-    proxyModule = await import('./proxy-dispatch');
-    const extras = await proxyModule.resolveFetchExtras(fullUrl, { proxy, dispatcher, agent });
-    fetchExtras = extras.init;
-    proxyVia = extras.via;
-  }
 
   const fetchWithTimeout = async (): Promise<Response> => {
     const controller = new AbortController();
@@ -592,12 +532,10 @@ export async function http<T = unknown>(
     }
 
     try {
-      const response = await fetch(
-        fullUrl,
-        fetchExtras
-          ? { ...requestInit, ...fetchExtras, signal: controller.signal }
-          : { ...requestInit, signal: controller.signal }
-      );
+      const response = await fetch(fullUrl, {
+        ...requestInit,
+        signal: controller.signal,
+      });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -631,11 +569,6 @@ export async function http<T = unknown>(
           throw reason;
         }
         throw new AbortError(error.message || undefined);
-      }
-
-      // Proxied request: tell "proxy down / proxy refused" apart from "upstream down".
-      if (proxyVia && proxyModule) {
-        throw proxyModule.toProxyError(error, proxyVia, fullUrl, options);
       }
 
       // Everything else that causes fetch() to reject is a network failure

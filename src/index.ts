@@ -48,7 +48,6 @@ export {
   TRANSIENT_NETWORK_CODES,
 } from './utils/network-errors';
 export { createOTelInterceptor, formatTraceparent, parseTraceparent } from './utils/otel';
-export { redactProxyUrl } from './utils/proxy';
 export {
   detectRuntime,
   getRuntimeCapabilities,
@@ -137,7 +136,6 @@ export type { Err, Ok, Result } from './types/result';
 export type { DedupStats } from './utils/dedup';
 export type { NetworkErrorClass } from './utils/network-errors';
 export type { OTelConfig, OTelSpanHooks, SpanContext } from './utils/otel';
-export type { ProxyConfig, ProxyOption, TLSOptions } from './utils/proxy';
 export type { RuntimeCapabilities, RuntimeName } from './utils/runtime';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {

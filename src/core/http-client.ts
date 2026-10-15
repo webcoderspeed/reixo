@@ -7,7 +7,7 @@ import { CacheManager } from '../utils/cache';
 import type { CircuitBreakerOptions } from '../utils/circuit-breaker';
 import { CircuitBreaker } from '../utils/circuit-breaker';
 import type { ConnectionPoolOptions } from '../utils/connection';
-import type { ConnectionPool } from '../utils/connection';
+import { ConnectionPool } from '../utils/connection';
 import { EventEmitter } from '../utils/emitter';
 import { objectToFormData } from '../utils/form-data';
 import type {
@@ -23,9 +23,6 @@ import { InfiniteQuery } from '../utils/infinite-query';
 import { generateKey } from '../utils/keys';
 import { MetricsCollector } from '../utils/metrics';
 import { createOTelInterceptor, type OTelConfig } from '../utils/otel';
-import type { ProxyEnv, ProxyOption } from '../utils/proxy';
-import { snapshotProxyEnv } from '../utils/proxy';
-import type { DispatcherManager } from '../utils/proxy-dispatch';
 import type { PersistentQueueOptions } from '../utils/queue';
 import { TaskQueue } from '../utils/queue';
 import { RateLimiter } from '../utils/rate-limiter';
@@ -158,8 +155,7 @@ export interface HTTPClientConfig {
 
   /**
    * Swap out the default `fetch`-based transport. Useful for testing with a
-   * `MockAdapter`. Custom transports receive the resolved undici `dispatcher`
-   * (from `proxy` / `pool` / `ssl` / `dispatcher`) in their options.
+   * `MockAdapter` or for Node.js environments that require a custom agent.
    *
    * @example
    * const mock = new MockAdapter();
@@ -186,42 +182,14 @@ export interface HTTPClientConfig {
   retry?: RetryOptions | boolean;
 
   /**
-   * Route requests through an HTTP(S) proxy (Node.js, Bun, Deno). Opt-in —
-   * when omitted no proxy is used, even if `HTTPS_PROXY` is set.
-   * - `'env'`  — read HTTPS_PROXY / HTTP_PROXY / NO_PROXY (and lowercase
-   *              variants) once, when the client is created
-   * - string   — proxy URL for all requests, e.g. `'http://user:pass@proxy.internal:3128'`
-   * - object   — explicit {@link ProxyConfig}
-   * - `false`  — no proxy (same as omitting it)
-   *
-   * In Node.js this requires the optional `undici` peer dependency (`npm i undici`).
-   * Browsers and edge runtimes ignore it with a single warning.
-   *
-   * @example
-   * new HTTPClient({ proxy: 'env' });
-   */
-  proxy?: ProxyOption;
-
-  /**
-   * Escape hatch: a pre-built undici `Dispatcher` (`Agent`, `ProxyAgent`,
-   * `EnvHttpProxyAgent`, `MockAgent`, …) passed to `fetch` unchanged for every
-   * request. When set, `proxy`, `pool` and `ssl` are ignored (a per-request
-   * `proxy` still wins). Validated at runtime (must have a `dispatch()` method).
-   */
-  dispatcher?: unknown;
-
-  /**
-   * HTTP connection-pool settings (Node.js only, requires `undici`).
-   * Translated into an undici `Agent`: `maxSockets` → `connections`,
-   * `keepAlive: false` → no connection reuse, `keepAliveMsecs` → TCP
-   * keep-alive probe delay.
+   * HTTP connection-pool settings (Node.js only).
+   * Controls the maximum number of sockets and idle keep-alive timeouts.
    */
   pool?: ConnectionPoolOptions;
 
   /**
-   * TLS/SSL options for outgoing connections (Node.js only, requires `undici`).
-   * Applied to the upstream connection and, when a proxy is configured, to
-   * the proxy hop as well. Has no effect in browser environments.
+   * TLS/SSL options forwarded to the Node.js `https` module.
+   * Has no effect in browser environments.
    */
   ssl?: {
     /** Reject servers with self-signed or untrusted certificates. @default true */
@@ -413,20 +381,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     response: [] as ResponseInterceptor[],
   };
 
-  /**
-   * @deprecated Legacy `node:http` agents — kept for backward compatibility only.
-   * `fetch` never used them; `pool` / `ssl` now go through {@link dispatchers}.
-   */
   private connectionPool?: ConnectionPool;
-  /** Proxy env captured at construction — `'env'` is read once, here. */
-  private readonly proxyEnv: ProxyEnv | undefined;
-  /** `true` when client config needs dispatcher resolution on every request. */
-  private readonly _hasDispatchConfig: boolean;
-  /**
-   * Resolves proxy / dispatcher / pool / ssl and owns the undici dispatchers.
-   * Created lazily (separate chunk) the first time a request needs it.
-   */
-  private dispatchers: Promise<DispatcherManager> | undefined;
   private rateLimiter?: RateLimiter;
   private cacheManager?: CacheManager;
   private circuitBreaker?: CircuitBreaker;
@@ -504,13 +459,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       this.setupLogging();
     }
 
-    // Proxy / dispatcher / pool / ssl are resolved by a lazily-loaded chunk on
-    // the first request that needs it; only the env snapshot is taken now.
-    this.proxyEnv = snapshotProxyEnv();
-    this._hasDispatchConfig =
-      (config.proxy !== undefined && config.proxy !== false) ||
-      config.dispatcher !== undefined ||
-      !!(config.pool || config.ssl);
+    if (config.pool || config.ssl) {
+      this.connectionPool = new ConnectionPool({
+        ...config.pool,
+        ...config.ssl,
+      });
+    }
     if (config.rateLimit) {
       this.rateLimiter = new RateLimiter(config.rateLimit.requests, config.rateLimit.interval);
     }
@@ -632,29 +586,6 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     return { requestId, response };
   }
 
-  /** Lazily load the dispatcher chunk and create this client's manager. */
-  private getDispatchers(): Promise<DispatcherManager> {
-    this.dispatchers ??= import('../utils/proxy-dispatch').then(
-      (m) =>
-        new m.DispatcherManager(
-          m.createDispatchSetup({
-            proxy: this.config.proxy,
-            dispatcher: this.config.dispatcher,
-            pool: this.config.pool,
-            ssl: this.config.ssl,
-            logger: this.config.logger,
-            env: this.proxyEnv,
-          })
-        )
-    );
-    // A config error (e.g. invalid proxy URL) rejects every request; drop the
-    // cached promise so the error is re-raised consistently on the next call.
-    this.dispatchers.catch(() => {
-      this.dispatchers = undefined;
-    });
-    return this.dispatchers;
-  }
-
   public dispose(): void {
     // Cleanup all in-flight and suspense requests
     this.inFlightRequests.clear();
@@ -666,12 +597,8 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
     }
     this.abortControllers.clear();
 
-    // Dispose connection pool and any undici dispatchers built for proxy/pool/ssl
+    // Dispose connection pool
     this.connectionPool?.destroy();
-    if (this.dispatchers) {
-      this.dispatchers.then((manager) => manager.destroy()).catch(() => null);
-      this.dispatchers = undefined;
-    }
 
     // Clear metrics data (no stop method needed for in-memory metrics)
 
@@ -1267,6 +1194,18 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         signal: abortController.signal,
       };
 
+      // Inject agent from connection pool if available and not already provided
+      if (this.connectionPool && !initialOptions.agent) {
+        const isHttps = (initialOptions.baseURL || url).startsWith('https');
+        const agent = isHttps
+          ? await this.connectionPool.getHttpsAgent()
+          : await this.connectionPool.getHttpAgent();
+
+        if (agent) {
+          initialOptions.agent = agent;
+        }
+      }
+
       // Lazy progress handler allocation — only create closures when someone
       // actually needs progress events. For the common case (no global handler,
       // no per-request handler, no 'upload:progress' listeners) this saves two
@@ -1314,22 +1253,11 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       }, Promise.resolve(initialOptions));
 
       try {
-        // Resolve proxy / dispatcher / pool / ssl into a `dispatcher` for the
-        // transport. Skipped (no extra await, no undici import) when none of
-        // them is configured — the common case.
-        const transportOptions =
-          this._hasDispatchConfig ||
-          mergedOptions.proxy !== undefined ||
-          mergedOptions.dispatcher !== undefined ||
-          mergedOptions.agent !== undefined
-            ? await (await this.getDispatchers()).prepare(mergedOptions)
-            : mergedOptions;
-
         const transport = this.config.transport || http;
         // Wrap transport through circuit breaker when configured
         const initialResponse = this.circuitBreaker
-          ? await this.circuitBreaker.execute(() => transport<T>(url, transportOptions))
-          : await transport<T>(url, transportOptions);
+          ? await this.circuitBreaker.execute(() => transport<T>(url, mergedOptions))
+          : await transport<T>(url, mergedOptions);
 
         // Run response interceptors.
         // Fast path: when no interceptors are registered, skip the async reduce()
@@ -1936,18 +1864,6 @@ export class HTTPBuilder {
    */
   public withConnectionPool(options: ConnectionPoolOptions): this {
     this.config.pool = options;
-    return this;
-  }
-
-  /**
-   * Route requests through an HTTP(S) proxy (Node.js requires `undici`).
-   *
-   * @example
-   * builder.withProxy('env')
-   * builder.withProxy({ httpsProxy: 'http://proxy.internal:3128', noProxy: '.svc.cluster.local' })
-   */
-  public withProxy(proxy: ProxyOption): this {
-    this.config.proxy = proxy;
     return this;
   }
 
