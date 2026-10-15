@@ -2,8 +2,8 @@ name: Release (manual fallback)
 
 # The primary release path is the `release` job inside ci.yml.
 # This workflow exists only as a manual escape hatch — use it when you
-# need to cut a release without pushing a new commit (e.g. after fixing
-# a broken NPM_TOKEN or recovering from a failed release mid-flight).
+# need to cut a release without pushing a new commit (e.g. after configuring
+# the npm trusted publisher or recovering from a failed release mid-flight).
 on:
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
       contents: write # push release tag + chore(release) commit
       issues: write # comment on released issues
       pull-requests: write # comment on released PRs
-      id-token: write # npm provenance attestation
+      id-token: write # npm trusted publishing (OIDC) + provenance attestation
 
     steps:
       - name: Checkout (full history)
@@ -32,6 +32,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing (OIDC) requires npm >= 11.5.1; Node 22 ships npm 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm install
@@ -42,6 +47,5 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: npx semantic-release
