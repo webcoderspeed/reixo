@@ -36,6 +36,24 @@
 - Ensure you are loading necessary polyfills (e.g., `whatwg-fetch`).
 - Use `Reixo.ensureBrowserCompatibility()` to check for missing features.
 
+### 5. Requests bypass the proxy even though `HTTPS_PROXY` is set (Node.js)
+
+**Cause:** Node's global `fetch` (undici) ignores `HTTP_PROXY` / `HTTPS_PROXY`, unlike axios. reixo's proxy support is opt-in.
+**Solution:**
+
+- Set `proxy: 'env'` on the client, and install the optional peer: `npm i undici`.
+- The environment is read once, when the client is created. Create the client after the variables are set.
+- Check `NO_PROXY`: hosts listed there (and their subdomains) are connected to directly.
+- Errors starting with `Proxy http://… is unreachable` or `Proxy http://… rejected CONNECT` come from the proxy, not the upstream API. A `407` means the proxy credentials are missing or wrong.
+
+### 6. `pool` / `ssl` / `agent` have no effect
+
+**Cause:** Before 2.3.0, `pool` and `ssl` built `node:http(s)` agents, which `fetch` never used. The `agent` option was always ignored by `fetch`.
+**Solution:**
+
+- Upgrade to reixo ≥ 2.3.0 and `npm i undici`. `pool` and `ssl` are then applied through an undici `Agent`.
+- Replace a per-request `agent` with the client's `pool` / `ssl` options, or pass an undici `dispatcher`.
+
 ## Debugging
 
 Enable verbose logging by adding a custom interceptor:
