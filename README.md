@@ -37,8 +37,8 @@ npm install axios
 
 # The ky route:
 npm install ky
-# Browser-only by design. No circuit breaker, no offline queue,
-# no GraphQL, no WebSocket, no Result<T,E>.
+# Small and solid, with retry built in. No circuit breaker, no
+# offline queue, no GraphQL, no WebSocket, no Result<T,E>.
 
 # Or:
 npm install reixo
@@ -123,7 +123,7 @@ console.log(result.data.name); // TypeScript knows the type here
 
 ## Why reixo?
 
-`fetch` doesn't retry. `axios` is synchronous-first and leaves resilience entirely to plugins. `ky` is browser-only. None of them give you a type-safe way to handle errors without try/catch.
+`fetch` doesn't retry. `axios` leaves retry, caching and mocking to plugins. `ky` and `ofetch` add retry and stop there. `got` is Node-only. None of them give you a type-safe way to handle errors without try/catch.
 
 reixo takes a different approach: **everything ships built-in, and errors are values — not exceptions.**
 
@@ -142,25 +142,25 @@ reixo takes a different approach: **everything ships built-in, and errors are va
 
 ## Feature comparison
 
-| Feature                        | **reixo** |   axios   |   ky    | ofetch | got  |
-| ------------------------------ | :-------: | :-------: | :-----: | :----: | :--: |
-| TypeScript-first               |    yes    |  partial  |   yes   |  yes   | yes  |
-| Result\<T,E\> / no-throw API   |    yes    |    no     |   no    |   no   |  no  |
-| Retry (built-in)               |    yes    | plugin \* |   yes   |  yes   | yes  |
-| Circuit breaker (built-in)     |    yes    |    no     |   no    |   no   |  no  |
-| Request deduplication          |    yes    |    no     |   no    |   no   |  no  |
-| Caching (built-in)             |    yes    | plugin \* |   no    |  yes   |  no  |
-| Rate limiting (built-in)       |    yes    |    no     |   no    |   no   |  no  |
-| Offline queue                  |    yes    |    no     |   no    |   no   |  no  |
-| GraphQL client                 |    yes    |    no     |   no    |   no   |  no  |
-| WebSocket client               |    yes    |    no     |   no    |   no   |  no  |
-| SSE client                     |    yes    |    no     |   no    |   no   |  no  |
-| OTel tracing (zero-dep)        |    yes    |    no     |   no    |   no   |  no  |
-| Infinite query / pagination    |    yes    |    no     |   no    |   no   |  no  |
-| Task queue with persistence    |    yes    |    no     |   no    |   no   |  no  |
-| Resumable chunked upload       |    yes    |    no     |   no    |   no   |  no  |
-| MockAdapter for tests          |    yes    | plugin \* |   no    |   no   |  no  |
-| Node + Browser + Edge runtimes |    yes    |    yes    | browser |  yes   | node |
+| Feature                        | **reixo** |   axios   | ky  | ofetch |       got       |
+| ------------------------------ | :-------: | :-------: | :-: | :----: | :-------------: |
+| TypeScript-first               |    yes    |  partial  | yes |  yes   |       yes       |
+| Result\<T,E\> / no-throw API   |    yes    |    no     | no  |   no   |       no        |
+| Retry (built-in)               |    yes    | plugin \* | yes |  yes   |       yes       |
+| Circuit breaker (built-in)     |    yes    |    no     | no  |   no   |       no        |
+| Request deduplication          |    yes    |    no     | no  |   no   |       no        |
+| Caching (built-in)             |    yes    | plugin \* | no  |   no   |       yes       |
+| Rate limiting (built-in)       |    yes    |    no     | no  |   no   |       no        |
+| Offline queue                  |    yes    |    no     | no  |   no   |       no        |
+| GraphQL client                 |    yes    |    no     | no  |   no   |       no        |
+| WebSocket client               |    yes    |    no     | no  |   no   |       no        |
+| SSE client                     |    yes    |    no     | no  |   no   |       no        |
+| OTel tracing (zero-dep)        |    yes    |    no     | no  |   no   |       no        |
+| Infinite query / pagination    |    yes    |    no     | no  |   no   | pagination only |
+| Task queue with persistence    |    yes    |    no     | no  |   no   |       no        |
+| Resumable chunked upload       |    yes    |    no     | no  |   no   |       no        |
+| MockAdapter for tests          |    yes    | plugin \* | no  |   no   |       no        |
+| Node + Browser + Edge runtimes |    yes    |    yes    | yes |  yes   |      node       |
 
 \* requires a separate third-party package
 
