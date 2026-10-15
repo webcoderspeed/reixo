@@ -40,7 +40,7 @@ export class MetricsCollector {
 
   private readonly requestLog: RequestMetrics[] = [];
   private readonly maxLogSize: number;
-  private onUpdate?: (metrics: Metrics) => void;
+  private onUpdate: ((metrics: Metrics) => void) | undefined;
 
   constructor(maxLogSize: number = 100, onUpdate?: (metrics: Metrics) => void) {
     this.maxLogSize = maxLogSize;
