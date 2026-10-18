@@ -1,0 +1,242 @@
+{
+  "name": "reixo",
+  "version": "2.3.3",
+  "description": "TypeScript HTTP client with Result<T,E> returns, zero-dep OpenTelemetry tracing, request deduplication, retry, circuit breaker, offline queue, and GraphQL — for Node.js, Bun, Deno, and browsers",
+  "keywords": [
+    "http",
+    "http-client",
+    "fetch",
+    "axios",
+    "axios-alternative",
+    "ky",
+    "ofetch",
+    "got",
+    "retry",
+    "retry-logic",
+    "queue",
+    "typescript",
+    "typescript-http",
+    "resilience",
+    "circuit-breaker",
+    "request-deduplication",
+    "deduplication",
+    "opentelemetry",
+    "tracing",
+    "distributed-tracing",
+    "traceparent",
+    "w3c-trace-context",
+    "result",
+    "result-type",
+    "error-handling",
+    "pagination",
+    "graphql",
+    "websocket",
+    "sse",
+    "server-sent-events",
+    "offline",
+    "offline-support",
+    "caching",
+    "interceptors",
+    "rate-limiting",
+    "progress",
+    "nodejs",
+    "bun",
+    "deno",
+    "cloudflare-workers",
+    "edge-runtime",
+    "browser",
+    "network-errors",
+    "rate-limiting",
+    "no-throw",
+    "resumable-upload",
+    "chunked-upload",
+    "infinite-scroll",
+    "mock-adapter",
+    "jwt",
+    "auth-interceptor"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./dist/index.js"
+    },
+    "./graphql": {
+      "import": {
+        "types": "./dist/graphql.d.mts",
+        "default": "./dist/graphql.mjs"
+      },
+      "require": {
+        "types": "./dist/graphql.d.ts",
+        "default": "./dist/graphql.js"
+      }
+    },
+    "./ws": {
+      "import": {
+        "types": "./dist/ws.d.mts",
+        "default": "./dist/ws.mjs"
+      },
+      "require": {
+        "types": "./dist/ws.d.ts",
+        "default": "./dist/ws.js"
+      }
+    },
+    "./sse": {
+      "import": {
+        "types": "./dist/sse.d.mts",
+        "default": "./dist/sse.mjs"
+      },
+      "require": {
+        "types": "./dist/sse.d.ts",
+        "default": "./dist/sse.js"
+      }
+    },
+    "./mock": {
+      "import": {
+        "types": "./dist/mock.d.mts",
+        "default": "./dist/mock.mjs"
+      },
+      "require": {
+        "types": "./dist/mock.d.ts",
+        "default": "./dist/mock.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "!dist/**/test*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "build:playground": "esbuild src/index.ts --bundle --format=iife --global-name=Reixo --outfile=playground/dist/reixo.js --platform=browser --minify",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "lint:check": "eslint . --ext .ts,.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint:check",
+    "test:ci": "vitest run --coverage --reporter=verbose",
+    "ci": "npm run typecheck && npm run lint:check && npm run test:ci",
+    "validate": "npm run build && npm run typecheck && npm run lint:check && npm run test:coverage",
+    "prepublishOnly": "npm run validate",
+    "demo": "npx tsx examples/demo.ts",
+    "benchmark": "npm run build && node benchmarks/run.mjs",
+    "benchmark:realtime": "npx tsx benchmarks/realtime.ts",
+    "size": "size-limit",
+    "prepare": "husky install",
+    "commit": "cz"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webcoderspeed/reixo.git"
+  },
+  "homepage": "https://webcoderspeed.github.io/reixo/",
+  "bugs": {
+    "url": "https://github.com/webcoderspeed/reixo/issues"
+  },
+  "author": {
+    "name": "Sanjeev Sharma",
+    "email": "webcoderspeed@gmail.com",
+    "url": "https://webcoderspeed.com"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/webcoderspeed"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=7.0.0"
+  },
+  "peerDependencies": {
+    "undici": ">=6.14.0"
+  },
+  "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,mjs,cjs}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
+    "@commitlint/types": "^20.4.4",
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-sonarjs": "^4.0.2",
+    "eslint-plugin-unicorn": "^63.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "semantic-release": "^25.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "size-limit": "^11.0.0",
+    "tinybench": "^6.0.0",
+    "tsdown": "^0.15.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^4.0.18",
+    "undici": "^7.30.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.mjs",
+      "name": "ESM (gzipped)",
+      "limit": "100 KB"
+    },
+    {
+      "path": "dist/index.js",
+      "name": "CJS (gzipped)",
+      "limit": "100 KB"
+    }
+  ]
+}
