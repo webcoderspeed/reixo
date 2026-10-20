@@ -3,17 +3,6 @@
 All notable changes to **reixo** will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org).
 
-## [2.4.0](https://github.com/webcoderspeed/reixo/compare/v2.3.3...v2.4.0) (2026-10-20)
-
-### ✨ Features
-
-* add client.toFetch() for libraries that take a custom fetch ([871d35b](https://github.com/webcoderspeed/reixo/commit/871d35b7e1f97291f798cfc89664056e2125b8b6))
-
-### 🐛 Bug Fixes
-
-* honour the caller's AbortSignal and merge headers case-insensitively ([95ed7e2](https://github.com/webcoderspeed/reixo/commit/95ed7e2ea37850917d568bf341ef58d045dd4a51))
-* release the caller's abort listener when a stream response ends ([6f57ce6](https://github.com/webcoderspeed/reixo/commit/6f57ce6ba3e9ac2bc353c7b16af6b6f14c300097))
-
 ## [2.3.3](https://github.com/webcoderspeed/reixo/compare/v2.3.2...v2.3.3) (2026-10-15)
 
 ### 📚 Documentation
