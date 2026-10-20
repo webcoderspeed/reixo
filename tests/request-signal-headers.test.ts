@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HTTPClient } from '../src/core/http-client';
 import { AbortError } from '../src/utils/http';
@@ -21,6 +21,10 @@ beforeAll(async () => {
       res.writeHead(200, { 'content-type': 'text/plain' });
       res.write('one');
       setTimeout(() => res.end('two'), 300);
+      return;
+    }
+    if (req.url === '/missing') {
+      res.writeHead(404).end();
       return;
     }
     res.writeHead(200, { 'content-type': 'application/json' }).end('{}');
@@ -73,6 +77,66 @@ describe('caller AbortSignal', () => {
     controller.abort();
 
     await expect(reader.read()).rejects.toThrow();
+  });
+});
+
+describe('caller AbortSignal listener cleanup', () => {
+  const removedAbortListener = (signal: AbortSignal) => {
+    const spy = vi.spyOn(signal, 'removeEventListener');
+    return () => spy.mock.calls.some(([type]) => type === 'abort');
+  };
+
+  it('removes the listener once a regular request settles', async () => {
+    const client = new HTTPClient({});
+    const signal = new AbortController().signal;
+    const removed = removedAbortListener(signal);
+
+    await client.get(`${origin}/fast`, { signal });
+
+    expect(removed()).toBe(true);
+  });
+
+  it('keeps the listener while a stream is open and removes it when the stream ends', async () => {
+    const client = new HTTPClient({});
+    const signal = new AbortController().signal;
+    const removed = removedAbortListener(signal);
+
+    const res = await client.get<ReadableStream<Uint8Array>>(`${origin}/stream`, {
+      responseType: 'stream',
+      signal,
+    });
+    expect(removed()).toBe(false);
+
+    const text = await new Response(res.data).text();
+
+    expect(text).toBe('onetwo');
+    expect(removed()).toBe(true);
+  });
+
+  it('removes the listener when the stream is cancelled', async () => {
+    const client = new HTTPClient({});
+    const signal = new AbortController().signal;
+    const removed = removedAbortListener(signal);
+
+    const res = await client.get<ReadableStream<Uint8Array>>(`${origin}/stream`, {
+      responseType: 'stream',
+      signal,
+    });
+    await res.data.cancel();
+
+    expect(removed()).toBe(true);
+  });
+
+  it('removes the listener when a stream request fails', async () => {
+    const client = new HTTPClient({ retry: false });
+    const signal = new AbortController().signal;
+    const removed = removedAbortListener(signal);
+
+    await expect(
+      client.get(`${origin}/missing`, { responseType: 'stream', signal })
+    ).rejects.toThrow();
+
+    expect(removed()).toBe(true);
   });
 });
 
