@@ -113,6 +113,21 @@ function normalizeHeaders(headers?: HeadersWithSuggestions): HeadersRecord {
 }
 
 /**
+ * Merges per-request headers over base headers. Header names are
+ * case-insensitive, so a request's `authorization` replaces a base
+ * `Authorization` instead of being sent alongside it.
+ * @internal
+ */
+function mergeHeaders(base: HeadersRecord, override: HeadersRecord): HeadersRecord {
+  const overrideNames = new Set(Object.keys(override).map((name) => name.toLowerCase()));
+  const merged: Record<string, string> = {};
+  for (const [name, value] of Object.entries(base)) {
+    if (!overrideNames.has(name.toLowerCase())) merged[name] = value as string;
+  }
+  return { ...merged, ...override } as HeadersRecord;
+}
+
+/**
  * Configuration object passed to `new HTTPClient(config)` or `HTTPBuilder.create()`.
  *
  * Every option can be overridden per-request via `HTTPOptions`.
@@ -1220,6 +1235,12 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       const abortController = new AbortController();
       this.abortControllers.set(requestId, abortController);
 
+      // The transport only sees the internal signal, so forward a caller's abort to it.
+      const callerSignal = options.signal;
+      const forwardAbort = () => abortController.abort();
+      if (callerSignal?.aborted) abortController.abort();
+      else callerSignal?.addEventListener('abort', forwardAbort, { once: true });
+
       // Only allocate the event payload object when at least one listener is
       // registered — avoids a heap allocation on every request when nobody
       // has called client.on('request:start', …).
@@ -1249,10 +1270,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       // no per-request headers (the common case) — avoids two normalizeHeaders()
       // calls and an object spread on every single request.
       const mergedHeaders: HeadersRecord = options.headers
-        ? ({
-            ...this._cachedBaseHeaders,
-            ...normalizeHeaders(options.headers),
-          } as HeadersRecord)
+        ? mergeHeaders(this._cachedBaseHeaders, normalizeHeaders(options.headers))
         : this._cachedBaseHeaders;
 
       // Build the initial options for the transport.
@@ -1444,6 +1462,10 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         // Cleanup abort controller and abandonment timeout
         this.abortControllers.delete(requestId);
         clearTimeout(abandonmentTimeout);
+        // A stream body is read after this returns, so a later abort must still reach it.
+        if (mergedOptions.responseType !== 'stream') {
+          callerSignal?.removeEventListener('abort', forwardAbort);
+        }
       }
     })();
 
