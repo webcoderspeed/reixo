@@ -129,6 +129,35 @@ function mergeHeaders(base: HeadersRecord, override: HeadersRecord): HeadersReco
 }
 
 /**
+ * Passes a stream through unchanged and calls `release` once it is fully read,
+ * cancelled or errors.
+ * @internal
+ */
+function releaseWhenDone<T>(stream: ReadableStream<T>, release: () => void): ReadableStream<T> {
+  const reader = stream.getReader();
+  return new ReadableStream<T>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          release();
+          controller.close();
+        } else {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        release();
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      release();
+      return reader.cancel(reason);
+    },
+  });
+}
+
+/**
  * Configuration object passed to `new HTTPClient(config)` or `HTTPBuilder.create()`.
  *
  * Every option can be overridden per-request via `HTTPOptions`.
@@ -1239,6 +1268,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
       // The transport only sees the internal signal, so forward a caller's abort to it.
       const callerSignal = options.signal;
       const forwardAbort = () => abortController.abort();
+      let streamHoldsAbortListener = false;
       if (callerSignal?.aborted) abortController.abort();
       else callerSignal?.addEventListener('abort', forwardAbort, { once: true });
 
@@ -1380,6 +1410,15 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
           }
         }
 
+        // A stream body is read after this returns, so a later abort must still
+        // reach it. Release the listener when the stream ends instead.
+        if (callerSignal && response.data instanceof ReadableStream) {
+          response.data = releaseWhenDone(response.data, () =>
+            callerSignal.removeEventListener('abort', forwardAbort)
+          ) as T;
+          streamHoldsAbortListener = true;
+        }
+
         if (this.metrics) {
           this.metrics.record({
             url,
@@ -1463,10 +1502,7 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
         // Cleanup abort controller and abandonment timeout
         this.abortControllers.delete(requestId);
         clearTimeout(abandonmentTimeout);
-        // A stream body is read after this returns, so a later abort must still reach it.
-        if (mergedOptions.responseType !== 'stream') {
-          callerSignal?.removeEventListener('abort', forwardAbort);
-        }
+        if (!streamHoldsAbortListener) callerSignal?.removeEventListener('abort', forwardAbort);
       }
     })();
 
