@@ -30,6 +30,7 @@ import type { PersistentQueueOptions } from '../utils/queue';
 import { TaskQueue } from '../utils/queue';
 import { RateLimiter } from '../utils/rate-limiter';
 import { debounce, delay, throttle } from '../utils/timing';
+import { createFetch, type FetchFunction, type ToFetchOptions } from '../utils/to-fetch';
 
 // ---------------------------------------------------------------------------
 // Strict body-data type — replaces loose `unknown` on post/put/patch
@@ -1669,6 +1670,33 @@ export class HTTPClient extends EventEmitter<HTTPEvents> implements IHTTPClient 
   public patch<T>(url: string, data?: BodyData, options?: HTTPOptions): Promise<HTTPResponse<T>> {
     const { body, headers } = this._serializeBody(data, options);
     return this.request<T>(url, { ...options, method: 'PATCH', body, headers });
+  }
+
+  /**
+   * Returns a standard `fetch` function backed by this client. Use it wherever a
+   * library accepts a custom `fetch` (openapi-fetch, hey-api, Kubb, ky, …) to give
+   * those calls reixo's retry, circuit breaker, rate limiting, interceptors,
+   * tracing, proxy and timeout.
+   *
+   * It behaves like `fetch`: non-2xx responses resolve (after retries run out)
+   * and the body streams through unread. Each call goes to the network, so the
+   * response cache and request deduplication are skipped. Network failures,
+   * timeouts, aborts and an open circuit reject with reixo's `NetworkError`,
+   * `TimeoutError`, `AbortError` and `CircuitOpenError`.
+   *
+   * @param defaults reixo options applied to every call, e.g. `{ retry: false }`.
+   *
+   * @example
+   * import createClient from 'openapi-fetch';
+   *
+   * const reixo = new HTTPClient({ retry: { maxRetries: 3 }, timeoutMs: 10_000 });
+   * const api = createClient<paths>({
+   *   baseUrl: 'https://api.example.com',
+   *   fetch: reixo.toFetch(),
+   * });
+   */
+  public toFetch(defaults?: ToFetchOptions): FetchFunction {
+    return createFetch(this, defaults);
   }
 
   // ---------------------------------------------------------------------------

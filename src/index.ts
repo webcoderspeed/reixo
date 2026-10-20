@@ -139,6 +139,7 @@ export type { NetworkErrorClass } from './utils/network-errors';
 export type { OTelConfig, OTelSpanHooks, SpanContext } from './utils/otel';
 export type { ProxyConfig, ProxyOption, TLSOptions } from './utils/proxy';
 export type { RuntimeCapabilities, RuntimeName } from './utils/runtime';
+export type { FetchFunction, ToFetchOptions } from './utils/to-fetch';
 // IntelliSense helper types — re-exported so users can annotate their own code
 export type {
   HeadersRecord,
